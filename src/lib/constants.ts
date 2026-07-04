@@ -1,0 +1,96 @@
+// =============================================================================
+// Application Constants
+// =============================================================================
+
+// ---- Slot Inventory ----
+export const DEFAULT_SLOT_DURATION_MINUTES = 30;
+export const SLOT_GENERATION_WINDOW_DAYS = 90;
+export const DEFAULT_LOCK_TTL_SECONDS = 600; // 10 minutes
+
+// ---- Search ----
+export const SEARCH_PAGE_SIZE = 10;
+export const DEFAULT_SEARCH_RADIUS_MILES = 5;
+export const MAX_SEARCH_RADIUS_MILES = 50;
+export const EARTH_RADIUS_MILES = 3959;
+
+// ---- Patient Tokens ----
+export const TOKEN_EXPIRY_DAYS_AFTER_APPOINTMENT = 7;
+
+// ---- Waitlist ----
+export const WAITLIST_OFFER_TTL_MINUTES = 30;
+
+// ---- Stripe ----
+export const STRIPE_CURRENCY = "usd";
+
+// ---- Clinic Status for Public Queries ----
+export const PUBLIC_CLINIC_STATUSES = ["PUBLISHED"] as const;
+export const PUBLIC_PROVIDER_STATUSES = ["ACTIVE"] as const;
+
+// ---- Cookie Names ----
+export const COOKIE = {
+  SEARCH_INTENT: "clinicbook_search_intent",
+  CONVERSION_TRACKING: "clinicbook_conversion",
+} as const;
+
+// ---- Audit Actions ----
+export const AUDIT_ACTIONS = {
+  // Booking
+  BOOKING_CREATED: "BOOKING_CREATED",
+  BOOKING_CANCELLED: "BOOKING_CANCELLED",
+  BOOKING_CHECKED_IN: "BOOKING_CHECKED_IN",
+  BOOKING_COMPLETED: "BOOKING_COMPLETED",
+  BOOKING_NO_SHOW: "BOOKING_NO_SHOW",
+
+  // Slot
+  SLOT_BLOCKED: "SLOT_BLOCKED",
+  SLOT_UNBLOCKED: "SLOT_UNBLOCKED",
+  SLOT_BOOKED_EXTERNALLY: "SLOT_BOOKED_EXTERNALLY",
+  SLOT_GENERATED: "SLOT_GENERATED",
+  SLOT_LOCK_ACQUIRED: "SLOT_LOCK_ACQUIRED",
+  SLOT_LOCK_RELEASED: "SLOT_LOCK_RELEASED",
+  SLOT_LOCK_EXPIRED: "SLOT_LOCK_EXPIRED",
+
+  // Financial
+  DEPOSIT_AUTHORIZED: "DEPOSIT_AUTHORIZED",
+  DEPOSIT_CAPTURED: "DEPOSIT_CAPTURED",
+  REFUND_INITIATED: "REFUND_INITIATED",
+  REFUND_COMPLETED: "REFUND_COMPLETED",
+  REFUND_FAILED: "REFUND_FAILED",
+
+  // Clinic
+  CLINIC_CREATED: "CLINIC_CREATED",
+  CLINIC_UPDATED: "CLINIC_UPDATED",
+  CLINIC_SUSPENDED: "CLINIC_SUSPENDED",
+  CLINIC_PUBLISHED: "CLINIC_PUBLISHED",
+  CLINIC_ARCHIVED: "CLINIC_ARCHIVED",
+
+  // Provider
+  PROVIDER_CREATED: "PROVIDER_CREATED",
+  PROVIDER_UPDATED: "PROVIDER_UPDATED",
+  PROVIDER_SUSPENDED: "PROVIDER_SUSPENDED",
+
+  // Auth
+  STAFF_LOGIN: "STAFF_LOGIN",
+  STAFF_LOGOUT: "STAFF_LOGOUT",
+
+  // Template
+  TEMPLATE_CREATED: "TEMPLATE_CREATED",
+  TEMPLATE_UPDATED: "TEMPLATE_UPDATED",
+  TEMPLATE_DEACTIVATED: "TEMPLATE_DEACTIVATED",
+
+  // System
+  SYSTEM_CONFIG_UPDATED: "SYSTEM_CONFIG_UPDATED",
+  WAITLIST_PROCESSED: "WAITLIST_PROCESSED",
+} as const;
+
+// ---- Booking Wizard Steps ----
+export const BOOKING_STEPS = {
+  REASON_TYPE: 1,
+  PATIENT_DETAILS: 2,
+  CHECKOUT: 3,
+  CONFIRMATION: 4,
+} as const;
+
+// ---- Review ----
+export const REVIEW_RATING_MIN = 1;
+export const REVIEW_RATING_MAX = 5;
