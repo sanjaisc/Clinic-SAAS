@@ -1,0 +1,874 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import Link from "next/link";
+     5→import {
+     6→  Search,
+     7→  MapPin,
+     8→  Heart,
+     9→  User,
+    10→  Baby,
+    11→  Clock,
+    12→  Navigation,
+    13→  Stethoscope,
+    14→  AlertCircle,
+    15→  Loader2,
+    16→  X,
+    17→  LocateFixed,
+    18→  Cross,
+    19→  CheckCircle2,
+    20→} from "lucide-react";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Input } from "@/components/ui/input";
+    23→import {
+    24→  Select,
+    25→  SelectTrigger,
+    26→  SelectValue,
+    27→  SelectContent,
+    28→  SelectItem,
+    29→} from "@/components/ui/select";
+    30→import { Slider } from "@/components/ui/slider";
+    31→import { Badge } from "@/components/ui/badge";
+    32→import {
+    33→  ToggleGroup,
+    34→  ToggleGroupItem,
+    35→} from "@/components/ui/toggle-group";
+    36→import { ProviderCard } from "@/components/search/provider-card";
+    37→
+    38→// -----------------------------------------------------------------------------
+    39→// Types
+    40→// -----------------------------------------------------------------------------
+    41→
+    42→interface TaxonomySpecialty {
+    43→  id: string;
+    44→  name: string;
+    45→  slug: string;
+    46→}
+    47→
+    48→interface TaxonomyInsurance {
+    49→  id: string;
+    50→  name: string;
+    51→  slug: string;
+    52→  isDemo: boolean;
+    53→}
+    54→
+    55→interface ProviderSlot {
+    56→  id: string;
+    57→  startTime: string;
+    58→  endTime: string;
+    59→  modality: string;
+    60→}
+    61→
+    62→interface ProviderResult {
+    63→  id: string;
+    64→  slug: string;
+    65→  firstName: string;
+    66→  lastName: string;
+    67→  credentials: string | null;
+    68→  photoUrl: string | null;
+    69→  rating: number;
+    70→  reviewCount: number;
+    71→  slotDurationMinutes: number;
+    72→  clinic: {
+    73→    id: string;
+    74→    slug: string;
+    75→    name: string;
+    76→    streetAddress: string;
+    77→    city: string;
+    78→    state: string;
+    79→    zipCode: string;
+    80→    phoneNumber: string;
+    81→    logoUrl: string | null;
+    82→  };
+    83→  distance: number | null;
+    84→  earliestSlots: ProviderSlot[];
+    85→  reviewSnippet: string | null;
+    86→  costBadge: string | null;
+    87→}
+    88→
+    89→interface SearchResponse {
+    90→  providers: ProviderResult[];
+    91→  hasMore: boolean;
+    92→  total: number;
+    93→}
+    94→
+    95→// -----------------------------------------------------------------------------
+    96→// Search Helpers
+    97→// -----------------------------------------------------------------------------
+    98→
+    99→interface SearchParams {
+   100→  specialtyId: string;
+   101→  patientType: string;
+   102→  q?: string;
+   103→  insuranceId?: string;
+   104→  modality?: string;
+   105→  radius: number;
+   106→  lat?: number;
+   107→  lng?: number;
+   108→  sort: string;
+   109→  cursor: number;
+   110→  size: number;
+   111→}
+   112→
+   113→function buildFetchUrl(params: SearchParams): string {
+   114→  const sp = new URLSearchParams();
+   115→  sp.set("specialtyId", params.specialtyId);
+   116→  sp.set("patientType", params.patientType);
+   117→  if (params.q) sp.set("q", params.q);
+   118→  if (params.insuranceId) sp.set("insuranceId", params.insuranceId);
+   119→  if (params.modality) sp.set("modality", params.modality);
+   120→  sp.set("radius", String(params.radius));
+   121→  if (params.lat != null) sp.set("lat", String(params.lat));
+   122→  if (params.lng != null) sp.set("lng", String(params.lng));
+   123→  sp.set("sort", params.sort);
+   124→  sp.set("cursor", String(params.cursor));
+   125→  sp.set("size", String(params.size));
+   126→  return `/api/search/providers?${sp.toString()}`;
+   127→}
+   128→
+   129→// =============================================================================
+   130→// Component
+   131→// =============================================================================
+   132→
+   133→export function SearchPage() {
+   134→  // ---- Taxonomy Data ----
+   135→  const [specialties, setSpecialties] = useState<TaxonomySpecialty[]>([]);
+   136→  const [insurances, setInsurances] = useState<TaxonomyInsurance[]>([]);
+   137→
+   138→  // ---- Filter State ----
+   139→  const [query, setQuery] = useState("");
+   140→  const [specialtyId, setSpecialtyId] = useState<string | null>(null);
+   141→  const [patientType, setPatientType] = useState<"ADULT" | "PEDIATRIC">("ADULT");
+   142→  const [insuranceId, setInsuranceId] = useState("");
+   143→  const [modality, setModality] = useState<"IN_PERSON" | "VIDEO" | "">("");
+   144→  const [radius, setRadius] = useState(5);
+   145→  const [sort, setSort] = useState<"distance" | "time">("distance");
+   146→  const [userLat, setUserLat] = useState<number | null>(null);
+   147→  const [userLng, setUserLng] = useState<number | null>(null);
+   148→  const [geoStatus, setGeoStatus] = useState<"idle" | "requesting" | "granted" | "denied">("idle");
+   149→
+   150→  // ---- Results State ----
+   151→  const [results, setResults] = useState<ProviderResult[]>([]);
+   152→  const [loading, setLoading] = useState(false);
+   153→  const [loadingMore, setLoadingMore] = useState(false);
+   154→  const [hasMore, setHasMore] = useState(false);
+   155→  const [total, setTotal] = useState(0);
+   156→  const [cursor, setCursor] = useState(0);
+   157→  const [error, setError] = useState<string | null>(null);
+   158→  const [initialLoad, setInitialLoad] = useState(true);
+   159→  const [searched, setSearched] = useState(false);
+   160→
+   161→  // ---------------------------------------------------------------------------
+   162→  // Fetch Taxonomies on Mount
+   163→  // ---------------------------------------------------------------------------
+   164→  useEffect(() => {
+   165→    async function fetchTaxonomies() {
+   166→      try {
+   167→        const res = await fetch("/api/taxonomies");
+   168→        if (!res.ok) return;
+   169→        const data = await res.json();
+   170→        setSpecialties(data.specialties ?? []);
+   171→        setInsurances(data.insurances ?? []);
+   172→      } catch {
+   173→        // Silently fail
+   174→      }
+   175→    }
+   176→    fetchTaxonomies();
+   177→
+   178→    // Attempt browser geolocation (non-blocking)
+   179→    if (typeof navigator !== "undefined" && navigator.geolocation) {
+   180→      navigator.geolocation.getCurrentPosition(
+   181→        (pos) => {
+   182→          setUserLat(pos.coords.latitude);
+   183→          setUserLng(pos.coords.longitude);
+   184→          setGeoStatus("granted");
+   185→        },
+   186→        () => setGeoStatus("denied"),
+   187→        { timeout: 5000 }
+   188→      );
+   189→    }
+   190→  }, []);
+   191→
+   192→  // ---------------------------------------------------------------------------
+   193→  // Request Geolocation Manually
+   194→  // ---------------------------------------------------------------------------
+   195→  const requestGeoLocation = useCallback(() => {
+   196→    if (!navigator?.geolocation) return;
+   197→    setGeoStatus("requesting");
+   198→    navigator.geolocation.getCurrentPosition(
+   199→      (pos) => {
+   200→        setUserLat(pos.coords.latitude);
+   201→        setUserLng(pos.coords.longitude);
+   202→        setGeoStatus("granted");
+   203→      },
+   204→      () => setGeoStatus("denied"),
+   205→      { timeout: 8000 }
+   206→    );
+   207→  }, []);
+   208→
+   209→  // ---------------------------------------------------------------------------
+   210→  // Build search params from current state + optional overrides
+   211→  // ---------------------------------------------------------------------------
+   212→  const getSearchParams = useCallback(
+   213→    (overrides?: Partial<SearchParams>): SearchParams => {
+   214→      return {
+   215→        specialtyId: overrides?.specialtyId ?? specialtyId ?? "",
+   216→        patientType: overrides?.patientType ?? patientType,
+   217→        q: overrides?.q ?? (query.trim() || undefined),
+   218→        insuranceId: (overrides?.insuranceId ?? insuranceId) || undefined,
+   219→        modality: (overrides?.modality ?? modality) || undefined,
+   220→        radius: overrides?.radius ?? radius,
+   221→        lat: userLat ?? undefined,
+   222→        lng: userLng ?? undefined,
+   223→        sort: overrides?.sort ?? sort,
+   224→        cursor: overrides?.cursor ?? 0,
+   225→        size: 10,
+   226→      };
+   227→    },
+   228→    [query, specialtyId, patientType, insuranceId, modality, radius, sort, userLat, userLng]
+   229→  );
+   230→
+   231→  // ---------------------------------------------------------------------------
+   232→  // Primary Search (fresh results)
+   233→  // ---------------------------------------------------------------------------
+   234→  const executeSearch = useCallback(
+   235→    async (overrides?: Partial<SearchParams>) => {
+   236→      const params = getSearchParams(overrides);
+   237→      if (!params.specialtyId) return;
+   238→
+   239→      setLoading(true);
+   240→      setResults([]);
+   241→      setCursor(0);
+   242→      setError(null);
+   243→      setSearched(true);
+   244→      setInitialLoad(false);
+   245→
+   246→      try {
+   247→        const res = await fetch(buildFetchUrl(params));
+   248→        if (!res.ok) {
+   249→          const body = await res.json().catch(() => ({}));
+   250→          throw new Error(body.error ?? `Request failed (${res.status})`);
+   251→        }
+   252→        const data: SearchResponse = await res.json();
+   253→        setResults(data.providers);
+   254→        setHasMore(data.hasMore);
+   255→        setTotal(data.total);
+   256→        setCursor(data.providers.length);
+   257→      } catch (err) {
+   258→        setError(err instanceof Error ? err.message : "Something went wrong");
+   259→      } finally {
+   260→        setLoading(false);
+   261→      }
+   262→    },
+   263→    [getSearchParams]
+   264→  );
+   265→
+   266→  // ---------------------------------------------------------------------------
+   267→  // Load More (append results)
+   268→  // ---------------------------------------------------------------------------
+   269→  const onLoadMore = useCallback(async () => {
+   270→    if (loadingMore) return;
+   271→
+   272→    const params = getSearchParams({ cursor });
+   273→    setLoadingMore(true);
+   274→
+   275→    try {
+   276→      const res = await fetch(buildFetchUrl(params));
+   277→      if (!res.ok) {
+   278→        const body = await res.json().catch(() => ({}));
+   279→        throw new Error(body.error ?? `Request failed (${res.status})`);
+   280→      }
+   281→      const data: SearchResponse = await res.json();
+   282→      setResults((prev) => [...prev, ...data.providers]);
+   283→      setHasMore(data.hasMore);
+   284→      setTotal(data.total);
+   285→      setCursor((prev) => prev + data.providers.length);
+   286→    } catch (err) {
+   287→      setError(err instanceof Error ? err.message : "Something went wrong");
+   288→    } finally {
+   289→      setLoadingMore(false);
+   290→    }
+   291→  }, [loadingMore, cursor, getSearchParams]);
+   292→
+   293→  // ---------------------------------------------------------------------------
+   294→  // Clear All Filters
+   295→  // ---------------------------------------------------------------------------
+   296→  const clearFilters = useCallback(() => {
+   297→    setQuery("");
+   298→    setSpecialtyId(null);
+   299→    setPatientType("ADULT");
+   300→    setInsuranceId("");
+   301→    setModality("");
+   302→    setRadius(5);
+   303→    setSort("distance");
+   304→    setResults([]);
+   305→    setSearched(false);
+   306→    setInitialLoad(true);
+   307→    setError(null);
+   308→    setTotal(0);
+   309→    setHasMore(false);
+   310→    setCursor(0);
+   311→  }, []);
+   312→
+   313→  // ---------------------------------------------------------------------------
+   314→  // Form Submit
+   315→  // ---------------------------------------------------------------------------
+   316→  const onFormSubmit = (e: React.FormEvent) => {
+   317→    e.preventDefault();
+   318→    executeSearch();
+   319→  };
+   320→
+   321→  // ---------------------------------------------------------------------------
+   322→  // Smart Suggestion Handlers
+   323→  // ---------------------------------------------------------------------------
+   324→  const onExpandRadius = () => {
+   325→    setRadius(25);
+   326→    executeSearch({ radius: 25 });
+   327→  };
+   328→
+   329→  const onRemoveInsurance = () => {
+   330→    setInsuranceId("");
+   331→    executeSearch({ insuranceId: undefined });
+   332→  };
+   333→
+   334→  const onRemoveModality = () => {
+   335→    setModality("");
+   336→    executeSearch({ modality: undefined });
+   337→  };
+   338→
+   339→  // ---------------------------------------------------------------------------
+   340→  // Render
+   341→  // ---------------------------------------------------------------------------
+   342→  const activeFilterCount = [
+   343→    query,
+   344→    insuranceId,
+   345→    modality,
+   346→    patientType !== "ADULT" ? patientType : null,
+   347→  ].filter(Boolean).length;
+   348→
+   349→  return (
+   350→    <div className="min-h-screen flex flex-col bg-background">
+   351→      {/* ===== Sticky Header ===== */}
+   352→      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
+   353→        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+   354→          <div className="flex items-center gap-2 cursor-pointer">
+   355→            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
+   356→            <span className="text-lg font-bold tracking-tight text-foreground">
+   357→              ClinicBook
+   358→            </span>
+   359→          </div>
+   360→          <Link href="/staff/login">
+   361→            <Button variant="outline" size="sm" className="cursor-pointer">
+   362→              Staff Login
+   363→            </Button>
+   364→          </Link>
+   365→        </div>
+   366→      </header>
+   367→
+   368→      {/* ===== Hero Section ===== */}
+   369→      <section className="relative bg-gradient-to-br from-emerald-50 via-white to-teal-50/30 pb-8 pt-12 md:pt-16 overflow-hidden">
+   370→        {/* Decorative background elements */}
+   371→        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+   372→          {/* Large gradient blob — top right */}
+   373→          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-emerald-100/40 blur-3xl animate-float-slow" />
+   374→          {/* Small circle — bottom left */}
+   375→          <div className="absolute bottom-0 -left-10 w-48 h-48 rounded-full bg-teal-100/30 blur-2xl" style={{ animation: "float-slow 8s ease-in-out infinite reverse" }} />
+   376→          {/* Tiny dot accents */}
+   377→          <div className="absolute top-12 left-[15%] w-2 h-2 rounded-full bg-emerald-300/40" />
+   378→          <div className="absolute top-24 right-[20%] w-1.5 h-1.5 rounded-full bg-emerald-400/30" />
+   379→          <div className="absolute bottom-16 left-[30%] w-1 h-1 rounded-full bg-teal-400/40" />
+   380→          {/* Heartbeat line */}
+   381→          <svg
+   382→            className="absolute bottom-4 left-0 w-full h-6 text-emerald-200/50"
+   383→            viewBox="0 0 1200 24"
+   384→            preserveAspectRatio="none"
+   385→            fill="none"
+   386→          >
+   387→            <path
+   388→              d="M0 12 L200 12 L220 12 L240 4 L260 20 L280 2 L300 22 L320 12 L340 12 L500 12 L520 12 L540 4 L560 20 L580 2 L600 22 L620 12 L640 12 L800 12 L820 12 L840 4 L860 20 L880 2 L900 22 L920 12 L940 12 L1200 12"
+   389→              stroke="currentColor"
+   390→              strokeWidth="1.5"
+   391→              strokeLinecap="round"
+   392→              strokeLinejoin="round"
+   393→            />
+   394→          </svg>
+   395→          {/* Medical cross icon — decorative */}
+   396→          <div className="absolute top-8 right-[10%] opacity-[0.07]">
+   397→            <Cross className="size-16 text-emerald-700 animate-heartbeat" />
+   398→          </div>
+   399→        </div>
+   400→
+   401→        <div className="relative max-w-4xl mx-auto px-4 text-center space-y-6">
+   402→          <div className="space-y-3">
+   403→            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+   404→              Find Your Doctor
+   405→            </h1>
+   406→            <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+   407→              Search for local providers, compare availability, and book an
+   408→              appointment in minutes.
+   409→            </p>
+   410→            {/* Trust Indicators */}
+   411→            <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 pt-2">
+   412→              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+   413→                <CheckCircle2 className="size-3.5 text-emerald-500" />
+   414→                Trusted by 10,000+ patients
+   415→              </span>
+   416→              <span className="text-muted-foreground/30">·</span>
+   417→              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+   418→                <Stethoscope className="size-3.5 text-emerald-500" />
+   419→                50+ providers
+   420→              </span>
+   421→              <span className="text-muted-foreground/30">·</span>
+   422→              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+   423→                4.7★ average rating
+   424→              </span>
+   425→            </div>
+   426→          </div>
+   427→
+   428→          {/* ===== Search Form — Card Wrapper ===== */}
+   429→          <form onSubmit={onFormSubmit} className="text-left">
+   430→            <div className="rounded-2xl border bg-white/80 backdrop-blur-sm shadow-lg shadow-emerald-900/5 p-4 md:p-6 space-y-4">
+   431→              {/* Row 1: Search Input */}
+   432→              <div className="relative">
+   433→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground pointer-events-none" />
+   434→                <Input
+   435→                  type="text"
+   436→                  placeholder="Search by doctor name, clinic, or condition..."
+   437→                  value={query}
+   438→                  onChange={(e) => setQuery(e.target.value)}
+   439→                  className="h-12 pl-10 pr-10 text-base bg-white w-full"
+   440→                />
+   441→                {query && (
+   442→                  <button
+   443→                    type="button"
+   444→                    onClick={() => setQuery("")}
+   445→                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+   446→                  >
+   447→                    <X className="size-4" />
+   448→                  </button>
+   449→                )}
+   450→              </div>
+   451→
+   452→              {/* Row 2: Filters Grid */}
+   453→              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   454→                {/* Specialty Select (MANDATORY) */}
+   455→                <div className="relative">
+   456→                  <Select
+   457→                    value={specialtyId ?? undefined}
+   458→                    onValueChange={(val) => setSpecialtyId(val)}
+   459→                  >
+   460→                    <SelectTrigger className="h-10 w-full bg-white cursor-pointer">
+   461→                      <SelectValue placeholder="Select specialty *" />
+   462→                    </SelectTrigger>
+   463→                    <SelectContent>
+   464→                      {specialties.map((s) => (
+   465→                        <SelectItem
+   466→                          key={s.id}
+   467→                          value={s.id}
+   468→                          className="cursor-pointer"
+   469→                        >
+   470→                          {s.name}
+   471→                        </SelectItem>
+   472→                      ))}
+   473→                    </SelectContent>
+   474→                  </Select>
+   475→                  {/* Checkmark indicator when specialty is selected */}
+   476→                  {specialtyId && (
+   477→                    <div className="absolute -top-1.5 -right-1.5 z-10 animate-in fade-in-0 zoom-in-95">
+   478→                      <div className="bg-emerald-500 rounded-full p-0.5">
+   479→                        <CheckCircle2 className="size-3 text-white" />
+   480→                      </div>
+   481→                    </div>
+   482→                  )}
+   483→                </div>
+   484→
+   485→                {/* Patient Type Toggle (MANDATORY) */}
+   486→                <div className="flex items-center">
+   487→                  <ToggleGroup
+   488→                    type="single"
+   489→                    value={patientType}
+   490→                    onValueChange={(val) => {
+   491→                      if (val) setPatientType(val as "ADULT" | "PEDIATRIC");
+   492→                    }}
+   493→                    variant="outline"
+   494→                    className="w-full"
+   495→                  >
+   496→                    <ToggleGroupItem
+   497→                      value="ADULT"
+   498→                      className="flex-1 gap-1.5 cursor-pointer"
+   499→                    >
+   500→                      <User className="size-3.5" />
+   501→                      <span className="text-xs sm:text-sm">Adult</span>
+   502→                    </ToggleGroupItem>
+   503→                    <ToggleGroupItem
+   504→                      value="PEDIATRIC"
+   505→                      className="flex-1 gap-1.5 cursor-pointer"
+   506→                    >
+   507→                      <Baby className="size-3.5" />
+   508→                      <span className="text-xs sm:text-sm">Pediatric</span>
+   509→                    </ToggleGroupItem>
+   510→                  </ToggleGroup>
+   511→                </div>
+   512→
+   513→                {/* Insurance Select (optional) */}
+   514→                <Select
+   515→                  value={insuranceId || undefined}
+   516→                  onValueChange={(val) =>
+   517→                    setInsuranceId(val === "__none__" ? "" : val)
+   518→                  }
+   519→                >
+   520→                  <SelectTrigger className="h-10 w-full bg-white cursor-pointer">
+   521→                    <SelectValue placeholder="Any Insurance" />
+   522→                  </SelectTrigger>
+   523→                  <SelectContent>
+   524→                    <SelectItem value="__none__" className="cursor-pointer">
+   525→                      Uninsured
+   526→                    </SelectItem>
+   527→                    {insurances.map((ins) => (
+   528→                      <SelectItem
+   529→                        key={ins.id}
+   530→                        value={ins.id}
+   531→                        className="cursor-pointer"
+   532→                      >
+   533→                        {ins.name}
+   534→                      </SelectItem>
+   535→                    ))}
+   536→                  </SelectContent>
+   537→                </Select>
+   538→
+   539→                {/* Modality Select (optional) */}
+   540→                <Select
+   541→                  value={modality || undefined}
+   542→                  onValueChange={(val) =>
+   543→                    setModality(val as "IN_PERSON" | "VIDEO")
+   544→                  }
+   545→                >
+   546→                  <SelectTrigger className="h-10 w-full bg-white cursor-pointer">
+   547→                    <SelectValue placeholder="Any Visit Type" />
+   548→                  </SelectTrigger>
+   549→                  <SelectContent>
+   550→                    <SelectItem value="IN_PERSON" className="cursor-pointer">
+   551→                      In-Person
+   552→                    </SelectItem>
+   553→                    <SelectItem value="VIDEO" className="cursor-pointer">
+   554→                      Video
+   555→                    </SelectItem>
+   556→                  </SelectContent>
+   557→                </Select>
+   558→              </div>
+   559→
+   560→              {/* Row 3: Radius Slider + Sort */}
+   561→              <div className="flex items-center gap-4 flex-wrap">
+   562→                {/* Radius Slider */}
+   563→                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+   564→                  {geoStatus === "granted" ? (
+   565→                    <LocateFixed className="size-4 text-emerald-600 shrink-0" title="Location detected" />
+   566→                  ) : (
+   567→                    <MapPin className="size-4 text-muted-foreground shrink-0" title="Allow location for distance sorting" />
+   568→                  )}
+   569→                  <span className="text-sm text-muted-foreground whitespace-nowrap min-w-[45px]">
+   570→                    {radius} mi
+   571→                  </span>
+   572→                  <Slider
+   573→                    value={[radius]}
+   574→                    onValueChange={([val]) => setRadius(val)}
+   575→                    min={1}
+   576→                    max={50}
+   577→                    step={1}
+   578→                    className="flex-1 cursor-pointer"
+   579→                  />
+   580→                </div>
+   581→
+   582→                {/* Use My Location button (when geo not granted) */}
+   583→                {geoStatus !== "granted" && (
+   584→                  <Button
+   585→                    type="button"
+   586→                    variant="ghost"
+   587→                    size="sm"
+   588→                    onClick={requestGeoLocation}
+   589→                    disabled={geoStatus === "requesting"}
+   590→                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer shrink-0"
+   591→                  >
+   592→                    {geoStatus === "requesting" ? (
+   593→                      <Loader2 className="size-3.5 animate-spin" />
+   594→                    ) : (
+   595→                      <LocateFixed className="size-3.5" />
+   596→                    )}
+   597→                    <span className="text-xs sm:text-sm ml-1.5">Use my location</span>
+   598→                  </Button>
+   599→                )}
+   600→
+   601→                {/* Sort Toggle */}
+   602→                <ToggleGroup
+   603→                  type="single"
+   604→                  value={sort}
+   605→                  onValueChange={(val) => {
+   606→                    if (val) setSort(val as "distance" | "time");
+   607→                  }}
+   608→                  variant="outline"
+   609→                  className="cursor-pointer"
+   610→                >
+   611→                  <ToggleGroupItem
+   612→                    value="distance"
+   613→                    className="gap-1.5 cursor-pointer"
+   614→                  >
+   615→                    <Navigation className="size-3.5" />
+   616→                    <span className="text-xs sm:text-sm">Nearest</span>
+   617→                  </ToggleGroupItem>
+   618→                  <ToggleGroupItem
+   619→                    value="time"
+   620→                    className="gap-1.5 cursor-pointer"
+   621→                  >
+   622→                    <Clock className="size-3.5" />
+   623→                    <span className="text-xs sm:text-sm">Earliest</span>
+   624→                  </ToggleGroupItem>
+   625→                </ToggleGroup>
+   626→              </div>
+   627→
+   628→              {/* Row 4: Search Button */}
+   629→              <div className="flex flex-col items-center gap-1.5">
+   630→                <Button
+   631→                  type="submit"
+   632→                  disabled={!specialtyId || loading}
+   633→                  className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer text-base font-medium shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/25 transition-all"
+   634→                >
+   635→                  {loading ? (
+   636→                    <Loader2 className="size-4 animate-spin" />
+   637→                  ) : (
+   638→                    <Search className="size-4" />
+   639→                  )}
+   640→                  Search Providers
+   641→                </Button>
+   642→                {!specialtyId && (
+   643→                  <span className="text-xs text-muted-foreground">
+   644→                    Please select a specialty to search
+   645→                  </span>
+   646→                )}
+   647→              </div>
+   648→            </div>
+   649→          </form>
+   650→        </div>
+   651→      </section>
+   652→
+   653→      {/* ===== Results Section ===== */}
+   654→      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 space-y-6">
+   655→        {/* Initial Load — No search yet */}
+   656→        {initialLoad && (
+   657→          <div className="flex flex-col items-center justify-center py-20 text-center">
+   658→            {/* Medical-themed CSS illustration */}
+   659→            <div className="relative w-24 h-24 mb-6">
+   660→              <div className="absolute inset-0 rounded-full bg-emerald-100/60" />
+   661→              <div className="absolute inset-2 rounded-full bg-emerald-100/80" />
+   662→              <div className="absolute inset-4 rounded-full bg-emerald-200/50" />
+   663→              <div className="absolute inset-0 flex items-center justify-center">
+   664→                <Stethoscope className="size-10 text-emerald-500/60" />
+   665→              </div>
+   666→              {/* Pulse ring */}
+   667→              <div className="absolute inset-0 rounded-full border-2 border-emerald-300/30 animate-ping" />
+   668→            </div>
+   669→            <h2 className="text-lg font-semibold text-foreground mb-2">
+   670→              Ready to find your provider?
+   671→            </h2>
+   672→            <p className="text-muted-foreground text-sm max-w-sm">
+   673→              Select a specialty above and hit search. We&apos;ll show you available
+   674→              doctors near you with open appointment slots.
+   675→            </p>
+   676→          </div>
+   677→        )}
+   678→
+   679→        {/* Loading Skeletons — Shimmer with emerald tint */}
+   680→        {loading && (
+   681→          <div className="space-y-4">
+   682→            {Array.from({ length: 3 }).map((_, i) => (
+   683→              <div
+   684→                key={i}
+   685→                className="rounded-xl border p-4 space-y-3 bg-card overflow-hidden"
+   686→              >
+   687→                <div className="flex gap-4">
+   688→                  <div className="skeleton-shimmer size-16 rounded-full shrink-0" />
+   689→                  <div className="flex-1 space-y-2.5">
+   690→                    <div className="skeleton-shimmer h-5 w-48 rounded-md" />
+   691→                    <div className="skeleton-shimmer h-4 w-36 rounded-md" />
+   692→                    <div className="skeleton-shimmer h-4 w-64 rounded-md" />
+   693→                    <div className="skeleton-shimmer h-4 w-24 rounded-md" />
+   694→                  </div>
+   695→                </div>
+   696→                <div className="skeleton-shimmer h-px w-full" />
+   697→                <div className="space-y-2.5">
+   698→                  <div className="skeleton-shimmer h-4 w-28 rounded-md" />
+   699→                  <div className="flex gap-2">
+   700→                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300" />
+   701→                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300" />
+   702→                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300" />
+   703→                  </div>
+   704→                </div>
+   705→              </div>
+   706→            ))}
+   707→          </div>
+   708→        )}
+   709→
+   710→        {/* Error State */}
+   711→        {!loading && error && searched && (
+   712→          <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+   713→            <div className="relative">
+   714→              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+   715→                <AlertCircle className="size-8 text-destructive" />
+   716→              </div>
+   717→            </div>
+   718→            <div className="space-y-1">
+   719→              <p className="font-medium text-foreground">
+   720→                Something went wrong
+   721→              </p>
+   722→              <p className="text-sm text-muted-foreground max-w-md">{error}</p>
+   723→            </div>
+   724→            <Button
+   725→              variant="outline"
+   726→              onClick={() => executeSearch()}
+   727→              className="cursor-pointer"
+   728→            >
+   729→              Try Again
+   730→            </Button>
+   731→          </div>
+   732→        )}
+   733→
+   734→        {/* No Results + Smart Suggestions — Medical-themed */}
+   735→        {!loading && !error && searched && results.length === 0 && (
+   736→          <div className="flex flex-col items-center justify-center py-16 text-center space-y-5">
+   737→            {/* Medical-themed CSS illustration */}
+   738→            <div className="relative w-20 h-20">
+   739→              <div className="absolute inset-0 rounded-full bg-emerald-50" />
+   740→              <div className="absolute inset-0 flex items-center justify-center">
+   741→                <Search className="size-8 text-emerald-400/60" />
+   742→              </div>
+   743→              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center">
+   744→                <X className="size-3.5 text-muted-foreground" />
+   745→              </div>
+   746→            </div>
+   747→            <div className="space-y-1">
+   748→              <p className="font-medium text-foreground">
+   749→                No providers found
+   750→              </p>
+   751→              <p className="text-sm text-muted-foreground max-w-sm">
+   752→                We couldn&apos;t find any providers matching your current filters.
+   753→                Try adjusting your search criteria below.
+   754→              </p>
+   755→            </div>
+   756→            <div className="flex flex-wrap gap-2 justify-center">
+   757→              {radius < 25 && (
+   758→                <Button
+   759→                  variant="outline"
+   760→                  size="sm"
+   761→                  onClick={onExpandRadius}
+   762→                  className="cursor-pointer"
+   763→                >
+   764→                  <MapPin className="size-3.5" />
+   765→                  Expand radius to 25 mi?
+   766→                </Button>
+   767→              )}
+   768→              {insuranceId && (
+   769→                <Button
+   770→                  variant="outline"
+   771→                  size="sm"
+   772→                  onClick={onRemoveInsurance}
+   773→                  className="cursor-pointer"
+   774→                >
+   775→                  Remove insurance filter?
+   776→                </Button>
+   777→              )}
+   778→              {modality && (
+   779→                <Button
+   780→                  variant="outline"
+   781→                  size="sm"
+   782→                  onClick={onRemoveModality}
+   783→                  className="cursor-pointer"
+   784→                >
+   785→                  Try all visit types?
+   786→                </Button>
+   787→              )}
+   788→            </div>
+   789→          </div>
+   790→        )}
+   791→
+   792→        {/* Results List */}
+   793→        {!loading && !error && searched && results.length > 0 && (
+   794→          <>
+   795→            {/* Results Header */}
+   796→            <div className="flex items-center justify-between gap-4">
+   797→              <div className="flex items-center gap-2 min-w-0">
+   798→                <Badge
+   799→                  variant="secondary"
+   800→                  className="bg-emerald-100 text-emerald-700 font-semibold tabular-nums shrink-0"
+   801→                >
+   802→                  {total}
+   803→                </Badge>
+   804→                <span className="text-sm text-muted-foreground truncate">
+   805→                  {query.trim()
+   806→                    ? (
+   807→                      <>
+   808→                        Results for <strong className="text-foreground font-medium">&ldquo;{query.trim()}&rdquo;</strong>
+   809→                      </>
+   810→                    )
+   811→                    : (
+   812→                      <>
+   813→                        {total === 1 ? "provider" : "providers"} found
+   814→                      </>
+   815→                    )
+   816→                  }
+   817→                </span>
+   818→              </div>
+   819→              {activeFilterCount > 0 && (
+   820→                <Button
+   821→                  variant="ghost"
+   822→                  size="sm"
+   823→                  onClick={clearFilters}
+   824→                  className="text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+   825→                >
+   826→                  <X className="size-3.5" />
+   827→                  <span className="hidden sm:inline ml-1">Clear filters</span>
+   828→                </Button>
+   829→              )}
+   830→            </div>
+   831→
+   832→            {/* Subtle divider */}
+   833→            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+   834→
+   835→            <div className="space-y-4">
+   836→              {results.map((provider, idx) => (
+   837→                <ProviderCard key={provider.id} provider={provider} index={idx} />
+   838→              ))}
+   839→            </div>
+   840→
+   841→            {/* Load More */}
+   842→            {hasMore && (
+   843→              <div className="flex justify-center pt-4">
+   844→                <Button
+   845→                  variant="outline"
+   846→                  onClick={onLoadMore}
+   847→                  disabled={loadingMore}
+   848→                  className="cursor-pointer"
+   849→                >
+   850→                  {loadingMore && <Loader2 className="size-4 animate-spin" />}
+   851→                  Load More
+   852→                </Button>
+   853→              </div>
+   854→            )}
+   855→          </>
+   856→        )}
+   857→      </main>
+   858→
+   859→      {/* ===== Sticky Footer ===== */}
+   860→      <footer className="mt-auto border-t bg-white/80 backdrop-blur-sm">
+   861→        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+   862→          <span>© 2026 ClinicBook. All rights reserved.</span>
+   863→          <nav className="flex items-center gap-3">
+   864→            <Link href="/" className="hover:text-foreground transition-colors cursor-pointer">Home</Link>
+   865→            <span className="text-muted-foreground/30">|</span>
+   866→            <Link href="#" className="hover:text-foreground transition-colors cursor-pointer">Privacy Policy</Link>
+   867→            <span className="text-muted-foreground/30">|</span>
+   868→            <Link href="#" className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</Link>
+   869→          </nav>
+   870→        </div>
+   871→      </footer>
+   872→    </div>
+   873→  );
+   874→}

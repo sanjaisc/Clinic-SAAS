@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import {
   Clock,
   CalendarDays,
@@ -258,13 +259,14 @@ export default function SlotManagementPage() {
       setConfirmAction(null);
       fetchSlots();
 
-      if (result.skipped && result.skipped.length > 0) {
-        alert(
-          `${result.updatedCount} slot(s) updated. ${result.skipped.length} skipped (invalid transitions).`
-        );
-      }
+      const actionLabel = confirmAction === 'BLOCK' ? 'blocked' : confirmAction === 'UNBLOCK' ? 'unblocked' : 'marked as externally booked';
+      toast.success(`${result.updatedCount} slot(s) ${actionLabel}`, {
+        description: result.skipped?.length
+          ? `${result.skipped.length} slot(s) skipped (invalid transitions)`
+          : undefined,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update slots");
+      toast.error(err instanceof Error ? err.message : "Failed to update slots");
     } finally {
       setActionLoading(false);
     }

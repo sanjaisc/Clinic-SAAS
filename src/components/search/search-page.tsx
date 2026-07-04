@@ -6,6 +6,7 @@ import {
   Search,
   MapPin,
   Heart,
+  Building2,
   User,
   Baby,
   Clock,
@@ -413,6 +414,16 @@ export function SearchPage() {
                 <CheckCircle2 className="size-3.5 text-emerald-500" />
                 Trusted by 10,000+ patients
               </span>
+              <span className="text-muted-foreground/30">·</span>
+              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+                <Building2 className="size-3.5 text-emerald-500" />
+                6 clinics
+              </span>
+              <span className="text-muted-foreground/30">·</span>
+              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-medium hover:underline transition-colors cursor-pointer">
+                <MapPin className="size-3.5" />
+                Browse all clinics
+              </Link>
               <span className="text-muted-foreground/30">·</span>
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
                 <Stethoscope className="size-3.5 text-emerald-500" />
@@ -862,6 +873,8 @@ export function SearchPage() {
           <span>© 2026 ClinicBook. All rights reserved.</span>
           <nav className="flex items-center gap-3">
             <Link href="/" className="hover:text-foreground transition-colors cursor-pointer">Home</Link>
+            <span className="text-muted-foreground/30">|</span>
+            <Link href="/clinics" className="hover:text-foreground transition-colors cursor-pointer">Browse All Clinics</Link>
             <span className="text-muted-foreground/30">|</span>
             <Link href="#" className="hover:text-foreground transition-colors cursor-pointer">Privacy Policy</Link>
             <span className="text-muted-foreground/30">|</span>

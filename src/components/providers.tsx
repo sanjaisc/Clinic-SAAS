@@ -1,6 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * Client-side provider wrapper for NextAuth SessionProvider.
@@ -8,5 +9,10 @@ import { SessionProvider } from "next-auth/react";
  * This component bridges that gap.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      {children}
+      <Toaster position="top-right" richColors closeButton />
+    </SessionProvider>
+  );
 }

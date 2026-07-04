@@ -726,9 +726,9 @@ async function main() {
 
   console.log('1️⃣4️⃣  Creating SlotTemplates...');
 
-  // Mon=1 through Fri=5
+  // Mon=1 through Sat=6
   const DAY_OF_WEEK_MAP: Record<string, number> = {
-    mon: 1, tue: 2, wed: 3, thu: 4, fri: 5,
+    mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
   };
 
   const slotTemplateRows: Array<{
@@ -743,21 +743,26 @@ async function main() {
     const pid = providers[p.slug];
 
     // Morning block: 09:00-12:00 IN_PERSON
-    // Afternoon block: 13:00-16:00 IN_PERSON
+    // Afternoon block: 13:00-16:00 IN_PERSON (Mon-Fri only)
     // Video block: 09:00-12:00 VIDEO
     for (const dayCode of Object.keys(DAY_OF_WEEK_MAP)) {
       const dow = DAY_OF_WEEK_MAP[dayCode];
+      const isSaturday = dow === 6;
 
       slotTemplateRows.push(
         { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.IN_PERSON },
-        { providerId: pid, dayOfWeek: dow, startTime: '13:00', endTime: '16:00', modality: SLOT_MODALITY.IN_PERSON },
         { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.VIDEO },
       );
+      if (!isSaturday) {
+        slotTemplateRows.push(
+          { providerId: pid, dayOfWeek: dow, startTime: '13:00', endTime: '16:00', modality: SLOT_MODALITY.IN_PERSON },
+        );
+      }
     }
   }
 
   await db.slotTemplate.createMany({ data: slotTemplateRows });
-  console.log(`   ✅ Created ${slotTemplateRows.length} SlotTemplate entries (3 templates × 5 weekdays × 6 providers)\n`);
+  console.log(`   ✅ Created ${slotTemplateRows.length} SlotTemplate entries (2-3 templates × 6 days × 6 providers)\n`);
 
   // ── 15. Staff User Accounts ─────────────────────────────────────────────
 

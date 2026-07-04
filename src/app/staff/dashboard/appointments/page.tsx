@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import {
   Search,
   Calendar,
@@ -357,8 +358,17 @@ export default function AppointmentsPage() {
       if (selectedId === appointmentId) {
         openDetail(appointmentId);
       }
+      const statusLabels: Record<string, string> = {
+        CHECKED_IN: "checked in",
+        COMPLETED: "marked as completed",
+        CANCELLED: "cancelled",
+        NO_SHOW: "marked as no-show",
+      };
+      toast.success(`Appointment ${statusLabels[newStatus] || "updated"}`, {
+        description: `Patient: ${currentAppointment?.patientName || "Unknown"}`,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update status");
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
     } finally {
       setTransitioningId(null);
     }
@@ -378,8 +388,9 @@ export default function AppointmentsPage() {
       setNoteContent("");
       // Refresh detail
       openDetail(selectedId);
+      toast.success("Note added");
     } catch {
-      alert("Failed to add note");
+      toast.error("Failed to add note");
     } finally {
       setNoteSubmitting(false);
     }

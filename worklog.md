@@ -640,3 +640,183 @@ Stage Summary:
 3. Waitlist processing engine (cancel → offer to waitlisted patients)
 4. Auto-cancel no-show appointments (mark as NO_SHOW after grace period)
 5. Add Saturday templates to seed data for better demo experience
+
+---
+Task ID: 10
+Agent: Main Orchestrator
+Task: Build Public Clinics Directory Page
+
+Work Log:
+- Created `/src/app/api/clinics/route.ts` — public GET endpoint (no auth required)
+  - Fetches all clinics with status=PUBLISHED
+  - Includes: id, slug, name, tagline, address fields, phone, email, website, coverImageUrl (null)
+  - Aggregates unique specialties via providerServices→service→specialty chain
+  - Computes providerCount (active providers), rating (from provider), firstProvider info
+  - Counts AVAILABLE slots in the next 7 days for each clinic
+  - Returns `{ clinics: [...] }`
+- Created `/src/app/clinics/page.tsx` — "use client" directory page
+  - Fetches from /api/clinics and /api/taxonomies in parallel
+  - Header: "Browse Clinics" title with Building2 icon, subtitle
+  - Search bar: filters clinics by name or city with clear button (X icon)
+  - Filter row: Specialty select (from taxonomies API), City select (dynamic from clinic data), Sort select (Nearest/Rating/Name A-Z)
+  - Clinic grid: 1-col mobile, 2-col tablet, 3-col desktop
+  - Each clinic card: emerald gradient accent strip, linked name, italic tagline, address (MapPin), clickable phone, specialty badges (emerald-tinted), provider count (Users icon), rating (amber Star), available slots (Clock), "View Clinic →" button
+  - Hover: shadow-md + -translate-y-0.5 transition
+  - Stagger fadeInUp animation on cards
+  - Loading: 3 skeleton cards with accent strip
+  - Empty state: "No clinics match your filters" with clear button
+  - Sticky footer with ClinicBook branding
+  - Page background: subtle gradient white → emerald-50/30
+- Updated `/src/components/search/search-page.tsx` footer nav — added "Browse All Clinics" link to /clinics
+- Lint passes clean
+
+---
+Task ID: 9
+Agent: Main Orchestrator
+Task: Build Patient Token Management Portal
+
+Work Log:
+- Created `/src/app/api/manage/route.ts` — GET endpoint for patient token management:
+  - Accepts `?token=` query param (64-char hex string)
+  - Validates token format with regex `/^[0-9a-fA-F]{64}$/`
+  - Hashes raw token via `hashToken()` (SHA-256) for DB lookup
+  - Fetches Token with full appointment include (provider, service, specialty, clinic, slot, insurance, ledger)
+  - Returns 404 for unknown tokens, 410 for expired/cancelled
+  - For CHECK_IN purpose: verifies not consumed, checks 24h window (`subHours(startTime, 24)`), marks consumed, updates appointment to CHECKED_IN, writes audit log
+  - Returns structured JSON: token status, appointment details, provider/specialty/service/clinic info, insurance, ledger
+- Created `/src/app/manage/[token]/page.tsx` — Patient-facing portal page ("use client"):
+  - Uses `useParams()` to extract token from URL, fetches `/api/manage?token=...`
+  - 6 page states: loading, valid, expired, not_found, cancelled, check_in_early, error
+  - **Loading state**: spinner with "Loading your appointment details…" text
+  - **Error/expired/not-found/cancelled states**: AlertCircle icon, friendly message, separator, clinic phone fallback, "Powered by ClinicBook" footer
+  - **Valid state**: polished appointment card with:
+    - Emerald gradient top bar (2px)
+    - Clinic logo/name/address with MapPin icon
+    - Date and time in 2-col grid with Calendar/Clock icons (muted background)
+    - Modality badge (In-Clinic = emerald, Video Visit = blue with Video icon)
+    - Service name badge (outline variant)
+    - Video visit link for checked-in video appointments
+    - Provider avatar/name/credentials/specialty
+    - Payment & Insurance section with dynamic labels (Insurance, Self-Pay, Deposit, Free Visit, Demo Insurance)
+    - Countdown timer component (auto-refreshes every 60s) showing days/hours/minutes until appointment
+    - Check In button (emerald-600, full-width) visible when purpose=CHECK_IN, within 24h, not consumed, status=BOOKED
+  - **Check-in success**: animated gradient card (emerald-500 → emerald-700) with spring-animated circle + SVG path-drawn checkmark, "You're Checked In!" heading, "Join Video Visit" button for video modality
+  - **What to Know section**: arrival instructions, insurance card/ID reminder, device prep (video), intake forms notice
+  - **Cancellation policy card**: 24-hour notice warning
+  - Clinic contact link with phone call href
+  - Professional header: ClinicBook logo (emerald gradient icon + Heart), "Secure Patient Portal" badge
+  - Sticky footer: "Powered by ClinicBook · Patient Self-Service Portal"
+  - Framer Motion fadeInUp animations with stagger container
+  - Responsive: mobile-first, works on all screen sizes
+  - Emerald color scheme throughout
+- Lint passes clean (0 errors)
+
+---
+Task ID: 11
+Agent: Main Orchestrator
+Task: Sprint 5 — Saturday Fix, Patient Portal, Clinics Directory, Toast Notifications, Styling Polish
+
+Work Log:
+- Reviewed worklog.md: Sprint 1-4 all complete
+- Ran bun run lint: 0 errors
+- QA tested via agent-browser:
+  - Search page: 4 providers, all cards with slots/badges ✓
+  - Booking flow: step 1-2 working (DOB uses native date input) ✓
+  - Staff login: admin@downtownmedicalgroup.clinicbook.com / admin123 → /staff/dashboard ✓
+  - Dashboard: stat cards, quick actions, schedule list ✓
+  - Calendar: time grid with date picker, provider filter ✓
+  - Manual Booking: provider selection, date picker ✓
+  - Appointments: filter tabs, search, table headers ✓
+  - Slot Management: provider selector, date range ✓
+  - Settings: clinic info, financial config, account info ✓
+- Identified issues:
+  - Weekend dashboard was empty (no Saturday slot templates in seed) ⚠️
+  - Booking page DOB uses native date input (works correctly, not a bug)
+  - "Browse All Clinics" link needed in hero section
+  - No toast notifications for staff actions (used alert()) ⚠️
+  - Building2 icon missing from imports after subagent edit ⚠️
+
+Fixes Applied:
+1. Updated `prisma/seed.ts`:
+   - Added Saturday (dayOfWeek=6) to DAY_OF_WEEK_MAP
+   - Saturday has shorter hours: 09:00-12:00 only (no afternoon block)
+   - Template count: 90 → 102 (5 weekdays × 3 templates + 1 Saturday × 2 templates) × 6 providers
+   - Re-seeded database: 768 slots (now includes Saturday slots)
+2. Added `Building2` back to search-page.tsx imports (was removed by subagent)
+3. Added "6 clinics" + "Browse all clinics" link to trust indicators
+4. Integrated Sonner toast into Providers wrapper
+5. Replaced `alert()` with `toast.success()`/`toast.error()` in:
+   - Appointments page (status transitions, note submission)
+   - Slot Management page (batch block/unblock/externally-booked)
+
+New Features (built by subagents):
+6. **Patient Token Management Portal** (`/manage/[token]`):
+   - API: `/api/manage` — validates token, returns appointment with full includes
+   - Page: 6 states (loading, valid, check-in success, expired, cancelled, not-found)
+   - Professional patient-facing design with emerald scheme
+   - Check-in button (24h window), appointment details, "What to Know" section
+   - Animated SVG checkmark for check-in confirmation
+   - Cancellation policy info, clinic phone fallback
+7. **Clinics Directory Page** (`/clinics`):
+   - API: `/api/clinics` — public, aggregates specialties, provider count, rating, available slots
+   - Page: Search by name/city, specialty/city/sort filters
+   - Responsive grid (1/2/3 columns), card hover effects with -translate-y
+   - Each card: gradient strip, specialty badges, star rating, slot count, View Clinic link
+   - Linked from search page hero ("Browse all clinics") and footer
+
+QA Results:
+- Dashboard now shows "1 of 3 slots filled, 33% utilization" on Saturday ✓
+- Calendar shows Available + Booked slots on Saturday ✓
+- Clinics directory: 6 clinics with search and filters ✓
+- Patient portal: proper error state for invalid tokens ✓
+- Toast notifications: integrated and ready ✓
+- Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- **Saturday Slots Fixed**: Seed now generates Saturday templates → non-empty weekend dashboard
+- **Patient Portal Built**: `/manage/[token]` with check-in, appointment details, policy info
+- **Clinics Directory Built**: `/clinics` with search, filters, responsive grid
+- **Toast Notifications**: Sonner integrated, staff actions now show toast feedback
+- **Navigation Enhanced**: "Browse All Clinics" in hero trust indicators + footer
+- **QA Screenshots**: 12 screenshots saved to /download/
+
+# Current Project Status Assessment
+- Sprint 1 (Data Layer + Auth): ✅ COMPLETE
+- Sprint 2 (Public Search): ✅ COMPLETE
+- Sprint 3 (Booking Wizard + Two-Phase Locking): ✅ COMPLETE
+- Sprint 3 Styling Enhancement: ✅ COMPLETE
+- Sprint 4 (Staff Portal): ✅ COMPLETE
+- Sprint 5 (Additional Features): ✅ COMPLETE
+  - Patient Token Management Portal with check-in
+  - Public Clinics Directory with search and filters
+  - Saturday slot templates (fixes empty weekend dashboard)
+  - Sonner toast notifications for staff actions
+  - Enhanced navigation (Browse All Clinics link)
+- The platform now has a complete end-to-end flow: Search → Book → Staff Manage → Patient Self-Service
+
+# Completed Modifications (This Session)
+- `prisma/seed.ts`: Added Saturday templates, fixed Saturday to shorter hours
+- `src/components/providers.tsx`: Added Sonner Toaster with richColors
+- `src/components/search/search-page.tsx`: Added Building2 import, "6 clinics" + "Browse all clinics" in hero
+- `src/app/staff/dashboard/appointments/page.tsx`: Replaced alert() with toast.success/toast.error
+- `src/app/staff/dashboard/slots/page.tsx`: Replaced alert() with toast.success/toast.error
+- Subagent-created: `/api/manage/route.ts`, `/manage/[token]/page.tsx`, `/api/clinics/route.ts`, `/clinics/page.tsx`
+- Lint: 0 errors, 0 warnings
+- Dev server: all routes return 200, no runtime errors
+
+# Unresolved Issues / Risks
+1. The "middleware" deprecation warning in Next.js 16 (functional, cosmetic only)
+2. Geolocation requires user to grant browser location permission
+3. The /manage/[token] route is functional but not yet linked from booking confirmation (requires regenerating bookings after code change)
+4. Stripe SDK not installed — all bookings use MANUAL_WAIVER or CASH_AT_DESK
+5. No email sending configured — confirmation emails are not sent
+6. Calendar shows some "No slots" hours on Saturday (expected — only 09:00-12:00 have templates)
+7. Completed appointments from seed are on past dates — not visible in today's dashboard view
+
+# Priority Recommendations for Next Phase (Sprint 6: Advanced Patient Features)
+1. Link management token from booking confirmation page to patient portal
+2. Add intake form system (dynamic forms per specialty)
+3. QR code generation for check-in at kiosk
+4. Post-appointment review system (from CHECKED_IN → COMPLETED → trigger review email)
+5. Add more provider/clinic data for richer search results (currently 6 clinics, 6 providers)
+6. Responsive mobile app improvements (touch interactions, swipe gestures on calendar)
