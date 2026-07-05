@@ -389,7 +389,7 @@ export default function SystemAdminPage() {
           return (
             <Card
               key={stat.key}
-              className="relative overflow-hidden border-0 shadow-md"
+              className="relative overflow-hidden border-0 shadow-md stat-gradient-animated"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient}`} />
               <CardContent className="relative p-4 flex items-center gap-3">
@@ -456,10 +456,10 @@ export default function SystemAdminPage() {
                       </td>
                     </tr>
                   ) : (
-                    data.clinicSummary.map((clinic) => (
+                    data.clinicSummary.map((clinic, clinicIndex) => (
                       <tr
                         key={clinic.id}
-                        className="border-b border-border/50 hover:bg-muted/40 transition-colors"
+                        className={`border-b border-border/50 transition-all duration-200 ${clinicIndex % 2 === 0 ? 'bg-transparent' : 'bg-muted/20'} hover:bg-muted/50`}
                       >
                         <td className="px-4 py-3">
                           <a
@@ -511,13 +511,14 @@ export default function SystemAdminPage() {
                   No recent activity.
                 </div>
               ) : (
-                data.recentActivity.slice(0, 10).map((entry) => {
+                data.recentActivity.slice(0, 10).map((entry, idx) => {
                   const Icon = getActionIcon(entry.action);
                   const borderColor = getActionBorderColor(entry.action);
                   return (
                     <div
                       key={entry.id}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/40 transition-colors border-l-4 ${borderColor}`}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/40 transition-all duration-200 border-l-4 ${borderColor} animate-[slide-in-right_0.3s_ease-out_both]`}
+                      style={{ animationDelay: `${idx * 60}ms` }}
                     >
                       <Icon className="size-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -572,10 +573,10 @@ export default function SystemAdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.staffList.map((staff) => (
+                  {data.staffList.map((staff, staffIndex) => (
                     <tr
                       key={staff.id}
-                      className="border-b border-border/50 hover:bg-muted/40 transition-colors"
+                      className={`border-b border-border/50 transition-all duration-200 ${staffIndex % 2 === 0 ? 'bg-transparent' : 'bg-muted/20'} hover:bg-muted/50`}
                     >
                       <td className="px-4 py-2.5 font-medium">{staff.name}</td>
                       <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
@@ -666,7 +667,7 @@ function HealthItem({
       <div className="flex-1 min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
         <div className="flex items-center gap-1.5">
-          {ok && <CheckCircle2 className="size-3 text-emerald-500" />}
+          {ok && <span className="relative flex items-center justify-center"><CheckCircle2 className="size-3 text-emerald-500 pulse-ring" /></span>}
           <p className="text-sm font-medium text-foreground">{value}</p>
         </div>
       </div>

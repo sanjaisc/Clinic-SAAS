@@ -157,7 +157,7 @@ function SkeletonRows() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="size-14 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+      <div className="size-14 rounded-full bg-muted/50 flex items-center justify-center mb-4 animate-slow-rotate">
         <BellOff className="size-6 text-muted-foreground" />
       </div>
       <p className="text-base font-medium text-foreground">No activity yet</p>
@@ -170,7 +170,7 @@ function EmptyState() {
 
 // ---- Notification card ----
 
-function NotificationCard({ notification }: { notification: ActivityNotification }) {
+function NotificationCard({ notification, index }: { notification: ActivityNotification; index: number }) {
   const cfg = getActionConfig(notification.action);
   const Icon = cfg.icon;
 
@@ -178,8 +178,10 @@ function NotificationCard({ notification }: { notification: ActivityNotification
     <div
       className={`
         flex items-center gap-4 p-4 rounded-xl border-l-[3px] ${cfg.borderColor}
-        hover:bg-muted/50 transition-colors duration-150
+        hover:bg-muted/50 transition-all duration-200 hover:border-l-[5px]
+        animate-[slide-in-right_0.3s_ease-out_both]
       `}
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Left: icon in colored circle */}
       <div
@@ -321,6 +323,13 @@ export default function ActivityPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+            <span className="relative flex size-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
+            </span>
+            Live
+          </span>
           {lastFetchTime && (
             <span className="text-xs text-muted-foreground hidden sm:inline">
               Updated {lastFetchTime}
@@ -359,22 +368,22 @@ export default function ActivityPage() {
             onValueChange={(v) => setActiveTab(v as FilterTab)}
           >
             <TabsList className="flex-wrap h-auto gap-1 p-1">
-              <TabsTrigger value="all" className="text-xs">
+              <TabsTrigger value="all" className={`text-xs underline-animated ${activeTab === "all" ? "active" : ""}`}>
                 All
               </TabsTrigger>
-              <TabsTrigger value="bookings" className="text-xs">
+              <TabsTrigger value="bookings" className={`text-xs underline-animated ${activeTab === "bookings" ? "active" : ""}`}>
                 Bookings
               </TabsTrigger>
-              <TabsTrigger value="cancellations" className="text-xs">
+              <TabsTrigger value="cancellations" className={`text-xs underline-animated ${activeTab === "cancellations" ? "active" : ""}`}>
                 Cancellations
               </TabsTrigger>
-              <TabsTrigger value="checkins" className="text-xs">
+              <TabsTrigger value="checkins" className={`text-xs underline-animated ${activeTab === "checkins" ? "active" : ""}`}>
                 Check-ins
               </TabsTrigger>
-              <TabsTrigger value="completions" className="text-xs">
+              <TabsTrigger value="completions" className={`text-xs underline-animated ${activeTab === "completions" ? "active" : ""}`}>
                 Completions
               </TabsTrigger>
-              <TabsTrigger value="noshow" className="text-xs">
+              <TabsTrigger value="noshow" className={`text-xs underline-animated ${activeTab === "noshow" ? "active" : ""}`}>
                 No-shows
               </TabsTrigger>
             </TabsList>
@@ -387,8 +396,8 @@ export default function ActivityPage() {
             <EmptyState />
           ) : (
             <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
-              {filteredNotifications.map((n) => (
-                <NotificationCard key={n.id} notification={n} />
+              {filteredNotifications.map((n, i) => (
+                <NotificationCard key={n.id} notification={n} index={i} />
               ))}
             </div>
           )}

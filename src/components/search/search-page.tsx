@@ -862,43 +862,59 @@ export function SearchPage() {
 
             {/* ----- How It Works ----- */}
             <section className="space-y-6">
-              <h2 className="text-xl font-bold text-foreground text-center">How It Works</h2>
+              <div className="flex items-center justify-center gap-2">
+                <HeartPulse className="size-5 text-emerald-600" />
+                <h2 className="text-xl font-bold text-foreground">How ClinicBook Works</h2>
+              </div>
               <div className="relative">
-                {/* Dotted connector line — desktop only */}
-                <div className="hidden md:block absolute top-7 left-[16.6%] right-[16.6%] border-t-2 border-dashed border-emerald-200" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+                {/* Connecting dots line — desktop only */}
+                <div className="hidden md:flex absolute top-[38px] left-[calc(16.6%+24px)] right-[calc(16.6%+24px)] items-center justify-between px-2 z-0">
+                  <div className="flex-1 border-t-2 border-dashed border-emerald-200" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
                     {
                       num: 1,
                       Icon: Search,
-                      title: "Find Your Provider",
-                      desc: "Search by specialty, location, or provider name to see available doctors near you.",
+                      title: "Search",
+                      desc: "Find providers by specialty, location, or name. Compare ratings and availability.",
+                      gradient: "from-emerald-400 to-emerald-600",
                     },
                     {
                       num: 2,
                       Icon: CalendarCheck,
-                      title: "Book an Appointment",
-                      desc: "Choose a convenient time slot, enter your details, and confirm your booking in minutes.",
+                      title: "Book",
+                      desc: "Choose a convenient time slot and book instantly. No phone calls needed.",
+                      gradient: "from-teal-400 to-teal-600",
                     },
                     {
                       num: 3,
-                      Icon: Heart,
-                      title: "Get Care",
-                      desc: "Visit your provider in-person or via video call. Check in online before your appointment.",
+                      Icon: MapPin,
+                      title: "Visit",
+                      desc: "Show up (or join virtually) at your scheduled time. That\u0027s it!",
+                      gradient: "from-cyan-400 to-cyan-600",
                     },
-                  ].map((step, idx) => (
+                  ].map((step) => (
                     <div
                       key={step.num}
-                      className="flex flex-col items-center text-center space-y-3"
-                      style={{ animationDelay: `${idx * 120}ms` }}
+                      className="relative z-10 rounded-xl border bg-card overflow-hidden card-hover-lift"
                     >
-                      {/* Step number circle with icon */}
-                      <div className="relative z-10 size-14 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
-                        <step.Icon className="size-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="font-semibold text-foreground">{step.title}</h3>
-                        <p className="text-sm text-muted-foreground max-w-[260px]">{step.desc}</p>
+                      {/* Gradient top border */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${step.gradient}`} />
+                      <div className="p-6 flex flex-col items-center text-center space-y-3">
+                        {/* Numbered circle + icon */}
+                        <div className="relative">
+                          <div className="size-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+                            <step.Icon className="size-5" />
+                          </div>
+                          <span className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white">
+                            {step.num}
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          <h3 className="font-bold text-foreground text-base">{step.title}</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed max-w-[260px]">{step.desc}</p>
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -1653,3 +1653,206 @@ Work Log:
 8. **SEO improvements** — Meta tags, Open Graph, structured data for clinics/providers
 9. **PWA manifest** — Offline caching for patient portal
 10. **End-to-end testing** — Automated test scripts for critical flows
+
+---
+Task ID: 9b
+Agent: Sprint 9b Agent
+Task: Error Boundaries + Dynamic SEO Metadata
+
+Work Log:
+- Created `src/app/global-error.tsx` — Global error boundary that catches errors in the root layout, renders a standalone HTML page with emerald-themed "Something went wrong" UI and a "Try again" button
+- Created `src/app/error.tsx` — Route-level error boundary using shadcn Card/Button with AlertTriangle icon, displays error.message in a code block, error.digest if present, "Try Again" and "Go Home" actions
+- Created `src/app/not-found.tsx` — Custom 404 page with large "404" text overlaid with Search icon, decorative blurred circles, emerald-themed Card, sticky footer matching other pages
+- Created `src/app/loading.tsx` — Global loading skeleton matching the search page layout: header skeleton, search bar skeleton, 3 provider card skeletons with avatar/name/specialty/slots, using shadcn Skeleton with animate-pulse
+- Added `generateMetadata` to `src/app/clinic/[slug]/page.tsx` — Queries clinic by slug, returns title/description/openGraph with coverImageUrl support, try/catch with generic fallback
+- Added `generateMetadata` to `src/app/providers/[slug]/page.tsx` — Queries provider by slug with specialty, returns title as `Dr. {name} — {specialty} | ClinicBook`, includes rating info in description, openGraph type "profile" with firstName/lastName
+- Enhanced `src/app/layout.tsx` metadata — Added `metadataBase` URL (https://clinicbook.app), `openGraph` with siteName/locale/type/title/description, `twitter` card "summary_large_image"
+- Created `src/app/clinics/layout.tsx` — Metadata wrapper for the clinics directory page (title, description, openGraph)
+- Created `src/app/review/[token]/layout.tsx` — Metadata wrapper for review pages
+- Created `src/app/intake/[token]/layout.tsx` — Metadata wrapper for intake form pages
+- Ran `bun run lint` — 0 errors, 1 pre-existing warning (unrelated to this task)
+
+Stage Summary:
+- **Error Boundaries**: 4 files created (global-error.tsx, error.tsx, not-found.tsx, loading.tsx) providing graceful error handling, 404 page, and loading skeletons
+- **Dynamic SEO Metadata**: generateMetadata added to 2 dynamic routes (clinic detail, provider profile) with proper DB queries, fallback handling, and Open Graph tags
+- **Root Layout Enhancement**: Added metadataBase, openGraph, and twitter card configuration
+- **Layout Metadata Wrappers**: 3 layout files created for client-side routes (clinics, review, intake) to enable server-side metadata exports
+---
+Task ID: 9d
+Agent: Sprint 9d Agent
+Task: Enhanced Public Pages — How It Works, Insurance, About, Footer
+
+Work Log:
+- Enhanced "How It Works" section in `src/components/search/search-page.tsx` — Replaced simple centered step display with card-based layout featuring emerald/teal/cyan gradient top borders, numbered circles with emerald backgrounds, bold titles, muted descriptions, `card-hover-lift` hover effect, and a connecting dashed line on desktop. Added HeartPulse icon to section heading, updated step titles (Search/Book/Visit) and descriptions per spec.
+- Created `src/components/public-footer.tsx` — Reusable multi-column footer component with: Column 1 (ClinicBook logo + tagline + social icons for X/LinkedIn/Facebook), Column 2 (For Patients links: Find a Doctor, Browse Clinics, Insurance, How It Works), Column 3 (For Clinics links: Staff Login, Clinic Dashboard), Column 4 (Company links: About, Privacy Policy, Terms of Service, Contact). Bottom bar with copyright + "Built with ❤️ using Next.js" + logo. Responsive: 2-col on mobile, 4-col on desktop. Emerald-themed headings and hover states.
+- Created `src/app/insurance/page.tsx` — "use client" page with sticky header (Heart logo, ClinicBook, ThemeToggle, Staff Login), breadcrumb (Home / Insurance & Payments), page title with Shield icon. Fetches insurances from `/api/taxonomies`, displays in responsive grid with emerald badges for major plans and secondary badges for partners. Payment Methods section with 3 cards (Credit/Debit, Cash at Desk, Insurance Co-Pay). FAQ section with 5 expandable questions using shadcn Accordion component. Uses PublicFooter.
+- Created `src/app/about/page.tsx` — "use client" page with sticky header, breadcrumb (Home / About), hero section with Heart logo and mission tagline. Mission Statement card with Search icon. Our Values section: 4 value cards (Patient First, Easy Booking, Verified Providers, Secure Platform) with gradient top borders and card-hover-lift. By the Numbers section: 4 stat cards (500+ Clinics, 2,000+ Providers, 50,000+ Appointments Booked, 4.8/5 Patient Satisfaction). Team section placeholder with "Coming Soon" message. Uses PublicFooter.
+- Updated `src/app/clinics/page.tsx` — Replaced inline footer JSX with `<PublicFooter />` component, added import.
+- Updated `src/app/clinic/[slug]/page.tsx` — Replaced inline footer JSX with `<PublicFooter />` component, added import.
+- Updated `src/app/providers/[slug]/page.tsx` — Replaced inline footer JSX with `<PublicFooter />` component, added import.
+- Ran `bun run lint` — 0 errors, 1 pre-existing warning (unrelated).
+
+Stage Summary:
+- **Enhanced How It Works**: Redesigned with card layout, gradient top borders (emerald/teal/cyan), numbered step circles, hover-lift effect, connecting dashed line on desktop. Only visible when no active search (`initialLoad` block).
+- **PublicFooter Component**: Reusable 4-column footer with social media icons, emerald-themed navigation links, responsive grid, and copyright bar. Used across 5 pages (insurance, about, clinics, clinic detail, provider detail).
+- **Insurance Page**: Full informational page at `/insurance` with dynamic insurance data from API, color-coded badges, payment methods section, and 5-item FAQ accordion.
+- **About Page**: Professional about page at `/about` with hero, mission statement, 4 values cards, 4 stat cards, and team "coming soon" section.
+- **Footer Consolidation**: Replaced 4 inline footer implementations with single reusable `PublicFooter` component, improving maintainability.
+
+---
+Task ID: 9c
+Agent: Sprint 9c Agent
+Task: Styling Polish Round 2
+
+Work Log:
+- **globals.css — Dark Mode Refinements**: Added `.dark .card-hover-lift:hover` with emerald-tinted shadow, `.dark .input-focus-glow:focus-within` adjusted for dark backgrounds, `.dark .shimmer-text` darker gradient, `.dark .stagger-fade-in` starting more transparent, `.dark .custom-scrollbar::-webkit-scrollbar-thumb` emerald tint
+- **globals.css — Global Utilities**: Added `card-glow-emerald` (emerald box-shadow ring for active/focused cards), `text-gradient-emerald` (gradient text for headings), `underline-animated` (smooth sliding underline on hover/active for tabs), `pulse-ring` keyframes + class (expanding ring for status dots), `ripple` keyframes (for click effects), `stat-gradient-animated` (slowly shifting gradient on stat cards), `border-transition` (smooth border/shadow transition), `btn-icon-slide-back`/`btn-icon-slide-next` (icon slide on hover), `save-check-pop` keyframes + `save-check-anim` (scale animation for save confirmations), `slow-rotate` keyframes + `animate-slow-rotate` (gentle rotation for empty states), `time-slot-ripple` (CSS-only ripple on click), `text-shimmer-loading` (shimmer effect for loading text), `section-glow-border` (emerald left border that glows on hover), `danger-gradient-border` (red gradient border for danger zones), `checkin-pulse-glow` (pulsing glow for available check-in buttons), `status-card-gradient-border` (gradient border via mask-composite)
+- **Activity Feed Page**: Added staggered slide-in-right animation on notification items (50ms delay per item), enhanced hover with `transition-all` + `hover:border-l-[5px]` border intensify, added `underline-animated` + `active` class to filter tabs for smooth underline transition, added pulsing "Live" indicator with ping animation, added `animate-slow-rotate` to empty state BellOff icon
+- **Settings Page**: Added `card-hover-lift` + `section-glow-border` to all 3 setting cards (Clinic Info, Financial Config, Your Account) for hover lift + emerald left border glow
+- **Admin Dashboard**: Added `stat-gradient-animated` to stat cards for slowly shifting gradient, alternating row backgrounds (`bg-muted/20`) + smooth hover on clinic and staff tables, `pulse-ring` on system health CheckCircle2 dots, staggered `slide-in-right` animation with 60ms delay on activity feed items
+- **Booking Page**: Added CSS-only decorative sparkle dots on confirmation step, added `btn-icon-slide-back`/`btn-icon-slide-next` classes to Back/Continue buttons with `icon-slide-left`/`icon-slide-right` on ArrowLeft/ArrowRight icons, added `card-glow-emerald` + `border-transition` to step 1 and step 2 cards, added `text-shimmer-loading` to loading text, added `time-slot-ripple` to patient type toggle buttons
+- **Manage Page**: Added `status-card-gradient-border` to main appointment card for gradient border effect, added `checkin-pulse-glow` to check-in button for pulsing glow when available, added `card-hover-lift` to "What to Know" card, added `border-l-red-300/60` red-tinted left border to cancellation policy card
+- Ran `bun run lint` — 0 errors, 2 pre-existing warnings (unrelated to this task)
+
+Stage Summary:
+- **Dark Mode**: 6 new dark-mode-specific CSS refinements added to globals.css
+- **CSS Utilities**: 16 new animation/utility classes added (card-glow-emerald, underline-animated, pulse-ring, stat-gradient-animated, section-glow-border, danger-gradient-border, checkin-pulse-glow, status-card-gradient-border, time-slot-ripple, text-shimmer-loading, btn-icon-slide, save-check-anim, animate-slow-rotate, border-transition, text-gradient-emerald, ripple)
+- **Pages Polished**: 5 pages received visual polish (activity feed, settings, admin, book, manage) — all changes are CSS-class-only, no logic/state changes
+- **Lint**: 0 errors
+
+---
+Task ID: 9a
+Agent: Sprint 9a Agent
+Task: QR Code Generation System
+
+Work Log:
+- Installed `qrcode` (v1.5.4) and `@types/qrcode` (v1.5.6) packages
+- Created QR Code API endpoint at `src/app/api/qr/[appointmentId]/route.ts`:
+  - GET endpoint with staff authentication (minimum CLINIC_RECEPTION role)
+  - Looks up appointment by ID, finds valid MANAGE token (not consumed, not expired)
+  - Generates QR code as PNG data URL using `qrcode.toDataURL` with emerald-800 color scheme
+  - Returns JSON with `qrDataUrl`, `appointmentId`, `patientName`
+  - Returns 404 if no valid MANAGE token exists
+- Updated `/api/manage/route.ts` to support `tokenId` query parameter:
+  - Added `tokenId` lookup mode alongside existing raw `token` hash lookup
+  - Token ID lookup bypasses check-in side-effects (read-only for QR code visitors)
+  - Updated error messages to reference both parameter options
+- Updated patient manage page (`src/app/manage/[token]/page.tsx`):
+  - Added auto-detection of token format (64-hex raw token vs cuid token ID)
+  - Uses `token` param for raw tokens, `tokenId` param for cuid IDs
+  - Added QR code section for BOOKED/CONFIRMED appointments with emerald-bordered card
+  - QR code links to the current page URL (patient self-service)
+- Created reusable `QrCodeDisplay` component (`src/components/qr-code-display.tsx`):
+  - Dual mode: client-side QR generation via `manageUrl` prop or server-side API fetch via `appointmentId`
+  - Loading skeleton state with animated placeholders
+  - Error state with AlertCircle icon and descriptive message
+  - QR code image display with emerald color scheme
+  - "Download QR" button (triggers PNG download)
+  - "Copy Link" button (copies management URL to clipboard with Check confirmation)
+  - Uses Sonner toast notifications for user feedback
+- Added QR Code action to staff appointments page (`src/app/staff/dashboard/appointments/page.tsx`):
+  - Added "QR Code" dropdown menu item for BOOKED/CONFIRMED appointments (with separator)
+  - Added QR Code dialog state (`qrAppointmentId`, `qrPatientName`)
+  - Added Dialog component showing QrCodeDisplay with appointment context
+- Ran `bun run lint` — 0 errors, 0 warnings
+
+Stage Summary:
+- **QR API**: Staff-authenticated endpoint at `/api/qr/[appointmentId]` generates emerald-themed QR codes linking to `/manage/[tokenId]`
+- **Manage API Enhancement**: Added `tokenId` query parameter support for QR code visitors (read-only, no check-in side-effects)
+- **QrCodeDisplay Component**: Reusable dual-mode component supporting both client-side generation (patient) and API fetch (staff) with loading/error states, download, and copy link
+- **Patient Manage Page**: QR code section shown for BOOKED/CONFIRMED appointments in emerald-bordered card
+- **Staff Appointments Page**: "QR Code" dropdown action opens dialog with QrCodeDisplay for BOOKED/CONFIRMED appointments
+- **Files Created**: `src/app/api/qr/[appointmentId]/route.ts`, `src/components/qr-code-display.tsx`
+- **Files Modified**: `src/app/api/manage/route.ts`, `src/app/manage/[token]/page.tsx`, `src/app/staff/dashboard/appointments/page.tsx`
+- **Lint**: 0 errors, 0 warnings
+
+---
+Task ID: 9
+Agent: Main Orchestrator
+Task: Sprint 9 — QR Codes, Error Boundaries, SEO, Styling Round 2, Public Pages
+
+Work Log:
+- Reviewed worklog.md: Sprints 1-8 all complete, identified Sprint 9 priorities
+- Dispatched 4 parallel subagents:
+  1. **9a (QR Code System)**: Installed qrcode package, created API endpoint + reusable QrCodeDisplay component, added QR to patient manage page and staff appointments dropdown
+  2. **9b (Error Boundaries + SEO)**: Created global-error.tsx, error.tsx, not-found.tsx, loading.tsx; added generateMetadata to clinic/provider pages; enhanced root layout metadata; created layout wrappers for clinics/review/intake
+  3. **9c (Styling Polish Round 2)**: 16 new CSS animation/utility classes; dark mode refinements; polished 5 pages (activity, settings, admin, book, manage) with CSS-only changes
+  4. **9d (Public Pages)**: Enhanced "How It Works" with card layout; created PublicFooter component (4-column, social icons); created Insurance page with FAQ; created About page with values + stats; replaced footers on 4 existing pages
+- Fixed Turbopack OOM on /insurance: replaced heavy shadcn Accordion with lightweight native `<details>` elements
+- Verified routes via curl: / (200), /about (200), /insurance (200), /clinics (200), /staff/login (200)
+- Lint: 0 errors across all files
+
+# Current Project Status Assessment
+- Sprint 1 (Data Layer + Auth): ✅ COMPLETE
+- Sprint 2 (Public Search): ✅ COMPLETE
+- Sprint 3 (Booking Wizard + Two-Phase Locking): ✅ COMPLETE
+- Sprint 4 (Staff Portal): ✅ COMPLETE
+- Sprint 5 (Additional Features): ✅ COMPLETE
+- Sprint 6 (Advanced Features + Styling): ✅ COMPLETE
+- Sprint 7 (Notifications, Reviews, Provider Profiles): ✅ COMPLETE
+- Sprint 8 (Production Readiness): ✅ COMPLETE
+- Sprint 9 (Final Polish): ✅ COMPLETE
+  - QR Code Generation System (API + reusable component + patient/staff integration)
+  - Error Boundaries (global-error, error, not-found, loading)
+  - Dynamic SEO Metadata (generateMetadata for clinic/provider pages, root layout Open Graph/Twitter)
+  - Enhanced "How It Works" section (card layout with gradient borders, connecting lines)
+  - Public Footer Component (4-column, social icons, responsive)
+  - Insurance & Payments Page (dynamic data, payment methods, FAQ)
+  - About Page (mission, values, stats, team placeholder)
+  - Styling Polish Round 2 (16 CSS utilities, dark mode, 5 pages polished)
+- **Project Scale**: ~135 source files, ~35,000+ lines of TypeScript/TSX, 35+ API routes, 28+ pages
+- **Full End-to-End Flow**: Search → Browse Clinics → View Provider → Book → Confirm → Complete Intake → Patient Portal → Check In → Leave Review → Staff Manage → Activity Feed → Analytics → Admin → QR Code
+
+# Completed Modifications (Sprint 9)
+
+### New Files (13)
+- `src/app/api/qr/[appointmentId]/route.ts`: QR code API (staff-auth, MANAGE token lookup, emerald QR)
+- `src/components/qr-code-display.tsx`: Reusable dual-mode QR component (download + copy link)
+- `src/app/global-error.tsx`: Global error boundary (root layout crashes)
+- `src/app/error.tsx`: Route-level error boundary (page crashes)
+- `src/app/not-found.tsx`: Custom 404 page
+- `src/app/loading.tsx`: Global loading skeleton
+- `src/app/clinics/layout.tsx`: SEO metadata for clinics directory
+- `src/app/review/[token]/layout.tsx`: SEO metadata for review pages
+- `src/app/intake/[token]/layout.tsx`: SEO metadata for intake pages
+- `src/app/insurance/page.tsx`: Insurance & Payments info page with FAQ
+- `src/app/about/page.tsx`: About page with values and stats
+- `src/components/public-footer.tsx`: Reusable 4-column footer component
+
+### Modified Files (10)
+- `src/app/api/manage/route.ts`: Added tokenId query parameter support (read-only for QR visitors)
+- `src/app/manage/[token]/page.tsx`: QR code section + auto-detect token format
+- `src/app/staff/dashboard/appointments/page.tsx`: QR Code dropdown action + dialog
+- `src/app/clinic/[slug]/page.tsx`: generateMetadata + PublicFooter
+- `src/app/providers/[slug]/page.tsx`: generateMetadata + PublicFooter
+- `src/app/layout.tsx`: Enhanced metadata (metadataBase, Open Graph, Twitter)
+- `src/app/clinics/page.tsx`: PublicFooter replacement
+- `src/components/search/search-page.tsx`: Enhanced "How It Works" card layout
+- `src/app/globals.css`: 16 new CSS animation/utility classes + dark mode refinements
+- `src/app/staff/dashboard/activity/page.tsx`: Staggered animations, tab underlines, pulse indicators
+- `src/app/staff/dashboard/settings/page.tsx`: card-hover-lift, section-glow-border
+- `src/app/staff/dashboard/admin/page.tsx`: stat-gradient-animated, pulse-ring, alternating rows
+- `src/app/book/page.tsx`: Sparkle decorations, icon slide buttons, card-glow, ripple effects
+
+# Unresolved Issues / Risks
+1. **OOM in dev environment**: Turbopack compilation + multiple page compilation exceeds 4GB container memory. Workaround: test one page at a time. Production builds unaffected. Mitigated insurance page by replacing shadcn Accordion with native `<details>`.
+2. The "middleware" deprecation warning in Next.js 16 (functional, cosmetic only)
+3. Geolocation requires user to grant browser location permission
+4. Stripe SDK not installed — all bookings use MANUAL_WAIVER or CASH_AT_DESK
+5. No email sending configured — confirmation/review/intake emails not sent
+6. Slot generator is manual (API call) not automatic (no cron/mini-service running continuously)
+7. Lock cleanup is manual (API call) not automatic
+8. Intake form data stored as JSON in InternalNote — not a proper form builder
+9. Turbopack internal panic on certain component combinations (Accordion + large pages) — dev-only issue
+
+# Priority Recommendations for Next Phase (Sprint 10: Advanced Features)
+1. **Slot generator mini-service** — Bun-based background service running every 6 hours
+2. **Email integration stubs** — SendGrid/SES for booking confirmations
+3. **Accessibility improvements** — ARIA labels, keyboard navigation, focus management
+4. **Performance** — Component code splitting, lazy loading for heavy pages (analytics, admin)
+5. **PWA manifest** — Offline caching for patient portal
+6. **Waitlist automation** — Auto-process waitlist when slots open up
+7. **Patient portal enhancements** — Appointment history, favorite providers
+8. **Multi-language support** — Using next-intl (already installed)
+9. **Advanced search filters** — Insurance filter, availability window, modality
+10. **Clinic comparison feature** — Side-by-side clinic/provider comparison

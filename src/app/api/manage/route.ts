@@ -2,6 +2,7 @@
 // Patient Token Management API
 // =============================================================================
 // GET /api/manage?token=<raw_64_char_hex>
+// GET /api/manage?tokenId=<cuid>  (QR code support — lookup by token record ID)
 // Validates the patient token, returns appointment details, and handles check-in.
 // =============================================================================
 
@@ -16,43 +17,62 @@ import { isAfter, subHours } from "date-fns";
 export async function GET(request: NextRequest) {
   try {
     const rawToken = request.nextUrl.searchParams.get("token");
+    const tokenId = request.nextUrl.searchParams.get("tokenId");
 
-    // Validate token presence
-    if (!rawToken) {
-      return NextResponse.json(
-        { error: "Missing token parameter" },
-        { status: 400 }
-      );
-    }
+    // Support two lookup modes: raw token hash or token record ID
+    let tokenRecord: Awaited<ReturnType<typeof db.token.findUnique>> | null = null;
 
-    // Validate token format (must be 64-char hex)
-    if (!/^[0-9a-fA-F]{64}$/.test(rawToken)) {
-      return NextResponse.json(
-        { error: "Invalid token format" },
-        { status: 400 }
-      );
-    }
-
-    // Hash the raw token for database lookup
-    const tokenHash = hashToken(rawToken);
-
-    // Look up token with full appointment details
-    const tokenRecord = await db.token.findUnique({
-      where: { tokenHash },
-      include: {
-        appointment: {
-          include: {
-            provider: true,
-            service: true,
-            specialty: true,
-            clinic: true,
-            slot: true,
-            insurance: true,
-            ledger: true,
+    if (tokenId) {
+      // Token ID lookup (used by QR codes — no check-in side-effects)
+      tokenRecord = await db.token.findUnique({
+        where: { id: tokenId },
+        include: {
+          appointment: {
+            include: {
+              provider: true,
+              service: true,
+              specialty: true,
+              clinic: true,
+              slot: true,
+              insurance: true,
+              ledger: true,
+            },
           },
         },
-      },
-    });
+      });
+    } else if (rawToken) {
+      // Raw token hash lookup (original behavior — supports check-in)
+      if (!/^[0-9a-fA-F]{64}$/.test(rawToken)) {
+        return NextResponse.json(
+          { error: "Invalid token format" },
+          { status: 400 }
+        );
+      }
+
+      const tokenHash = hashToken(rawToken);
+
+      tokenRecord = await db.token.findUnique({
+        where: { tokenHash },
+        include: {
+          appointment: {
+            include: {
+              provider: true,
+              service: true,
+              specialty: true,
+              clinic: true,
+              slot: true,
+              insurance: true,
+              ledger: true,
+            },
+          },
+        },
+      });
+    } else {
+      return NextResponse.json(
+        { error: "Missing token or tokenId parameter" },
+        { status: 400 }
+      );
+    }
 
     // Token not found
     if (!tokenRecord) {
@@ -81,10 +101,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Handle CHECK_IN purpose
+    // Handle CHECK_IN purpose (only when accessed via raw token, not tokenId/QR)
     let justCheckedIn = false;
 
-    if (tokenRecord.purpose === TOKEN_PURPOSE.CHECK_IN) {
+    if (!tokenId && tokenRecord.purpose === TOKEN_PURPOSE.CHECK_IN) {
       // Check if already consumed
       if (!tokenRecord.consumedAt) {
         // Check if appointment is within 24 hours

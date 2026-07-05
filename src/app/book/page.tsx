@@ -780,7 +780,7 @@ export default function BookingPage() {
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-emerald-600" />
-            <p className="text-sm text-muted-foreground">Loading appointment details...</p>
+            <p className="text-sm text-muted-foreground text-shimmer-loading">Loading appointment details...</p>
           </div>
         </div>
       </div>
@@ -873,7 +873,15 @@ export default function BookingPage() {
 
         <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-10 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Confetti + Success Icon */}
-          <div className="flex flex-col items-center text-center space-y-5 pt-4">
+          <div className="relative flex flex-col items-center text-center space-y-5 pt-4">
+            {/* Decorative sparkles (CSS-only) */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+              <div className="absolute top-20 left-[15%] size-2 rounded-full bg-emerald-300/40 animate-pulse-subtle" />
+              <div className="absolute top-32 right-[20%] size-1.5 rounded-full bg-amber-300/40 animate-pulse-subtle" style={{ animationDelay: '0.5s' }} />
+              <div className="absolute top-44 left-[25%] size-1 rounded-full bg-teal-300/50 animate-pulse-subtle" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-emerald-400/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
+            </div>
+
             {/* Confetti dots */}
             <div className="relative size-24 flex items-center justify-center">
               {confettiColors.map((color, i) => {
@@ -1154,7 +1162,7 @@ export default function BookingPage() {
               </p>
             </div>
 
-            <Card className="shadow-sm input-focus-glow">
+            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
               <CardContent className="p-5 space-y-5">
                 {/* Reason for Visit */}
                 <div className="space-y-2">
@@ -1189,14 +1197,14 @@ export default function BookingPage() {
                   >
                     <ToggleGroupItem
                       value="ADULT"
-                      className="flex-1 gap-1.5 cursor-pointer"
+                      className="flex-1 gap-1.5 cursor-pointer time-slot-ripple"
                     >
                       <User className="size-3.5" />
                       <span className="text-xs sm:text-sm">Adult</span>
                     </ToggleGroupItem>
                     <ToggleGroupItem
                       value="PEDIATRIC"
-                      className="flex-1 gap-1.5 cursor-pointer"
+                      className="flex-1 gap-1.5 cursor-pointer time-slot-ripple"
                     >
                       <Baby className="size-3.5" />
                       <span className="text-xs sm:text-sm">Pediatric</span>
@@ -1410,7 +1418,7 @@ export default function BookingPage() {
               </p>
             </div>
 
-            <Card className="shadow-sm input-focus-glow">
+            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
               <CardContent className="p-5 space-y-4">
                 {/* Patient Name */}
                 <div className="space-y-2">
@@ -1741,9 +1749,9 @@ export default function BookingPage() {
               variant="outline"
               onClick={goBack}
               disabled={step === 1}
-              className="cursor-pointer"
+              className="cursor-pointer btn-icon-slide-back"
             >
-              <ArrowLeft className="size-4" />
+              <ArrowLeft className="size-4 icon-slide-left" />
               Back
             </Button>
 
@@ -1754,10 +1762,10 @@ export default function BookingPage() {
                   (step === 1 && !validateStep1()) ||
                   (step === 2 && !validateStep2())
                 }
-                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm btn-icon-slide-next"
               >
                 Continue
-                <ArrowRight className="size-4" />
+                <ArrowRight className="size-4 icon-slide-right" />
               </Button>
             ) : (
               <div className="w-[88px]" /> // Spacer to balance the back button

@@ -77,7 +77,7 @@ export default function SettingsPage() {
       ) : clinic ? (
         <>
           {/* Clinic Information */}
-          <Card className="border-border/50 shadow-sm">
+          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -152,7 +152,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Financial Configuration */}
-          <Card className="border-border/50 shadow-sm">
+          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -194,7 +194,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Account Info */}
-          <Card className="border-border/50 shadow-sm">
+          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">

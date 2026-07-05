@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -22,8 +23,74 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicFooter } from "@/components/public-footer";
 import { ExpandableText } from "@/components/ui/expandable-text";
 import { db } from "@/lib/db";
+
+// =============================================================================
+// Dynamic SEO Metadata
+// =============================================================================
+
+interface ProviderPageParams {
+  params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: ProviderPageParams): Promise<Metadata> {
+  try {
+    const { slug } = await params;
+    const provider = await db.provider.findUnique({
+      where: { slug },
+      include: {
+        providerServices: {
+          include: {
+            service: {
+              include: { specialty: true },
+            },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!provider) {
+      return {
+        title: "Provider Not Found — ClinicBook",
+        description: "The healthcare provider you are looking for could not be found.",
+      };
+    }
+
+    const specialty = provider.providerServices[0]?.service.specialty.name ?? "Healthcare";
+    const displayName = `Dr. ${provider.firstName} ${provider.lastName}`;
+
+    const ratingSuffix =
+      provider.rating > 0
+        ? ` Rated ${provider.rating.toFixed(1)}/5 by ${provider.reviewCount} patients.`
+        : "";
+
+    const description = provider.bio
+      ? provider.bio.length > 160
+        ? provider.bio.substring(0, 157) + "..."
+        : provider.bio
+      : `Book an appointment with ${displayName} (${specialty}).${ratingSuffix} View availability and schedule your visit today.`;
+
+    return {
+      title: `${displayName} — ${specialty} | ClinicBook`,
+      description,
+      openGraph: {
+        title: `${displayName} — ${specialty} | ClinicBook`,
+        description,
+        type: "profile",
+        firstName: provider.firstName,
+        lastName: provider.lastName,
+      },
+    };
+  } catch {
+    return {
+      title: "Provider — ClinicBook",
+      description: "Find and book appointments with top-rated healthcare providers.",
+    };
+  }
+}
 
 // =============================================================================
 // Types
@@ -562,28 +629,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
       </main>
 
       {/* ===== Footer ===== */}
-      <footer className="border-t bg-muted/30 mt-auto">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} ClinicBook. All rights reserved.</span>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-foreground transition-colors">
-              Home
-            </Link>
-            <Link
-              href="/"
-              className="hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/"
-              className="hover:text-foreground transition-colors"
-            >
-              Terms of Service
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

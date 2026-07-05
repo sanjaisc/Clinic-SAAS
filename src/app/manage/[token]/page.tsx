@@ -34,7 +34,9 @@ import {
   Video,
   Timer,
   Star,
+  QrCode,
 } from "lucide-react";
+import { QrCodeDisplay } from "@/components/qr-code-display";
 
 // ---- Types ----
 
@@ -197,7 +199,12 @@ export default function ManagePage() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/manage?token=${encodeURIComponent(token)}`);
+        // Detect token format: 64-hex raw token vs cuid token ID (QR code links)
+        const isRawToken = /^[0-9a-fA-F]{64}$/.test(token);
+        const apiUrl = isRawToken
+          ? `/api/manage?token=${encodeURIComponent(token)}`
+          : `/api/manage?tokenId=${encodeURIComponent(token)}`;
+        const res = await fetch(apiUrl);
         if (cancelled) return;
 
         if (res.status === 404) {
@@ -499,7 +506,7 @@ export default function ManagePage() {
 
                 {/* Main Appointment Card */}
                 <motion.div {...fadeInUp}>
-                  <Card className="border-0 shadow-lg overflow-hidden">
+                  <Card className="border-0 shadow-lg overflow-hidden status-card-gradient-border">
                     {/* Gradient Top Bar */}
                     <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
 
@@ -652,7 +659,7 @@ export default function ManagePage() {
                       <CardFooter className="pt-0">
                         <Button
                           size="lg"
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg checkin-pulse-glow"
                           disabled={checkInLoading}
                           onClick={async () => {
                             setCheckInLoading(true);
@@ -685,9 +692,33 @@ export default function ManagePage() {
                   </Card>
                 </motion.div>
 
+                {/* ---- QR Code Section (BOOKED or CONFIRMED only) ---- */}
+                {(data.appointment.status === "BOOKED" || data.appointment.status === "CONFIRMED") && (
+                  <motion.div {...fadeInUp}>
+                    <Card className="border-emerald-200 shadow-md bg-white">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <QrCode className="size-5 text-emerald-600" />
+                          Your Appointment QR Code
+                        </CardTitle>
+                        <CardDescription className="text-sm">
+                          Scan this QR code to quickly access your appointment management page.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <QrCodeDisplay
+                          appointmentId={data.appointment.id}
+                          patientName={data.appointment.patientName}
+                          manageUrl={typeof window !== "undefined" ? window.location.href : undefined}
+                        />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
                 {/* ---- What to Know Section ---- */}
                 <motion.div {...fadeInUp}>
-                  <Card className="border-0 shadow-md">
+                  <Card className="border-0 shadow-md card-hover-lift">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <FileText className="size-5 text-emerald-600" />
@@ -781,7 +812,7 @@ export default function ManagePage() {
 
                 {/* ---- Cancellation Policy ---- */}
                 <motion.div {...fadeInUp}>
-                  <Card className="border-0 shadow-md bg-muted/30">
+                  <Card className="border-0 shadow-md card-hover-lift bg-muted/30 border-l-4 border-l-red-300/60">
                     <CardContent className="py-5 px-6">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="size-4 text-muted-foreground mt-0.5 shrink-0" />

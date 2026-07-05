@@ -31,7 +31,9 @@ import {
   DollarSign,
   Hash,
   Bell,
+  QrCode,
 } from "lucide-react";
+import { QrCodeDisplay } from "@/components/qr-code-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -223,6 +225,10 @@ export default function AppointmentsPage() {
 
   // Status transition
   const [transitioningId, setTransitioningId] = useState<string | null>(null);
+
+  // QR Code dialog
+  const [qrAppointmentId, setQrAppointmentId] = useState<string | null>(null);
+  const [qrPatientName, setQrPatientName] = useState<string | undefined>(undefined);
 
   // View mode: appointments or waitlist
   const [viewMode, setViewMode] = useState<"appointments" | "waitlist">("appointments");
@@ -999,6 +1005,19 @@ export default function AppointmentsPage() {
                               Cancel
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setQrAppointmentId(apt.id);
+                                setQrPatientName(apt.patientName);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <QrCode className="size-3.5 mr-2 text-emerald-600" />
+                              QR Code
+                            </DropdownMenuItem>
+                          )}
                           {apt.status === "BOOKED" && (
                             <DropdownMenuItem
                               onClick={() => handleTransition(apt.id, "NO_SHOW")}
@@ -1071,6 +1090,39 @@ export default function AppointmentsPage() {
         )}
       </div>
       )}
+
+      {/* ================================================================== */}
+      {/* QR CODE DIALOG                                                     */}
+      {/* ================================================================== */}
+      <Dialog
+        open={!!qrAppointmentId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setQrAppointmentId(null);
+            setQrPatientName(undefined);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="size-5 text-emerald-600" />
+              Appointment QR Code
+            </DialogTitle>
+            <DialogDescription>
+              {qrPatientName
+                ? `QR code for ${qrPatientName}'s appointment`
+                : "Scannable QR code for this appointment"}
+            </DialogDescription>
+          </DialogHeader>
+          {qrAppointmentId && (
+            <QrCodeDisplay
+              appointmentId={qrAppointmentId}
+              patientName={qrPatientName}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ================================================================== */}
       {/* DETAIL DIALOG                                                      */}

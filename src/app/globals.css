@@ -354,3 +354,230 @@
 .dark .results-fade::after {
   background: linear-gradient(to bottom, transparent, oklch(0.145 0 0 / 0.9));
 }
+
+/* ========== 9c: Dark Mode Refinements ========== */
+
+.dark .card-hover-lift:hover {
+  box-shadow: 0 4px 16px oklch(0.4 0.1 160 / 0.15), 0 2px 6px oklch(0 0 0 / 0.3);
+}
+
+.dark .input-focus-glow:focus-within {
+  box-shadow: 0 0 0 3px oklch(0.5 0.1 160 / 0.2);
+}
+
+.dark .shimmer-text {
+  background: linear-gradient(
+    110deg,
+    oklch(0.55 0.12 162) 0%,
+    oklch(0.6 0.1 155) 25%,
+    oklch(0.65 0.14 150) 50%,
+    oklch(0.6 0.1 155) 75%,
+    oklch(0.55 0.12 162) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-text-bg 3s ease-in-out infinite;
+}
+
+.dark .stagger-fade-in {
+  opacity: 0;
+  animation: slide-in-right 0.3s ease-out both;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: oklch(0.4 0.08 160);
+}
+
+/* ========== 9c: Global Utility Classes & Animations ========== */
+
+/* Glow effect for active/focused cards */
+.card-glow-emerald {
+  box-shadow: 0 0 0 1px oklch(0.7 0.17 162 / 0.3), 0 0 20px oklch(0.7 0.17 162 / 0.1);
+}
+
+/* Dark mode card glow */
+.dark .card-glow-emerald {
+  box-shadow: 0 0 0 1px oklch(0.5 0.12 162 / 0.4), 0 0 20px oklch(0.5 0.12 162 / 0.15);
+}
+
+/* Subtle text gradient for headings */
+.text-gradient-emerald {
+  background: linear-gradient(135deg, oklch(0.5 0.15 160), oklch(0.55 0.12 180));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Smooth underline animation for tabs/links */
+.underline-animated {
+  position: relative;
+}
+.underline-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: oklch(0.6 0.15 160);
+  transition: width 0.3s ease;
+  border-radius: 1px;
+}
+.underline-animated:hover::after,
+.underline-animated.active::after {
+  width: 100%;
+}
+
+/* Pulse ring for status dots */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 oklch(0.6 0.2 145 / 0.4); }
+  70% { box-shadow: 0 0 0 6px oklch(0.6 0.2 145 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(0.6 0.2 145 / 0); }
+}
+.pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+/* Ripple effect for buttons */
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+/* Gradient stat card animation */
+@keyframes stat-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.stat-gradient-animated {
+  background-size: 200% 200%;
+  animation: stat-gradient 8s ease infinite;
+}
+
+/* Smooth border transition */
+.border-transition {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Button icon slide on hover */
+.btn-icon-slide-back:hover .icon-slide-left {
+  transform: translateX(-2px);
+  transition: transform 0.2s ease;
+}
+.btn-icon-slide-next:hover .icon-slide-right {
+  transform: translateX(2px);
+  transition: transform 0.2s ease;
+}
+.icon-slide-left,
+.icon-slide-right {
+  transition: transform 0.2s ease;
+}
+
+/* Save confirmation animation */
+@keyframes save-check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.save-check-anim {
+  animation: save-check-pop 0.4s ease-out;
+}
+
+/* Slow rotation for empty state icon */
+@keyframes slow-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-slow-rotate {
+  animation: slow-rotate 20s linear infinite;
+}
+
+/* Time slot ripple on click */
+.time-slot-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.time-slot-ripple::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: oklch(0.7 0.17 162 / 0.3);
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+  top: 50%;
+  left: 50%;
+  margin-top: -10px;
+  margin-left: -10px;
+  transition: none;
+}
+.time-slot-ripple:active::after {
+  animation: ripple 0.5s ease-out;
+}
+
+/* Loading shimmer for text */
+.text-shimmer-loading {
+  background: linear-gradient(
+    90deg,
+    oklch(0.7 0 0) 25%,
+    oklch(0.85 0 0) 50%,
+    oklch(0.7 0 0) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Section glow border on hover */
+.section-glow-border {
+  border-left: 3px solid oklch(0.7 0.12 160);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.section-glow-border:hover {
+  border-left-color: oklch(0.6 0.17 160);
+  box-shadow: inset 3px 0 8px oklch(0.7 0.15 160 / 0.1);
+}
+
+/* Danger zone gradient border */
+.danger-gradient-border {
+  border: 1px solid transparent;
+  background-image: linear-gradient(white, white), linear-gradient(135deg, oklch(0.65 0.2 25), oklch(0.6 0.15 35));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+.dark .danger-gradient-border {
+  background-image: linear-gradient(oklch(0.2 0 0), oklch(0.2 0 0)), linear-gradient(135deg, oklch(0.5 0.15 25), oklch(0.45 0.12 35));
+}
+
+/* Pulsing glow for available check-in button */
+@keyframes checkin-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.6 0.17 160 / 0.4); }
+  50% { box-shadow: 0 0 0 8px oklch(0.6 0.17 160 / 0); }
+}
+.checkin-pulse-glow {
+  animation: checkin-pulse-glow 2s ease-in-out infinite;
+}
+
+/* Gradient border for appointment status card */
+.status-card-gradient-border {
+  position: relative;
+  border: none;
+}
+.status-card-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, oklch(0.7 0.17 162), oklch(0.6 0.12 180), oklch(0.65 0.1 160));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}

@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicFooter } from "@/components/public-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -516,25 +517,8 @@ export default function ClinicsDirectoryPage() {
         )}
       </main>
 
-      {/* Sticky Footer */}
-      <footer className="mt-auto border-t bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
-          <span>© 2026 ClinicBook. All rights reserved.</span>
-          <nav className="flex items-center gap-3">
-            <Link href="/" className="hover:text-gray-900 transition-colors">
-              Home
-            </Link>
-            <span className="text-gray-300">|</span>
-            <Link href="#" className="hover:text-gray-900 transition-colors">
-              Privacy Policy
-            </Link>
-            <span className="text-gray-300">|</span>
-            <Link href="#" className="hover:text-gray-900 transition-colors">
-              Terms of Service
-            </Link>
-          </nav>
-        </div>
-      </footer>
+      {/* Footer */}
+      <PublicFooter />
 
       {/* Animation keyframes */}
       <style jsx>{`

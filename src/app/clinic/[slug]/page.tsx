@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   MapPin,
@@ -18,9 +19,62 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicFooter } from "@/components/public-footer";
 import { ClinicProviderRow } from "@/components/clinic/clinic-provider-row";
 import { AboutText } from "@/components/clinic/about-text";
 import { db } from "@/lib/db";
+
+// =============================================================================
+// Dynamic SEO Metadata
+// =============================================================================
+
+interface ClinicPageParams {
+  params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: ClinicPageParams): Promise<Metadata> {
+  try {
+    const { slug } = await params;
+    const clinic = await db.clinic.findUnique({
+      where: { slug },
+    });
+
+    if (!clinic) {
+      return {
+        title: "Clinic Not Found — ClinicBook",
+        description: "The clinic you are looking for could not be found.",
+      };
+    }
+
+    const description = clinic.about
+      ? clinic.about.length > 160
+        ? clinic.about.substring(0, 157) + "..."
+        : clinic.about
+      : `Book appointments at ${clinic.name}. View providers, hours, and availability.`;
+
+    const ogImages = clinic.coverImageUrl
+      ? [{ url: clinic.coverImageUrl }]
+      : undefined;
+
+    return {
+      title: `${clinic.name} — ClinicBook`,
+      description,
+      openGraph: {
+        title: `${clinic.name} — ClinicBook`,
+        description,
+        type: "website",
+        url: `https://clinicbook.app/clinic/${clinic.slug}`,
+        siteName: "ClinicBook",
+        ...(ogImages ? { images: ogImages } : {}),
+      },
+    };
+  } catch {
+    return {
+      title: "Clinic — ClinicBook",
+      description: "Find and book medical appointments at top-rated clinics.",
+    };
+  }
+}
 
 // =============================================================================
 // Types
@@ -532,29 +586,8 @@ export default async function ClinicDetailPage({ params }: PageProps) {
         </div>
       </main>
 
-      {/* ===== Footer (matches search page style) ===== */}
-      <footer className="border-t bg-muted/30 mt-auto">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} ClinicBook. All rights reserved.</span>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-foreground transition-colors">
-              Home
-            </Link>
-            <Link
-              href="/"
-              className="hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/"
-              className="hover:text-foreground transition-colors"
-            >
-              Terms of Service
-            </Link>
-          </div>
-        </div>
-      </footer>
+      {/* ===== Footer ===== */}
+      <PublicFooter />
     </div>
   );
 }

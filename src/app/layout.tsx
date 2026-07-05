@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://clinicbook.app"),
   title: "ClinicBook — Find & Book Medical Appointments",
   description:
     "Search for local clinics and providers, compare availability, and book appointments instantly. Telehealth and in-person visits available.",
@@ -29,6 +30,17 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+  },
+  openGraph: {
+    siteName: "ClinicBook",
+    locale: "en_US",
+    type: "website",
+    title: "ClinicBook — Find & Book Medical Appointments",
+    description:
+      "Search for local clinics and providers, compare availability, and book appointments instantly. Telehealth and in-person visits available.",
+  },
+  twitter: {
+    card: "summary_large_image",
   },
 };
 
