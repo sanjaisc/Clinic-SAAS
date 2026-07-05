@@ -294,6 +294,13 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                     </button>
                   );
                 })}
+                <Link
+                  href={`/providers/${provider.slug}`}
+                  className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/30 px-4 py-2 text-sm font-medium text-emerald-700 transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-sm"
+                >
+                  MORE
+                  <ChevronRight className="size-4" />
+                </Link>
               </div>
             </div>
           </>

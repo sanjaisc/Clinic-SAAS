@@ -2143,3 +2143,17 @@ Stage Summary:
 - **Verified via agent-browser**: Week navigation, modality filtering (In-Clinic shows only in-person slots), slot click → booking page navigation, all API calls return 200
 - **Design**: Matches Zocdoc's week-view pattern — horizontal 7-day grid with time slots, color-coded modality, and direct booking flow
 ---
+Task ID: 7
+Agent: Main Agent
+Task: Add "MORE" button on provider cards and reposition availability calendar above reviews
+
+Work Log:
+- Added dashed-border "MORE" link button after the 3 earliest slot buttons on `ProviderCard` component, linking to the provider detail page
+- Moved the `ProviderAvailabilityCalendar` card from below the Reviews section to just above the Patient Reviews section on the provider detail page
+- Removed the duplicate calendar block from its old position below reviews
+
+Stage Summary:
+- **2 files modified**: `src/components/search/provider-card.tsx`, `src/app/providers/[slug]/page.tsx`
+- **Verified via agent-browser**: All 6 provider cards show the MORE link after 3 slots; provider detail page now shows: Hero → Stats → About → Services/Languages → **Availability Calendar** → **Reviews** → Contact Info
+- Lint passes cleanly
+---

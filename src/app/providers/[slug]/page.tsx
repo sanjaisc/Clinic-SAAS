@@ -471,6 +471,25 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             )}
           </div>
 
+          {/* ===== Availability Calendar (Zocdoc-style week view) ===== */}
+          <Card className="overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarDays className="size-5 text-emerald-600" />
+                Available Appointments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-5">
+              <ProviderAvailabilityCalendar
+                providerId={provider.id}
+                providerName={`${provider.firstName} ${provider.lastName}`}
+                initialServiceId={provider.providerServices[0]?.serviceId}
+                initialSpecialtyId={provider.providerServices[0]?.service.specialtyId}
+              />
+            </CardContent>
+          </Card>
+
           {/* ===== Reviews Section ===== */}
           {provider.reviews.length > 0 && (
             <div className="space-y-6">
@@ -540,25 +559,6 @@ export default async function ProviderProfilePage({ params }: PageProps) {
               </Card>
             </div>
           )}
-
-          {/* ===== Availability Calendar (Zocdoc-style week view) ===== */}
-          <Card className="overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarDays className="size-5 text-emerald-600" />
-                Available Appointments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-5">
-              <ProviderAvailabilityCalendar
-                providerId={provider.id}
-                providerName={`${provider.firstName} ${provider.lastName}`}
-                initialServiceId={provider.providerServices[0]?.serviceId}
-                initialSpecialtyId={provider.providerServices[0]?.service.specialtyId}
-              />
-            </CardContent>
-          </Card>
 
           {/* ===== Contact Info ===== */}
           <Card className="overflow-hidden">
