@@ -4,9 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   SLOT_STATUS,
-  AUDIT_ACTIONS,
   isValidSlotStatus,
 } from "@/lib/enums";
+import { AUDIT_ACTIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 import { parseISO, startOfDay, endOfDay } from "date-fns";
 

@@ -48,20 +48,9 @@ export type ClinicBookJWT = {
   jti?: string;
 };
 
-// Module augmentation for NextAuth types
-declare module "next-auth" {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface Session extends ClinicBookSession {}
-  interface User {
-    role: string;
-    clinicId: string | null;
-  }
-}
-
-declare module "next-auth/jwt" {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface JWT extends ClinicBookJWT {}
-}
+// NOTE: NextAuth type augmentation has been moved to src/types/next-auth.d.ts
+// Module augmentation MUST live in a .d.ts file (not a regular .ts with exports)
+// for TypeScript to correctly merge declarations across the project.
 
 export const authOptions: NextAuthOptions = {
   // ---- JWT Strategy (no DB sessions) ----
@@ -185,8 +174,8 @@ export const authOptions: NextAuthOptions = {
       // Initial sign-in: merge user data into token
       if (user) {
         token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
+        token.email = user.email ?? "";
+        token.name = user.name ?? "";
         token.role = user.role;
         token.clinicId = user.clinicId;
         return token;

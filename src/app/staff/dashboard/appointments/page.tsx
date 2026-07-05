@@ -396,9 +396,7 @@ export default function AppointmentsPage() {
         CANCELLED: "cancelled",
         NO_SHOW: "marked as no-show",
       };
-      toast.success(`Appointment ${statusLabels[newStatus] || "updated"}`, {
-        description: `Patient: ${currentAppointment?.patientName || "Unknown"}`,
-      });
+      toast.success(`Appointment ${statusLabels[newStatus] || "updated"}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
     } finally {

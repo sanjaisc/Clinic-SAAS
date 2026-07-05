@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { patientName: { contains: search } },
-        { patientEmail: { contains: search, mode: "insensitive" } },
+        { patientEmail: { contains: search } },
         { patientPhone: { contains: search } },
       ];
     }

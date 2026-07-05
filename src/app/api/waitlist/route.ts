@@ -10,22 +10,26 @@ export async function POST(request: NextRequest) {
 
     const {
       providerId,
-      specialtyId,
+      serviceId,
       patientName,
       patientEmail,
       patientPhone,
       patientType,
       preferredModality,
+      dateFrom,
+      dateTo,
     } = body;
 
     // Validate required fields
     const missing: string[] = [];
     if (!providerId) missing.push("providerId");
-    if (!specialtyId) missing.push("specialtyId");
+    if (!serviceId) missing.push("serviceId");
     if (!patientName) missing.push("patientName");
     if (!patientEmail) missing.push("patientEmail");
     if (!patientPhone) missing.push("patientPhone");
     if (!patientType) missing.push("patientType");
+    if (!dateFrom) missing.push("dateFrom");
+    if (!dateTo) missing.push("dateTo");
 
     if (missing.length > 0) {
       return NextResponse.json(
@@ -63,12 +67,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if patient already has an active waitlist entry for this provider
+    // Check if patient already has an active waitlist entry for this provider+service
     const existing = await db.waitlistEntry.findFirst({
       where: {
         providerId,
+        serviceId,
         patientEmail: patientEmail.toLowerCase(),
-        status: { in: ["WAITING", "OFFERED"] },
+        status: { in: ["ACTIVE", "OFFERED"] },
       },
     });
 
@@ -80,26 +85,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Create waitlist entry
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
     const entry = await db.waitlistEntry.create({
       data: {
         clinicId: provider.clinicId,
         providerId,
-        specialtyId,
+        serviceId,
         patientName,
         patientEmail: patientEmail.toLowerCase(),
         patientPhone,
         patientType,
-        preferredModality: preferredModality || null,
-        status: "WAITING",
-        expiresAt,
+        modality: preferredModality || null,
+        status: "ACTIVE",
+        dateFrom: new Date(dateFrom),
+        dateTo: new Date(dateTo),
       },
       include: {
         clinic: { select: { name: true } },
         provider: { select: { firstName: true, lastName: true } },
-        specialty: { select: { name: true } },
+        service: { select: { name: true } },
       },
     });
 
@@ -131,7 +134,7 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {
       patientEmail: email.toLowerCase(),
-      status: { in: ["WAITING", "OFFERED"] },
+      status: { in: ["ACTIVE", "OFFERED"] },
     };
 
     if (providerId) {
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
       include: {
         clinic: { select: { name: true } },
         provider: { select: { firstName: true, lastName: true } },
-        specialty: { select: { name: true } },
+        service: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     });

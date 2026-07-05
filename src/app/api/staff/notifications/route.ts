@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cache } from "@/lib/cache";
 import { AUDIT_ACTIONS } from "@/lib/constants";
 import { STAFF_ROLE, hasMinimumRole } from "@/lib/enums";
 import type { ClinicBookSessionUser } from "@/lib/auth";
@@ -40,61 +39,97 @@ export async function GET(request: NextRequest) {
 
     const cacheKey = `notifications:clinic:${clinicId}`;
 
-    const result = await cache.getOrSet(
-      cacheKey,
-      async () => {
-        // Fetch audit logs with appointment + provider + service + user data
-        const logs = await db.auditLog.findMany({
-          where: {
-            action: { in: [...NOTIFICATION_ACTIONS] },
-            appointment: { clinicId },
-          },
-          include: {
-            appointment: {
-              select: {
-                id: true,
-                patientName: true,
-                startTime: true,
-                status: true,
-                provider: {
-                  select: { firstName: true, lastName: true },
-                },
-                service: {
-                  select: { name: true },
-                },
-              },
-            },
-            user: {
-              select: { id: true, name: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        });
+    // Use a simple in-memory cache to avoid re-querying within 30s
+    const cacheMap = (globalThis as Record<string, unknown>).__notificationsCache as Record<string, { data: unknown; ts: number }> | undefined;
+    const cached = cacheMap?.[cacheKey];
+    if (cached && Date.now() - cached.ts < 30_000) {
+      return NextResponse.json(cached.data);
+    }
 
-        const now = Date.now();
-        const notifications = logs.map((log) => ({
-          id: log.id,
-          action: log.action,
-          createdAt: log.createdAt.toISOString(),
-          patientName: log.appointment?.patientName ?? null,
-          startTime: log.appointment?.startTime?.toISOString() ?? null,
-          providerName: log.appointment
-            ? `${log.appointment.provider.firstName} ${log.appointment.provider.lastName}`
-            : null,
-          serviceName: log.appointment?.service?.name ?? null,
-          appointmentStatus: log.appointment?.status ?? null,
-          triggeredBy: log.user?.name ?? null,
-        }));
-
-        const unreadCount = logs.filter(
-          (log) => now - log.createdAt.getTime() < UNREAD_THRESHOLD_MS
-        ).length;
-
-        return { notifications, unreadCount };
+    // Fetch audit logs with appointment + provider + service + user data
+    // NOTE: AuditLog has appointmentId but NO direct relation to Appointment.
+    // We fetch logs first, then batch-lookup the referenced appointments.
+    const logs = await db.auditLog.findMany({
+      where: {
+        action: { in: [...NOTIFICATION_ACTIONS] },
+        appointmentId: { not: null },
       },
-      30 // 30 second cache
-    );
+      include: {
+        user: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50, // Fetch more to allow filtering by clinic
+    });
+
+    // Collect unique appointment IDs and batch-fetch them
+    const appointmentIds = [...new Set(logs.map((l) => l.appointmentId!).filter(Boolean))];
+    const appointmentsMap = new Map<string, {
+      patientName: string;
+      startTime: Date;
+      status: string;
+      provider: { firstName: string; lastName: string };
+      service: { name: string } | null;
+      clinicId: string;
+    }>();
+
+    if (appointmentIds.length > 0) {
+      const appointments = await db.appointment.findMany({
+        where: { id: { in: appointmentIds } },
+        select: {
+          id: true,
+          patientName: true,
+          startTime: true,
+          status: true,
+          clinicId: true,
+          provider: { select: { firstName: true, lastName: true } },
+          service: { select: { name: true } },
+        },
+      });
+      for (const apt of appointments) {
+        appointmentsMap.set(apt.id, apt);
+      }
+    }
+
+    // Filter to only this clinic and build notification objects
+    const clinicNotifications = logs.filter((log) => {
+      const apt = appointmentsMap.get(log.appointmentId!);
+      return apt && apt.clinicId === clinicId;
+    }).slice(0, 20);
+
+    const now = Date.now();
+    const notifications = clinicNotifications.map((log) => {
+      const apt = appointmentsMap.get(log.appointmentId!);
+      return {
+        id: log.id,
+        action: log.action,
+        createdAt: log.createdAt.toISOString(),
+        patientName: apt?.patientName ?? null,
+        startTime: apt?.startTime?.toISOString() ?? null,
+        providerName: apt
+          ? `${apt.provider.firstName} ${apt.provider.lastName}`
+          : null,
+        serviceName: apt?.service?.name ?? null,
+        appointmentStatus: apt?.status ?? null,
+        triggeredBy: log.user?.name ?? null,
+      };
+    });
+
+    const unreadCount = clinicNotifications.filter(
+      (log) => now - log.createdAt.getTime() < UNREAD_THRESHOLD_MS
+    ).length;
+
+    const result = { notifications, unreadCount };
+
+    // Store in cache
+    if (!cacheMap) {
+      (globalThis as Record<string, unknown>).__notificationsCache = {};
+    }
+    ((globalThis as Record<string, unknown>).__notificationsCache as Record<string, { data: unknown; ts: number }>)[cacheKey] = {
+      data: result,
+      ts: Date.now(),
+    };
 
     return NextResponse.json(result);
   } catch (error) {

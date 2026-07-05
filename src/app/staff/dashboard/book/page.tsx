@@ -923,7 +923,7 @@ export default function ManualBookPage() {
   function StepVisitDetails() {
     // Filter services to those offered by the selected provider
     const providerServices = selectedProvider
-      ? selectedProvider.providerServices.map((ps) => ps.serviceId)
+      ? selectedProvider.providerServices.map((ps) => ps.service.id)
       : [];
 
     const availableServices = services.filter((s) =>
@@ -1291,7 +1291,7 @@ export default function ManualBookPage() {
               <ReviewRow
                 icon={<Calendar className="size-3.5" />}
                 label="Date & Time"
-                value={`${format(new Date(appointment.startTime), "EEEE, MMMM d, yyyy")}\n${format(new Date(appointment.startTime, "h:mm a"))} – ${format(new Date(appointment.endTime, "h:mm a"))}`}
+                value={`${format(new Date(appointment.startTime), "EEEE, MMMM d, yyyy")}\n${format(new Date(appointment.startTime), "h:mm a")} – ${format(new Date(appointment.endTime), "h:mm a")}`}
               />
               <ReviewRow
                 icon={<User className="size-3.5" />}

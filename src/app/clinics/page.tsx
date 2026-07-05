@@ -151,7 +151,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
           <span className="line-clamp-1 flex-1">
             {clinic.streetAddress}, {clinic.city}, {clinic.state} {clinic.zipCode}
           </span>
-          <Compass className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="View on map" />
+          <span title="View on map"><Compass className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" /></span>
         </div>
 
         {/* Phone */}

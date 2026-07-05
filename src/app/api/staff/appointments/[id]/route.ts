@@ -5,12 +5,12 @@ import { db } from "@/lib/db";
 import {
   APPOINTMENT_STATUS,
   SLOT_STATUS,
-  AUDIT_ACTIONS,
   APPOINTMENT_TRANSITIONS,
   canTransitionTo,
   isValidAppointmentStatus,
   type AppointmentStatus,
 } from "@/lib/enums";
+import { AUDIT_ACTIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 
 // =============================================================================

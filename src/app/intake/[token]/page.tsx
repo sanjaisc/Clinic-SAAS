@@ -84,8 +84,8 @@ const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -10 },
-  transition: { duration: 0.5, ease: "easeOut" },
-};
+  transition: { duration: 0.5, ease: "easeOut" as const },
+} as const;
 
 const staggerContainer = {
   animate: { transition: { staggerChildren: 0.08 } },
@@ -96,9 +96,9 @@ const checkmarkVariants = {
   animate: {
     scale: 1,
     opacity: 1,
-    transition: { type: "spring", stiffness: 200, damping: 15, delay: 0.2 },
+    transition: { type: "spring" as const, stiffness: 200, damping: 15, delay: 0.2 },
   },
-};
+} as const;
 
 const checkCirclePathVariants = {
   initial: { pathLength: 0, opacity: 0 },
@@ -106,11 +106,11 @@ const checkCirclePathVariants = {
     pathLength: 1,
     opacity: 1,
     transition: {
-      pathLength: { duration: 0.6, ease: "easeInOut", delay: 0.5 },
+      pathLength: { duration: 0.6, ease: "easeInOut" as const, delay: 0.5 },
       opacity: { duration: 0.1, delay: 0.5 },
     },
   },
-};
+} as const;
 
 // ---- Form section wrapper with emerald left border ----
 

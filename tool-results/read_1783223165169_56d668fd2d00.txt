@@ -1,0 +1,835 @@
+    75→  };
+    76→  clinic: {
+    77→    name: string;
+    78→    logoUrl: string | null;
+    79→    streetAddress: string;
+    80→    city: string;
+    81→    state: string;
+    82→    zipCode: string;
+    83→    phoneNumber: string;
+    84→    videoVisitLink: string | null;
+    85→  };
+    86→  insurance: {
+    87→    name: string;
+    88→    isDemo: boolean;
+    89→  } | null;
+    90→  ledger: {
+    91→    type: string;
+    92→    amountCents: number;
+    93→    description: string | null;
+    94→  } | null;
+    95→}
+    96→
+    97→type PageState = "loading" | "valid" | "expired" | "not_found" | "cancelled" | "check_in_early" | "error";
+    98→
+    99→// ---- Animation variants ----
+   100→
+   101→const fadeInUp = {
+   102→  initial: { opacity: 0, y: 20 },
+   103→  animate: { opacity: 1, y: 0 },
+   104→  exit: { opacity: 0, y: -10 },
+   105→  transition: { duration: 0.5, ease: "easeOut" },
+   106→};
+   107→
+   108→const staggerContainer = {
+   109→  animate: { transition: { staggerChildren: 0.1 } },
+   110→};
+   111→
+   112→const checkmarkVariants = {
+   113→  initial: { scale: 0, opacity: 0 },
+   114→  animate: {
+   115→    scale: 1,
+   116→    opacity: 1,
+   117→    transition: { type: "spring", stiffness: 200, damping: 15, delay: 0.2 },
+   118→  },
+   119→};
+   120→
+   121→const checkCirclePathVariants = {
+   122→  initial: { pathLength: 0, opacity: 0 },
+   123→  animate: {
+   124→    pathLength: 1,
+   125→    opacity: 1,
+   126→    transition: { pathLength: { duration: 0.6, ease: "easeInOut", delay: 0.5 }, opacity: { duration: 0.1, delay: 0.5 } },
+   127→  },
+   128→};
+   129→
+   130→// ---- Countdown Component ----
+   131→
+   132→function CountdownTimer({ targetDate }: { targetDate: Date }) {
+   133→  const [now, setNow] = useState(new Date());
+   134→  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   135→
+   136→  useEffect(() => {
+   137→    intervalRef.current = setInterval(() => setNow(new Date()), 60000);
+   138→    return () => {
+   139→      if (intervalRef.current) clearInterval(intervalRef.current);
+   140→    };
+   141→  }, []);
+   142→
+   143→  const days = differenceInDays(targetDate, now);
+   144→  const hours = differenceInHours(targetDate, now) % 24;
+   145→
+   146→  if (days > 0) {
+   147→    return (
+   148→      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
+   149→        <Timer className="size-5 text-emerald-600" />
+   150→        <span className="font-semibold text-lg">
+   151→          {days} day{days !== 1 ? "s" : ""} and {hours} hour{hours !== 1 ? "s" : ""} until your appointment
+   152→        </span>
+   153→      </div>
+   154→    );
+   155→  }
+   156→
+   157→  if (hours > 0) {
+   158→    const mins = differenceInMinutes(targetDate, now) % 60;
+   159→    return (
+   160→      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
+   161→        <Timer className="size-5 text-emerald-600" />
+   162→        <span className="font-semibold text-lg">
+   163→          {hours} hour{hours !== 1 ? "s" : ""} and {mins} minute{mins !== 1 ? "s" : ""} until your appointment
+   164→        </span>
+   165→      </div>
+   166→    );
+   167→  }
+   168→
+   169→  return (
+   170→    <div className="flex items-center gap-2 text-amber-700 bg-amber-50 rounded-lg px-4 py-3">
+   171→      <Timer className="size-5 text-amber-600" />
+   172→      <span className="font-semibold text-lg">Your appointment is very soon!</span>
+   173→    </div>
+   174→  );
+   175→}
+   176→
+   177→// ---- Format currency ----
+   178→
+   179→function formatCents(cents: number): string {
+   180→  return `$${(cents / 100).toFixed(2)}`;
+   181→}
+   182→
+   183→// ---- Main Page Component ----
+   184→
+   185→export default function ManagePage() {
+   186→  const params = useParams();
+   187→  const token = params.token as string;
+   188→  const [pageState, setPageState] = useState<PageState>("loading");
+   189→  const [data, setData] = useState<ManageData | null>(null);
+   190→  const [checkInLoading, setCheckInLoading] = useState(false);
+   191→  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+   192→  const fetchedRef = useRef(false);
+   193→
+   194→  useEffect(() => {
+   195→    if (!token || fetchedRef.current) return;
+   196→    fetchedRef.current = true;
+   197→
+   198→    let cancelled = false;
+   199→
+   200→    (async () => {
+   201→      try {
+   202→        // Detect token format: 64-hex raw token vs cuid token ID (QR code links)
+   203→        const isRawToken = /^[0-9a-fA-F]{64}$/.test(token);
+   204→        const apiUrl = isRawToken
+   205→          ? `/api/manage?token=${encodeURIComponent(token)}`
+   206→          : `/api/manage?tokenId=${encodeURIComponent(token)}`;
+   207→        const res = await fetch(apiUrl);
+   208→        if (cancelled) return;
+   209→
+   210→        if (res.status === 404) {
+   211→          setPageState("not_found");
+   212→          return;
+   213→        }
+   214→
+   215→        if (res.status === 410) {
+   216→          const body = await res.json();
+   217→          if (body.code === "APPOINTMENT_CANCELLED") {
+   218→            setPageState("cancelled");
+   219→          } else {
+   220→            setPageState("expired");
+   221→          }
+   222→          return;
+   223→        }
+   224→
+   225→        if (res.status === 400) {
+   226→          const body = await res.json();
+   227→          if (body.code === "CHECK_IN_TOO_EARLY") {
+   228→            setPageState("check_in_early");
+   229→            setData(body);
+   230→          } else {
+   231→            setPageState("error");
+   232→            setErrorMessage(body.error || "Invalid request");
+   233→          }
+   234→          return;
+   235→        }
+   236→
+   237→        if (!res.ok) {
+   238→          setPageState("error");
+   239→          setErrorMessage("Something went wrong. Please try again.");
+   240→          return;
+   241→        }
+   242→
+   243→        const body = await res.json();
+   244→        setData(body);
+   245→        setPageState("valid");
+   246→      } catch {
+   247→        if (cancelled) return;
+   248→        setPageState("error");
+   249→        setErrorMessage("Unable to connect. Please check your internet and try again.");
+   250→      }
+   251→    })();
+   252→
+   253→    return () => { cancelled = true; };
+   254→  }, [token]);
+   255→
+   256→  // Determine if check-in button should show
+   257→  const showCheckInButton = () => {
+   258→    if (!data || pageState !== "valid") return false;
+   259→    if (data.token.purpose !== "CHECK_IN") return false;
+   260→    if (data.token.consumedAt) return false;
+   261→    if (data.appointment.status !== "BOOKED") return false;
+   262→
+   263→    const now = new Date();
+   264→    const windowStart = subHours(new Date(data.appointment.startTime), 24);
+   265→    return isAfter(now, windowStart);
+   266→  };
+   267→
+   268→  // ---- Render: Loading State ----
+   269→
+   270→  if (pageState === "loading") {
+   271→    return (
+   272→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   273→        <Header />
+   274→        <main className="flex-1 flex items-center justify-center p-4">
+   275→          <motion.div
+   276→            className="text-center"
+   277→            initial={{ opacity: 0 }}
+   278→            animate={{ opacity: 1 }}
+   279→          >
+   280→            <Loader2 className="size-10 text-emerald-600 animate-spin mx-auto mb-4" />
+   281→            <p className="text-muted-foreground text-lg">Loading your appointment details…</p>
+   282→          </motion.div>
+   283→        </main>
+   284→        <Footer />
+   285→      </div>
+   286→    );
+   287→  }
+   288→
+   289→  // ---- Render: Error / Expired / Not Found States ----
+   290→
+   291→  if (pageState === "not_found" || pageState === "expired" || pageState === "cancelled" || pageState === "error" || pageState === "check_in_early") {
+   292→    return (
+   293→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   294→        <Header />
+   295→        <main className="flex-1 flex items-center justify-center p-4">
+   296→          <motion.div
+   297→            className="max-w-md w-full"
+   298→            {...fadeInUp}
+   299→          >
+   300→            <Card className="text-center border-0 shadow-lg">
+   301→              <CardContent className="pt-10 pb-8 px-8">
+   302→                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-5">
+   303→                  <AlertCircle className="size-8 text-amber-500" />
+   304→                </div>
+   305→
+   306→                {pageState === "not_found" && (
+   307→                  <>
+   308→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   309→                      Link Not Found
+   310→                    </h2>
+   311→                    <p className="text-muted-foreground mb-6">
+   312→                      We couldn&apos;t find an appointment associated with this link.
+   313→                      It may have been removed or the link may be incorrect.
+   314→                    </p>
+   315→                  </>
+   316→                )}
+   317→
+   318→                {pageState === "expired" && (
+   319→                  <>
+   320→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   321→                      Link Expired
+   322→                    </h2>
+   323→                    <p className="text-muted-foreground mb-6">
+   324→                      This appointment link has expired. Appointment management links are valid
+   325→                      for 7 days after the scheduled appointment date.
+   326→                    </p>
+   327→                  </>
+   328→                )}
+   329→
+   330→                {pageState === "cancelled" && (
+   331→                  <>
+   332→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   333→                      Appointment Cancelled
+   334→                    </h2>
+   335→                    <p className="text-muted-foreground mb-6">
+   336→                      This appointment has been cancelled. If you believe this is an error,
+   337→                      please contact the clinic directly.
+   338→                    </p>
+   339→                  </>
+   340→                )}
+   341→
+   342→                {pageState === "check_in_early" && (
+   343→                  <>
+   344→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   345→                      Check-In Not Yet Available
+   346→                    </h2>
+   347→                    <p className="text-muted-foreground mb-6">
+   348→                      Check-in opens 24 hours before your appointment time.
+   349→                      Please check back closer to your appointment.
+   350→                    </p>
+   351→                  </>
+   352→                )}
+   353→
+   354→                {pageState === "error" && (
+   355→                  <>
+   356→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   357→                      Something Went Wrong
+   358→                    </h2>
+   359→                    <p className="text-muted-foreground mb-6">
+   360→                      {errorMessage || "An unexpected error occurred. Please try again."}
+   361→                    </p>
+   362→                  </>
+   363→                )}
+   364→
+   365→                <Separator className="my-6" />
+   366→
+   367→                <div className="bg-muted/50 rounded-lg p-4">
+   368→                  <p className="text-sm text-muted-foreground">
+   369→                    Need help? Please call the clinic directly:
+   370→                  </p>
+   371→                  <div className="flex items-center justify-center gap-2 mt-2">
+   372→                    <Phone className="size-4 text-emerald-600" />
+   373→                    <span className="font-semibold text-foreground text-lg">
+   374→                      {data?.clinic?.phoneNumber || "(555) 123-4567"}
+   375→                    </span>
+   376→                  </div>
+   377→                </div>
+   378→              </CardContent>
+   379→            </Card>
+   380→          </motion.div>
+   381→        </main>
+   382→        <Footer />
+   383→      </div>
+   384→    );
+   385→  }
+   386→
+   387→  // ---- Render: Valid Appointment ----
+   388→
+   389→  if (pageState === "valid" && data) {
+   390→    const startTime = new Date(data.appointment.startTime);
+   391→    const endTime = new Date(data.appointment.endTime);
+   392→    const isInPerson = data.appointment.modality === "IN_PERSON";
+   393→    const isVideo = data.appointment.modality === "VIDEO";
+   394→    const isCheckedIn = data.token.consumedAt !== null;
+   395→    const justCheckedIn = data.token.justCheckedIn === true;
+   396→    const providerName = `${data.provider.firstName} ${data.provider.lastName}${data.provider.credentials ? `, ${data.provider.credentials}` : ""}`;
+   397→
+   398→    // Payment display logic
+   399→    const getPaymentDisplay = () => {
+   400→      if (data.appointment.isDemoInsurance || data.insurance) {
+   401→        if (data.appointment.isDemoInsurance) {
+   402→          return { label: "Demo Insurance", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+   403→        }
+   404→        if (data.ledger?.amountCents && data.ledger.amountCents > 0) {
+   405→          return { label: `Insurance + ${formatCents(data.ledger.amountCents)} deposit`, sublabel: "Deposit will be applied to your copay", color: "bg-blue-100 text-blue-800" };
+   406→        }
+   407→        return { label: "Insurance", sublabel: "Please bring your insurance card", color: "bg-emerald-100 text-emerald-800" };
+   408→      }
+   409→
+   410→      if (data.appointment.selfPayCents > 0) {
+   411→        return { label: "Self-Pay", sublabel: `Total: ${formatCents(data.appointment.selfPayCents)}`, color: "bg-amber-100 text-amber-800" };
+   412→      }
+   413→
+   414→      if (data.appointment.depositCents > 0) {
+   415→        return { label: `Deposit: ${formatCents(data.appointment.depositCents)}`, sublabel: "Remaining balance due at visit", color: "bg-amber-100 text-amber-800" };
+   416→      }
+   417→
+   418→      return { label: "Free Visit", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+   419→    };
+   420→
+   421→    const paymentInfo = getPaymentDisplay();
+   422→
+   423→    return (
+   424→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   425→        <Header />
+   426→
+   427→        <main className="flex-1 py-6 px-4">
+   428→          <div className="max-w-2xl mx-auto space-y-5">
+   429→            <AnimatePresence mode="wait">
+   430→              {/* ---- Check-In Success Overlay ---- */}
+   431→              {justCheckedIn && (
+   432→                <motion.div
+   433→                  key="checkin-success"
+   434→                  initial={{ opacity: 0, scale: 0.95 }}
+   435→                  animate={{ opacity: 1, scale: 1 }}
+   436→                  className="mb-2"
+   437→                >
+   438→                  <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-700 text-white overflow-hidden">
+   439→                    <CardContent className="pt-8 pb-8 px-8 text-center">
+   440→                      <motion.div
+   441→                        className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-5"
+   442→                        variants={checkmarkVariants}
+   443→                        initial="initial"
+   444→                        animate="animate"
+   445→                      >
+   446→                        <motion.svg
+   447→                          className="size-10 text-white"
+   448→                          viewBox="0 0 24 24"
+   449→                          fill="none"
+   450→                          stroke="currentColor"
+   451→                          strokeWidth={3}
+   452→                          strokeLinecap="round"
+   453→                          strokeLinejoin="round"
+   454→                        >
+   455→                          <motion.path
+   456→                            d="M5 13l4 4L19 7"
+   457→                            variants={checkCirclePathVariants}
+   458→                            initial="initial"
+   459→                            animate="animate"
+   460→                          />
+   461→                        </motion.svg>
+   462→                      </motion.div>
+   463→                      <h2 className="text-2xl font-bold mb-2">You&apos;re Checked In!</h2>
+   464→                      <p className="text-emerald-100 text-lg mb-1">
+   465→                        {data.clinic.name}
+   466→                      </p>
+   467→                      <p className="text-emerald-100/80">
+   468→                        {format(startTime, "EEEE, MMMM d, yyyy")} at {format(startTime, "h:mm a")}
+   469→                      </p>
+   470→                      {isVideo && data.clinic.videoVisitLink && (
+   471→                        <div className="mt-5">
+   472→                          <Button
+   473→                            size="lg"
+   474→                            className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold rounded-lg"
+   475→                            asChild
+   476→                          >
+   477→                            <a href={data.clinic.videoVisitLink} target="_blank" rel="noopener noreferrer">
+   478→                              <Video className="size-4" />
+   479→                              Join Video Visit
+   480→                            </a>
+   481→                          </Button>
+   482→                        </div>
+   483→                      )}
+   484→                    </CardContent>
+   485→                  </Card>
+   486→                </motion.div>
+   487→              )}
+   488→
+   489→              {/* ---- Appointment Card ---- */}
+   490→              <motion.div
+   491→                key="appointment-card"
+   492→                variants={staggerContainer}
+   493→                initial="initial"
+   494→                animate="animate"
+   495→                className="space-y-5"
+   496→              >
+   497→                {/* Status Banner */}
+   498→                {(isCheckedIn || justCheckedIn) && !justCheckedIn && (
+   499→                  <motion.div {...fadeInUp}>
+   500→                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+   501→                      <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+   502→                      <span className="text-emerald-800 font-medium">You are checked in for this appointment</span>
+   503→                    </div>
+   504→                  </motion.div>
+   505→                )}
+   506→
+   507→                {/* Main Appointment Card */}
+   508→                <motion.div {...fadeInUp}>
+   509→                  <Card className="border-0 shadow-lg overflow-hidden status-card-gradient-border">
+   510→                    {/* Gradient Top Bar */}
+   511→                    <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+   512→
+   513→                    <CardHeader className="pb-4">
+   514→                      <div className="flex items-start gap-4">
+   515→                        {/* Clinic Logo/Placeholder */}
+   516→                        <div className="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+   517→                          {data.clinic.logoUrl ? (
+   518→                            <img
+   519→                              src={data.clinic.logoUrl}
+   520→                              alt={data.clinic.name}
+   521→                              className="w-10 h-10 rounded-lg object-cover"
+   522→                            />
+   523→                          ) : (
+   524→                            <Building2 className="size-6 text-emerald-600" />
+   525→                          )}
+   526→                        </div>
+   527→                        <div className="min-w-0 flex-1">
+   528→                          <CardTitle className="text-xl">{data.clinic.name}</CardTitle>
+   529→                          <CardDescription className="flex items-start gap-1.5 mt-1.5">
+   530→                            <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+   531→                            <span>
+   532→                              {data.clinic.streetAddress}, {data.clinic.city},{" "}
+   533→                              {data.clinic.state} {data.clinic.zipCode}
+   534→                            </span>
+   535→                          </CardDescription>
+   536→                        </div>
+   537→                      </div>
+   538→                    </CardHeader>
+   539→
+   540→                    <CardContent className="space-y-5">
+   541→                      {/* Appointment Date/Time + Modality */}
+   542→                      <div className="grid gap-4 sm:grid-cols-2">
+   543→                        <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
+   544→                          <Calendar className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+   545→                          <div>
+   546→                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+   547→                              Date
+   548→                            </p>
+   549→                            <p className="text-base font-semibold text-foreground mt-0.5">
+   550→                              {format(startTime, "EEEE, MMMM d, yyyy")}
+   551→                            </p>
+   552→                          </div>
+   553→                        </div>
+   554→                        <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
+   555→                          <Clock className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+   556→                          <div>
+   557→                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+   558→                              Time
+   559→                            </p>
+   560→                            <p className="text-base font-semibold text-foreground mt-0.5">
+   561→                              {format(startTime, "h:mm a")} – {format(endTime, "h:mm a")}
+   562→                            </p>
+   563→                          </div>
+   564→                        </div>
+   565→                      </div>
+   566→
+   567→                      {/* Modality Badge */}
+   568→                      <div className="flex items-center gap-2">
+   569→                        {isVideo ? (
+   570→                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 gap-1.5 px-3 py-1 text-sm">
+   571→                            <Video className="size-3.5" />
+   572→                            Video Visit
+   573→                          </Badge>
+   574→                        ) : (
+   575→                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 gap-1.5 px-3 py-1 text-sm">
+   576→                            <Building2 className="size-3.5" />
+   577→                            In-Clinic
+   578→                          </Badge>
+   579→                        )}
+   580→                        <Badge variant="outline" className="text-sm px-3 py-1">
+   581→                          {data.service.name}
+   582→                        </Badge>
+   583→                      </div>
+   584→
+   585→                      {/* Video link for active check-in */}
+   586→                      {isVideo && isCheckedIn && data.clinic.videoVisitLink && !justCheckedIn && (
+   587→                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+   588→                          <a
+   589→                            href={data.clinic.videoVisitLink}
+   590→                            target="_blank"
+   591→                            rel="noopener noreferrer"
+   592→                            className="flex items-center gap-3 text-blue-700 hover:text-blue-900 transition-colors"
+   593→                          >
+   594→                            <Video className="size-5 shrink-0" />
+   595→                            <div>
+   596→                              <p className="font-semibold">Join Your Video Visit</p>
+   597→                              <p className="text-sm text-blue-600">Click to open the video call link</p>
+   598→                            </div>
+   599→                          </a>
+   600→                        </div>
+   601→                      )}
+   602→
+   603→                      <Separator />
+   604→
+   605→                      {/* Provider Info */}
+   606→                      <div className="flex items-center gap-4">
+   607→                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+   608→                          {data.provider.photoUrl ? (
+   609→                            <img
+   610→                              src={data.provider.photoUrl}
+   611→                              alt={providerName}
+   612→                              className="w-full h-full rounded-full object-cover"
+   613→                            />
+   614→                          ) : (
+   615→                            <User className="size-5 text-emerald-600" />
+   616→                          )}
+   617→                        </div>
+   618→                        <div>
+   619→                          <p className="font-semibold text-foreground text-base">{providerName}</p>
+   620→                          <p className="text-sm text-muted-foreground">{data.specialty.name}</p>
+   621→                        </div>
+   622→                      </div>
+   623→
+   624→                      <Separator />
+   625→
+   626→                      {/* Insurance & Payment */}
+   627→                      <div className="space-y-3">
+   628→                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+   629→                          <CreditCard className="size-4" />
+   630→                          Payment &amp; Insurance
+   631→                        </h3>
+   632→
+   633→                        {data.insurance && !data.appointment.isDemoInsurance && (
+   634→                          <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-3">
+   635→                            <span className="text-sm text-muted-foreground">Insurance</span>
+   636→                            <span className="font-medium text-foreground">{data.insurance.name}</span>
+   637→                          </div>
+   638→                        )}
+   639→
+   640→                        <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-3">
+   641→                          <span className="text-sm text-muted-foreground">Status</span>
+   642→                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold ${paymentInfo.color}`}>
+   643→                            {paymentInfo.label}
+   644→                          </span>
+   645→                        </div>
+   646→                        <p className="text-xs text-muted-foreground pl-1">{paymentInfo.sublabel}</p>
+   647→                      </div>
+   648→
+   649→                      <Separator />
+   650→
+   651→                      {/* Countdown */}
+   652→                      {data.appointment.status === "BOOKED" && (
+   653→                        <CountdownTimer targetDate={startTime} />
+   654→                      )}
+   655→                    </CardContent>
+   656→
+   657→                    {/* Check-In Button in Footer */}
+   658→                    {showCheckInButton() && (
+   659→                      <CardFooter className="pt-0">
+   660→                        <Button
+   661→                          size="lg"
+   662→                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg checkin-pulse-glow"
+   663→                          disabled={checkInLoading}
+   664→                          onClick={async () => {
+   665→                            setCheckInLoading(true);
+   666→                            try {
+   667→                              const res = await fetch(`/api/manage?token=${encodeURIComponent(token)}`);
+   668→                              const body = await res.json();
+   669→                              if (res.ok) {
+   670→                                setData(body);
+   671→                              }
+   672→                            } catch {
+   673→                              // Keep existing data on re-fetch failure
+   674→                            }
+   675→                            setCheckInLoading(false);
+   676→                          }}
+   677→                        >
+   678→                          {checkInLoading ? (
+   679→                            <>
+   680→                              <Loader2 className="size-5 animate-spin" />
+   681→                              Checking In…
+   682→                            </>
+   683→                          ) : (
+   684→                            <>
+   685→                              <Shield className="size-5" />
+   686→                              Check In for Your Appointment
+   687→                            </>
+   688→                          )}
+   689→                        </Button>
+   690→                      </CardFooter>
+   691→                    )}
+   692→                  </Card>
+   693→                </motion.div>
+   694→
+   695→                {/* ---- QR Code Section (BOOKED or CONFIRMED only) ---- */}
+   696→                {(data.appointment.status === "BOOKED" || data.appointment.status === "CONFIRMED") && (
+   697→                  <motion.div {...fadeInUp}>
+   698→                    <Card className="border-emerald-200 shadow-md bg-white">
+   699→                      <CardHeader className="pb-2">
+   700→                        <CardTitle className="text-lg flex items-center gap-2">
+   701→                          <QrCode className="size-5 text-emerald-600" />
+   702→                          Your Appointment QR Code
+   703→                        </CardTitle>
+   704→                        <CardDescription className="text-sm">
+   705→                          Scan this QR code to quickly access your appointment management page.
+   706→                        </CardDescription>
+   707→                      </CardHeader>
+   708→                      <CardContent>
+   709→                        <QrCodeDisplay
+   710→                          appointmentId={data.appointment.id}
+   711→                          patientName={data.appointment.patientName}
+   712→                          manageUrl={typeof window !== "undefined" ? window.location.href : undefined}
+   713→                        />
+   714→                      </CardContent>
+   715→                    </Card>
+   716→                  </motion.div>
+   717→                )}
+   718→
+   719→                {/* ---- What to Know Section ---- */}
+   720→                <motion.div {...fadeInUp}>
+   721→                  <Card className="border-0 shadow-md card-hover-lift">
+   722→                    <CardHeader>
+   723→                      <CardTitle className="text-lg flex items-center gap-2">
+   724→                        <FileText className="size-5 text-emerald-600" />
+   725→                        What to Know Before Your Visit
+   726→                      </CardTitle>
+   727→                    </CardHeader>
+   728→                    <CardContent className="space-y-4">
+   729→                      <div className="flex items-start gap-3">
+   730→                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   731→                          <Clock className="size-3.5 text-emerald-700" />
+   732→                        </div>
+   733→                        <div>
+   734→                          <p className="font-medium text-foreground text-sm">
+   735→                            Arrive 10–15 Minutes Early
+   736→                          </p>
+   737→                          <p className="text-sm text-muted-foreground">
+   738→                            {isVideo
+   739→                              ? "Join the video link a few minutes early to test your camera and microphone."
+   740→                              : "This gives you time to check in, complete any remaining paperwork, and get settled."}
+   741→                          </p>
+   742→                        </div>
+   743→                      </div>
+   744→
+   745→                      <div className="flex items-start gap-3">
+   746→                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   747→                          <CreditCard className="size-3.5 text-emerald-700" />
+   748→                        </div>
+   749→                        <div>
+   750→                          <p className="font-medium text-foreground text-sm">
+   751→                            Bring Your Insurance Card &amp; ID
+   752→                          </p>
+   753→                          <p className="text-sm text-muted-foreground">
+   754→                            {data.insurance && !data.appointment.isDemoInsurance
+   755→                              ? `Please bring your ${data.insurance.name} insurance card and a valid photo ID.`
+   756→                              : "Please bring a valid photo ID to your appointment."}
+   757→                          </p>
+   758→                        </div>
+   759→                      </div>
+   760→
+   761→                      {isVideo && (
+   762→                        <div className="flex items-start gap-3">
+   763→                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   764→                            <Video className="size-3.5 text-emerald-700" />
+   765→                          </div>
+   766→                          <div>
+   767→                            <p className="font-medium text-foreground text-sm">
+   768→                              Prepare Your Device
+   769→                            </p>
+   770→                            <p className="text-sm text-muted-foreground">
+   771→                              Find a quiet, well-lit space with a stable internet connection. Use a device with a camera and microphone.
+   772→                            </p>
+   773→                          </div>
+   774→                        </div>
+   775→                      )}
+   776→
+   777→                      {!data.appointment.intakeCompleted && (
+   778→                        <div className="flex items-start gap-3">
+   779→                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   780→                            <FileText className="size-3.5 text-emerald-700" />
+   781→                          </div>
+   782→                          <div>
+   783→                            <p className="font-medium text-foreground text-sm">
+   784→                              Intake Forms
+   785→                            </p>
+   786→                            <p className="text-sm text-muted-foreground">
+   787→                              You may be asked to complete intake forms before or at the time of your visit to help your provider prepare.
+   788→                            </p>
+   789→                          </div>
+   790→                        </div>
+   791→                      )}
+   792→                    </CardContent>
+   793→                  </Card>
+   794→                </motion.div>
+   795→
+   796→                {/* ---- Complete Intake Form Button ---- */}
+   797→                {!data.appointment.intakeCompleted && data.appointment.status === "BOOKED" && (
+   798→                  <motion.div {...fadeInUp}>
+   799→                    <Button
+   800→                      size="lg"
+   801→                      variant="outline"
+   802→                      className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 font-semibold text-base h-12 rounded-lg"
+   803→                      asChild
+   804→                    >
+   805→                      <Link href={`/intake/${token}`}>
+   806→                        <FileText className="size-5" />
+   807→                        Complete Intake Form
+   808→                      </Link>
+   809→                    </Button>
+   810→                  </motion.div>
+   811→                )}
+   812→
+   813→                {/* ---- Cancellation Policy ---- */}
+   814→                <motion.div {...fadeInUp}>
+   815→                  <Card className="border-0 shadow-md card-hover-lift bg-muted/30 border-l-4 border-l-red-300/60">
+   816→                    <CardContent className="py-5 px-6">
+   817→                      <div className="flex items-start gap-3">
+   818→                        <AlertCircle className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+   819→                        <div>
+   820→                          <p className="font-medium text-foreground text-sm">Cancellation Policy</p>
+   821→                          <p className="text-sm text-muted-foreground mt-1">
+   822→                            Please cancel or reschedule at least 24 hours before your appointment to avoid
+   823→                            any deposit forfeiture. Contact the clinic directly to make changes.
+   824→                          </p>
+   825→                        </div>
+   826→                      </div>
+   827→                    </CardContent>
+   828→                  </Card>
+   829→                </motion.div>
+   830→
+   831→                {/* ---- Leave a Review Button (completed appointments) ---- */}
+   832→                {data.appointment.status === "COMPLETED" && (
+   833→                  <motion.div {...fadeInUp}>
+   834→                    <Button
+   835→                      size="lg"
+   836→                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg"
+   837→                      asChild
+   838→                    >
+   839→                      <a href={`/review/${token}`}>
+   840→                        <Star className="size-5" />
+   841→                        Leave a Review
+   842→                      </a>
+   843→                    </Button>
+   844→                  </motion.div>
+   845→                )}
+   846→
+   847→                {/* ---- Clinic Contact ---- */}
+   848→                <motion.div {...fadeInUp}>
+   849→                  <div className="text-center py-3">
+   850→                    <p className="text-sm text-muted-foreground mb-2">Questions about your appointment?</p>
+   851→                    <a
+   852→                      href={`tel:${data.clinic.phoneNumber}`}
+   853→                      className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 font-medium transition-colors"
+   854→                    >
+   855→                      <Phone className="size-4" />
+   856→                      {data.clinic.phoneNumber}
+   857→                    </a>
+   858→                  </div>
+   859→                </motion.div>
+   860→              </motion.div>
+   861→            </AnimatePresence>
+   862→          </div>
+   863→        </main>
+   864→
+   865→        <Footer />
+   866→      </div>
+   867→    );
+   868→  }
+   869→
+   870→  // Fallback (shouldn't reach here)
+   871→  return null;
+   872→}
+   873→
+   874→// ---- Header Component ----
+   875→
+   876→function Header() {
+   877→  return (
+   878→    <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
+   879→      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+   880→        <div className="flex items-center gap-2">
+   881→          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   882→            <Heart className="size-4 text-white" />
+   883→          </div>
+   884→          <span className="font-bold text-lg text-foreground tracking-tight">
+   885→            ClinicBook
+   886→          </span>
+   887→        </div>
+   888→        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   889→          <Shield className="size-3.5 text-emerald-600" />
+   890→          <span>Secure Patient Portal</span>
+   891→        </div>
+   892→      </div>
+   893→    </header>
+   894→  );
+   895→}
+   896→
+   897→// ---- Footer Component ----
+   898→
+   899→function Footer() {
+   900→  return (
+   901→    <footer className="border-t border-border/50 bg-white/80 mt-auto">
+   902→      <div className="max-w-4xl mx-auto px-4 py-4 text-center">
+   903→        <p className="text-xs text-muted-foreground">
+   904→          Powered by <span className="font-semibold text-foreground">ClinicBook</span> &middot; Patient Self-Service Portal
+   905→        </p>
+   906→      </div>
+   907→    </footer>
+   908→  );
+   909→}

@@ -20,25 +20,27 @@ export async function GET(request: NextRequest) {
     const tokenId = request.nextUrl.searchParams.get("tokenId");
 
     // Support two lookup modes: raw token hash or token record ID
-    let tokenRecord: Awaited<ReturnType<typeof db.token.findUnique>> | null = null;
+    let tokenRecord: Record<string, unknown> | null = null;
+
+    const includeAppointment = {
+      appointment: {
+        include: {
+          provider: true,
+          service: true,
+          specialty: true,
+          clinic: true,
+          slot: true,
+          insurance: true,
+          ledger: true,
+        },
+      },
+    } as const;
 
     if (tokenId) {
       // Token ID lookup (used by QR codes — no check-in side-effects)
       tokenRecord = await db.token.findUnique({
         where: { id: tokenId },
-        include: {
-          appointment: {
-            include: {
-              provider: true,
-              service: true,
-              specialty: true,
-              clinic: true,
-              slot: true,
-              insurance: true,
-              ledger: true,
-            },
-          },
-        },
+        include: includeAppointment,
       });
     } else if (rawToken) {
       // Raw token hash lookup (original behavior — supports check-in)
@@ -53,19 +55,7 @@ export async function GET(request: NextRequest) {
 
       tokenRecord = await db.token.findUnique({
         where: { tokenHash },
-        include: {
-          appointment: {
-            include: {
-              provider: true,
-              service: true,
-              specialty: true,
-              clinic: true,
-              slot: true,
-              insurance: true,
-              ledger: true,
-            },
-          },
-        },
+        include: includeAppointment,
       });
     } else {
       return NextResponse.json(

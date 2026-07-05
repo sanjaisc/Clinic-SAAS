@@ -642,9 +642,9 @@ export function SearchPage() {
                 {/* Radius Slider */}
                 <div className="flex items-center gap-3 flex-1 min-w-[200px]">
                   {geoStatus === "granted" ? (
-                    <LocateFixed className="size-4 text-emerald-600 shrink-0" title="Location detected" />
+                    <span title="Location detected"><LocateFixed className="size-4 text-emerald-600 shrink-0" /></span>
                   ) : (
-                    <MapPin className="size-4 text-muted-foreground shrink-0" title="Allow location for distance sorting" />
+                    <span title="Allow location for distance sorting"><MapPin className="size-4 text-muted-foreground shrink-0" /></span>
                   )}
                   <span className="text-sm text-muted-foreground whitespace-nowrap min-w-[45px]">
                     {radius} mi

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       where.status = status;
     } else {
       // By default, only show active entries
-      where.status = { in: ["WAITING", "OFFERED"] };
+      where.status = { in: ["ACTIVE", "OFFERED"] };
     }
 
     const entries = await db.waitlistEntry.findMany({
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         provider: {
           select: { firstName: true, lastName: true, credentials: true },
         },
-        specialty: {
+        service: {
           select: { name: true },
         },
       },
@@ -66,14 +66,16 @@ export async function GET(request: NextRequest) {
       patientEmail: entry.patientEmail,
       patientPhone: entry.patientPhone,
       patientType: entry.patientType,
-      preferredModality: entry.preferredModality,
+      modality: entry.modality,
       status: entry.status,
-      contactCount: entry.contactCount,
-      lastContactAt: entry.lastContactAt,
-      expiresAt: entry.expiresAt,
+      dateFrom: entry.dateFrom,
+      dateTo: entry.dateTo,
+      offeredAt: entry.offeredAt,
+      offerExpiresAt: entry.offerExpiresAt,
       createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
       providerName: `Dr. ${entry.provider.firstName} ${entry.provider.lastName}${entry.provider.credentials ? `, ${entry.provider.credentials}` : ""}`,
-      specialtyName: entry.specialty.name,
+      serviceName: entry.service.name,
     }));
 
     return NextResponse.json({ data });
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
 }
 
 // =============================================================================
-// PATCH /api/staff/waitlist — Update a waitlist entry (status, contactCount)
+// PATCH /api/staff/waitlist — Update a waitlist entry (status)
 // =============================================================================
 export async function PATCH(request: NextRequest) {
   try {
@@ -97,7 +99,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status, incrementContact } = body;
+    const { id, status } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -107,7 +109,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Validate status transition
-    const validStatuses = ["WAITING", "OFFERED", "ACCEPTED", "EXPIRED"];
+    const validStatuses = ["ACTIVE", "OFFERED", "FULFILLED", "EXPIRED", "REMOVED"];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
@@ -142,11 +144,6 @@ export async function PATCH(request: NextRequest) {
       updateData.status = status;
     }
 
-    if (incrementContact) {
-      updateData.contactCount = { increment: 1 };
-      updateData.lastContactAt = new Date();
-    }
-
     const updated = await db.waitlistEntry.update({
       where: { id },
       data: updateData,
@@ -154,7 +151,7 @@ export async function PATCH(request: NextRequest) {
         provider: {
           select: { firstName: true, lastName: true, credentials: true },
         },
-        specialty: {
+        service: {
           select: { name: true },
         },
       },
@@ -167,14 +164,16 @@ export async function PATCH(request: NextRequest) {
         patientEmail: updated.patientEmail,
         patientPhone: updated.patientPhone,
         patientType: updated.patientType,
-        preferredModality: updated.preferredModality,
+        modality: updated.modality,
         status: updated.status,
-        contactCount: updated.contactCount,
-        lastContactAt: updated.lastContactAt,
-        expiresAt: updated.expiresAt,
+        dateFrom: updated.dateFrom,
+        dateTo: updated.dateTo,
+        offeredAt: updated.offeredAt,
+        offerExpiresAt: updated.offerExpiresAt,
         createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
         providerName: `Dr. ${updated.provider.firstName} ${updated.provider.lastName}${updated.provider.credentials ? `, ${updated.provider.credentials}` : ""}`,
-        specialtyName: updated.specialty.name,
+        serviceName: updated.service.name,
       },
     });
   } catch (error) {
