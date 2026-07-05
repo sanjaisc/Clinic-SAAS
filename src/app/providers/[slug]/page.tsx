@@ -17,7 +17,9 @@ import {
   CalendarCheck,
   ExternalLink,
   ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
+import { ProviderAvailabilityCalendar } from "@/components/provider/availability-calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -539,92 +541,84 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* ===== CTA + Contact Info (side by side on desktop) ===== */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Book CTA */}
-            <Card className="overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
-              <CardContent className="p-6 flex flex-col items-center text-center gap-4">
-                <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CalendarCheck className="size-7 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Book with {provider.firstName} {provider.lastName}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Choose from available appointment times
-                  </p>
-                </div>
-                <Link href={`/?specialtyId=${firstSpecialtySlug}`} className="w-full">
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer text-base py-6">
-                    <CalendarCheck className="size-5 mr-2" />
-                    Find Available Times
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+          {/* ===== Availability Calendar (Zocdoc-style week view) ===== */}
+          <Card className="overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarDays className="size-5 text-emerald-600" />
+                Available Appointments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-5">
+              <ProviderAvailabilityCalendar
+                providerId={provider.id}
+                providerName={`${provider.firstName} ${provider.lastName}`}
+                initialServiceId={provider.providerServices[0]?.serviceId}
+                initialSpecialtyId={provider.providerServices[0]?.service.specialtyId}
+              />
+            </CardContent>
+          </Card>
 
-            {/* Contact Info */}
-            <Card className="overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Building2 className="size-5 text-emerald-600" />
-                  Contact Info
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Clinic Name */}
-                <Link
-                  href={`/clinic/${provider.clinic.slug}`}
-                  className="font-semibold text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
-                >
-                  {provider.clinic.name}
-                </Link>
+          {/* ===== Contact Info ===== */}
+          <Card className="overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building2 className="size-5 text-emerald-600" />
+                Contact Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Clinic Name */}
+              <Link
+                href={`/clinic/${provider.clinic.slug}`}
+                className="font-semibold text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                {provider.clinic.name}
+              </Link>
 
-                {/* Address */}
-                <div className="flex items-start gap-3">
-                  <MapPin className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
-                  >
-                    {fullAddress}
-                    <ExternalLink className="inline size-3 ml-1" />
-                  </a>
-                </div>
-
-                {/* Phone */}
-                <div className="flex items-center gap-3">
-                  <Phone className="size-4 text-emerald-600 shrink-0" />
-                  <a
-                    href={`tel:${provider.clinic.phoneNumber}`}
-                    className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
-                  >
-                    {provider.clinic.phoneNumber}
-                  </a>
-                </div>
-
-                {/* Map Link */}
+              {/* Address */}
+              <div className="flex items-start gap-3">
+                <MapPin className="size-4 text-emerald-600 shrink-0 mt-0.5" />
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
                 >
-                  <Button
-                    variant="outline"
-                    className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
-                  >
-                    <MapPin className="size-4 mr-2" />
-                    View on Google Maps
-                  </Button>
+                  {fullAddress}
+                  <ExternalLink className="inline size-3 ml-1" />
                 </a>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex items-center gap-3">
+                <Phone className="size-4 text-emerald-600 shrink-0" />
+                <a
+                  href={`tel:${provider.clinic.phoneNumber}`}
+                  className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                >
+                  {provider.clinic.phoneNumber}
+                </a>
+              </div>
+
+              {/* Map Link */}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button
+                  variant="outline"
+                  className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
+                >
+                  <MapPin className="size-4 mr-2" />
+                  View on Google Maps
+                </Button>
+              </a>
+            </CardContent>
+          </Card>
         </div>
       </main>
 

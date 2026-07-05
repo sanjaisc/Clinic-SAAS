@@ -2109,4 +2109,37 @@ Stage Summary:
 - **Root cause**: Empty route file — the POST handler was never written (left as placeholder during initial development)
 - **Fix**: 220-line implementation covering the full two-phase lock→book→release flow
 - **Verified**: curl test showed appointment created with correct status (BOOKED), payment status (CAPTURED for demo), slot status updated (BOOKED), 4 tokens generated, ledger entry created
+
+---
+Task ID: Feature-weekly-availability-calendar
+Agent: Main Orchestrator
+Task: Add Zocdoc-style weekly availability calendar on provider profile page
+
+Work Log:
+- Read full provider page (635 lines) — identified the generic "Find Available Times" CTA card that links back to search
+- Created API endpoint `GET /api/providers/[id]/availability?weekStart=YYYY-MM-DD&modality=IN_PERSON|VIDEO`:
+  - Fetches AVAILABLE slots for the provider's clinic within the 7-day week
+  - Groups slots by day with formatted time labels (12h AM/PM)
+  - Returns day metadata (name, month-day, isToday, isPast) and service list
+  - Supports modality filtering (IN_PERSON, VIDEO, or all)
+- Built `ProviderAvailabilityCalendar` client component (~300 lines):
+  - 7-column week grid (Mon–Sun) with day headers and slot buttons
+  - Week navigation: Previous/Next arrows, "Go to this week" reset button
+  - Modality filter toggle bar: All / In-Clinic / Video (emerald for in-person, blue for video)
+  - Service selector dropdown (shown when provider has multiple services)
+  - Slot buttons: color-coded by modality, show time + modality badge, hover animation
+  - Clicking a slot navigates to `/book?providerId=...&slotId=...&serviceId=...`
+  - Loading skeleton (7-column grid matching layout), error state with retry, empty state with "Next Week" CTA
+  - Past days show "Past" label and are not clickable
+  - Today's column highlighted with emerald-50 background
+  - Responsive: slots scroll within columns on narrow screens
+  - Accessibility: aria-labels on nav buttons, focus-visible rings on slots
+- Replaced the generic Book CTA card on the provider page with the full-width availability calendar card
+- Fixed TypeScript error: `weekDays` array needed explicit type annotation (TS inferred `never[]`)
+- Fixed provider page indentation after removing the old 2-column grid layout
+
+Stage Summary:
+- **3 files created/modified**: API route, calendar component, provider page
+- **Verified via agent-browser**: Week navigation, modality filtering (In-Clinic shows only in-person slots), slot click → booking page navigation, all API calls return 200
+- **Design**: Matches Zocdoc's week-view pattern — horizontal 7-day grid with time slots, color-coded modality, and direct booking flow
 ---

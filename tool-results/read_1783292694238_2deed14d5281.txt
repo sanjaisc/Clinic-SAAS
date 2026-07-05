@@ -1,0 +1,635 @@
+     1→import { notFound } from "next/navigation";
+     2→import type { Metadata } from "next";
+     3→import Link from "next/link";
+     4→import { format } from "date-fns";
+     5→import {
+     6→  Star,
+     7→  MapPin,
+     8→  Phone,
+     9→  Building2,
+    10→  Heart,
+    11→  ChevronLeft,
+    12→  Clock,
+    13→  Users,
+    14→  Award,
+    15→  Stethoscope,
+    16→  Globe,
+    17→  CalendarCheck,
+    18→  ExternalLink,
+    19→  ShieldCheck,
+    20→} from "lucide-react";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    23→import { Badge } from "@/components/ui/badge";
+    24→import { Separator } from "@/components/ui/separator";
+    25→import { ThemeToggle } from "@/components/theme-toggle";
+    26→import { PublicFooter } from "@/components/public-footer";
+    27→import { ExpandableText } from "@/components/ui/expandable-text";
+    28→import { db } from "@/lib/db";
+    29→
+    30→// =============================================================================
+    31→// Dynamic SEO Metadata
+    32→// =============================================================================
+    33→
+    34→interface ProviderPageParams {
+    35→  params: Promise<{ slug: string }>;
+    36→}
+    37→
+    38→export async function generateMetadata({ params }: ProviderPageParams): Promise<Metadata> {
+    39→  try {
+    40→    const { slug } = await params;
+    41→    const provider = await db.provider.findUnique({
+    42→      where: { slug },
+    43→      include: {
+    44→        providerServices: {
+    45→          include: {
+    46→            service: {
+    47→              include: { specialty: true },
+    48→            },
+    49→          },
+    50→          take: 1,
+    51→        },
+    52→      },
+    53→    });
+    54→
+    55→    if (!provider) {
+    56→      return {
+    57→        title: "Provider Not Found — ClinicBook",
+    58→        description: "The healthcare provider you are looking for could not be found.",
+    59→      };
+    60→    }
+    61→
+    62→    const specialty = provider.providerServices[0]?.service.specialty.name ?? "Healthcare";
+    63→    const displayName = `Dr. ${provider.firstName} ${provider.lastName}`;
+    64→
+    65→    const ratingSuffix =
+    66→      provider.rating > 0
+    67→        ? ` Rated ${provider.rating.toFixed(1)}/5 by ${provider.reviewCount} patients.`
+    68→        : "";
+    69→
+    70→    const description = provider.bio
+    71→      ? provider.bio.length > 160
+    72→        ? provider.bio.substring(0, 157) + "..."
+    73→        : provider.bio
+    74→      : `Book an appointment with ${displayName} (${specialty}).${ratingSuffix} View availability and schedule your visit today.`;
+    75→
+    76→    return {
+    77→      title: `${displayName} — ${specialty} | ClinicBook`,
+    78→      description,
+    79→      openGraph: {
+    80→        title: `${displayName} — ${specialty} | ClinicBook`,
+    81→        description,
+    82→        type: "profile",
+    83→        firstName: provider.firstName,
+    84→        lastName: provider.lastName,
+    85→      },
+    86→    };
+    87→  } catch {
+    88→    return {
+    89→      title: "Provider — ClinicBook",
+    90→      description: "Find and book appointments with top-rated healthcare providers.",
+    91→    };
+    92→  }
+    93→}
+    94→
+    95→// =============================================================================
+    96→// Types
+    97→// =============================================================================
+    98→
+    99→interface PageProps {
+   100→  params: Promise<{ slug: string }>;
+   101→}
+   102→
+   103→// =============================================================================
+   104→// Helpers
+   105→// =============================================================================
+   106→
+   107→function RatingStars({ rating, size = 4, shimmer = false }: { rating: number; size?: number; shimmer?: boolean }) {
+   108→  const filledCount = Math.round(rating);
+   109→  return (
+   110→    <div className={`flex items-center gap-0.5 ${shimmer ? 'star-shimmer' : ''}`}>
+   111→      {Array.from({ length: 5 }, (_, i) => (
+   112→        <Star
+   113→          key={i}
+   114→          className={`${size === 4 ? "size-4" : "size-3.5"} ${
+   115→            i < filledCount
+   116→              ? "fill-yellow-400 text-yellow-400"
+   117→              : "fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700"
+   118→          }`}
+   119→        />
+   120→      ))}
+   121→    </div>
+   122→  );
+   123→}
+   124→
+   125→function RatingProgressBar({ label, value, max = 5 }: { label: string; value: number; max?: number }) {
+   126→  const percentage = (value / max) * 100;
+   127→  return (
+   128→    <div className="flex items-center gap-3 text-sm">
+   129→      <span className="w-28 shrink-0 text-muted-foreground text-right">{label}</span>
+   130→      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+   131→        <div
+   132→          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+   133→          style={{ width: `${percentage}%` }}
+   134→        />
+   135→      </div>
+   136→      <span className="w-8 shrink-0 font-medium text-foreground">{value.toFixed(1)}</span>
+   137→    </div>
+   138→  );
+   139→}
+   140→
+   141→function maskPatientName(name: string): string {
+   142→  const parts = name.trim().split(/\s+/);
+   143→  if (parts.length < 2) return name.charAt(0) + "***";
+   144→  const first = parts[0].charAt(0) + "***";
+   145→  const last = parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1);
+   146→  return `${first} ${last}`;
+   147→}
+   148→
+   149→// =============================================================================
+   150→// Page Component
+   151→// =============================================================================
+   152→
+   153→export default async function ProviderProfilePage({ params }: PageProps) {
+   154→  const { slug } = await params;
+   155→
+   156→  // ---------------------------------------------------------------------------
+   157→  // Fetch provider with all related data
+   158→  // ---------------------------------------------------------------------------
+   159→  const provider = await db.provider.findUnique({
+   160→    where: { slug },
+   161→    include: {
+   162→      clinic: true,
+   163→      reviews: {
+   164→        orderBy: { createdAt: "desc" },
+   165→        include: {
+   166→          appointment: {
+   167→            select: { patientName: true },
+   168→          },
+   169→        },
+   170→      },
+   171→      providerServices: {
+   172→        include: {
+   173→          service: {
+   174→            include: {
+   175→              specialty: true,
+   176→            },
+   177→          },
+   178→        },
+   179→      },
+   180→      languages: {
+   181→        include: {
+   182→          language: true,
+   183→        },
+   184→        orderBy: {
+   185→          language: { sortOrder: "asc" },
+   186→        },
+   187→      },
+   188→    },
+   189→  });
+   190→
+   191→  if (!provider || provider.status !== "ACTIVE") {
+   192→    notFound();
+   193→  }
+   194→
+   195→  // ---------------------------------------------------------------------------
+   196→  // Compute derived data
+   197→  // ---------------------------------------------------------------------------
+   198→
+   199→  // Unique specialties
+   200→  const specialtyMap = new Map<string, { id: string; name: string; slug: string }>();
+   201→  for (const ps of provider.providerServices) {
+   202→    const spec = ps.service.specialty;
+   203→    if (!specialtyMap.has(spec.id)) {
+   204→      specialtyMap.set(spec.id, { id: spec.id, name: spec.name, slug: spec.slug });
+   205→    }
+   206→  }
+   207→  const specialtiesList = Array.from(specialtyMap.values());
+   208→
+   209→  // First specialty for CTA link
+   210→  const firstSpecialtySlug = specialtiesList[0]?.slug ?? "";
+   211→
+   212→  // Rating breakdown averages
+   213→  const reviewCount = provider.reviews.length;
+   214→  const avgOverall = reviewCount > 0
+   215→    ? provider.reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviewCount
+   216→    : provider.rating;
+   217→  const avgWait = reviewCount > 0
+   218→    ? provider.reviews.reduce((sum, r) => sum + r.waitTimeRating, 0) / reviewCount
+   219→    : 0;
+   220→  const avgBedside = reviewCount > 0
+   221→    ? provider.reviews.reduce((sum, r) => sum + r.bedsideRating, 0) / reviewCount
+   222→    : 0;
+   223→  const avgStaff = reviewCount > 0
+   224→    ? provider.reviews.reduce((sum, r) => sum + r.staffRating, 0) / reviewCount
+   225→    : 0;
+   226→
+   227→  // Total appointments (completed + current slots)
+   228→  const completedAppointments = await db.appointment.count({
+   229→    where: { providerId: provider.id, status: "COMPLETED" },
+   230→  });
+   231→
+   232→  const displayName = provider.credentials
+   233→    ? `Dr. ${provider.firstName} ${provider.lastName}, ${provider.credentials}`
+   234→    : `Dr. ${provider.firstName} ${provider.lastName}`;
+   235→
+   236→  const fullAddress = [
+   237→    provider.clinic.streetAddress,
+   238→    provider.clinic.city,
+   239→    provider.clinic.state,
+   240→    provider.clinic.zipCode,
+   241→  ]
+   242→    .filter(Boolean)
+   243→    .join(", ");
+   244→
+   245→  const mapQuery = encodeURIComponent(fullAddress);
+   246→
+   247→  // ---------------------------------------------------------------------------
+   248→  // Render
+   249→  // ---------------------------------------------------------------------------
+   250→  return (
+   251→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+   252→      {/* ===== Sticky Header ===== */}
+   253→      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
+   254→        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+   255→          <Link href="/" className="flex items-center gap-2">
+   256→            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
+   257→            <span className="text-lg font-bold tracking-tight text-foreground">
+   258→              ClinicBook
+   259→            </span>
+   260→          </Link>
+   261→          <div className="flex items-center gap-2">
+   262→            <ThemeToggle />
+   263→            <Button variant="outline" size="sm" className="cursor-pointer">
+   264→              Staff Login
+   265→            </Button>
+   266→          </div>
+   267→        </div>
+   268→      </header>
+   269→
+   270→      {/* ===== Main Content ===== */}
+   271→      <main className="flex-1 w-full px-4 py-8 animate-in fade-in duration-500">
+   272→        <div className="max-w-4xl mx-auto space-y-8">
+   273→          {/* Back link — Breadcrumb */}
+   274→          <nav className="flex items-center gap-1.5 text-sm text-muted-foreground" aria-label="Breadcrumb">
+   275→            <Link href="/" className="hover:text-foreground transition-colors cursor-pointer">Home</Link>
+   276→            <span className="text-border">/</span>
+   277→            <span>Search</span>
+   278→            <span className="text-border">/</span>
+   279→            <span className="text-foreground font-medium">{provider.firstName} {provider.lastName}</span>
+   280→          </nav>
+   281→
+   282→          {/* Back link (hidden, replaced by breadcrumb) */}
+   283→          <span className="sr-only">
+   284→            <Link
+   285→              href="/"
+   286→              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+   287→            >
+   288→              <ChevronLeft className="size-4" />
+   289→              Back to Search
+   290→            </Link>
+   291→          </span>
+   292→
+   293→          {/* ===== Hero Section ===== */}
+   294→          <Card className="overflow-hidden shadow-md">
+   295→            {/* Parallax hero gradient — CSS only */}
+   296→            <div className="h-2 rounded-t-lg bg-gradient-to-r from-emerald-400 to-teal-500 bg-[length:200%_200%] bg-gradient-animated" />
+   297→            <CardContent className="p-6 space-y-4">
+   298→              <div className="flex flex-col sm:flex-row gap-5">
+   299→                {/* Avatar */}
+   300→                <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-emerald-200 text-emerald-700 text-2xl font-bold">
+   301→                  {provider.firstName.charAt(0)}{provider.lastName.charAt(0)}
+   302→                </div>
+   303→
+   304→                <div className="flex-1 min-w-0 space-y-2">
+   305→                  {/* Name + Verified */}
+   306→                  <div className="flex items-start justify-between gap-3">
+   307→                    <div>
+   308→                      <div className="flex items-center gap-2 flex-wrap">
+   309→                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+   310→                          {displayName}
+   311→                        </h1>
+   312→                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50/80 px-2 py-0.5">
+   313→                          <ShieldCheck className="size-3 text-emerald-600" />
+   314→                          <span className="text-[10px] font-medium text-emerald-700 leading-none">Verified</span>
+   315→                        </span>
+   316→                      </div>
+   317→
+   318→                      {/* Specialty badges */}
+   319→                      {specialtiesList.length > 0 && (
+   320→                        <div className="flex gap-2 flex-wrap mt-2">
+   321→                          {specialtiesList.map((spec) => (
+   322→                            <Badge
+   323→                              key={spec.id}
+   324→                              className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-default"
+   325→                            >
+   326→                              <Stethoscope className="size-3 mr-1" />
+   327→                              {spec.name}
+   328→                            </Badge>
+   329→                          ))}
+   330→                        </div>
+   331→                      )}
+   332→
+   333→                      {/* Clinic link */}
+   334→                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+   335→                        <Building2 className="size-4 shrink-0" />
+   336→                        <Link
+   337→                          href={`/clinic/${provider.clinic.slug}`}
+   338→                          className="hover:text-emerald-700 hover:underline transition-colors cursor-pointer"
+   339→                        >
+   340→                          {provider.clinic.name}
+   341→                        </Link>
+   342→                      </div>
+   343→                    </div>
+   344→                  </div>
+   345→
+   346→                  {/* Rating */}
+   347→                  <div className="flex items-center gap-3">
+   348→                    <RatingStars rating={avgOverall} size={5} shimmer />
+   349→                    <span className="text-lg font-semibold text-foreground">
+   350→                      {avgOverall.toFixed(1)}
+   351→                    </span>
+   352→                    <span className="text-sm text-muted-foreground">
+   353→                      ({provider.reviewCount} {provider.reviewCount === 1 ? "review" : "reviews"})
+   354→                    </span>
+   355→                  </div>
+   356→                </div>
+   357→              </div>
+   358→            </CardContent>
+   359→          </Card>
+   360→
+   361→          {/* ===== Stats Bar ===== */}
+   362→          <div className="grid grid-cols-3 gap-4">
+   363→            <Card className="text-center p-4">
+   364→              <div className="flex justify-center mb-2">
+   365→                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
+   366→                  <Clock className="size-5 text-emerald-600" />
+   367→                </div>
+   368→              </div>
+   369→              <p className="text-2xl font-bold text-foreground">
+   370→                {provider.yearsExperience ?? 0}+
+   371→              </p>
+   372→              <p className="text-xs text-muted-foreground mt-1">Years Experience</p>
+   373→            </Card>
+   374→            <Card className="text-center p-4">
+   375→              <div className="flex justify-center mb-2">
+   376→                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
+   377→                  <CalendarCheck className="size-5 text-emerald-600" />
+   378→                </div>
+   379→              </div>
+   380→              <p className="text-2xl font-bold text-foreground">
+   381→                {completedAppointments}
+   382→              </p>
+   383→              <p className="text-xs text-muted-foreground mt-1">Total Appointments</p>
+   384→            </Card>
+   385→            <Card className="text-center p-4">
+   386→              <div className="flex justify-center mb-2">
+   387→                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
+   388→                  <Award className="size-5 text-emerald-600" />
+   389→                </div>
+   390→              </div>
+   391→              <p className="text-2xl font-bold text-foreground">
+   392→                {avgOverall.toFixed(1)}
+   393→              </p>
+   394→              <p className="text-xs text-muted-foreground mt-1">Patient Rating</p>
+   395→            </Card>
+   396→          </div>
+   397→
+   398→          {/* ===== About Section ===== */}
+   399→          {provider.bio && (
+   400→            <Card>
+   401→              <CardHeader className="pb-3">
+   402→                <CardTitle className="text-lg flex items-center gap-2">
+   403→                  <Users className="size-5 text-emerald-600" />
+   404→                  About
+   405→                </CardTitle>
+   406→              </CardHeader>
+   407→              <CardContent>
+   408→                <div className="border-l-4 border-l-emerald-400 pl-4">
+   409→                  <ExpandableText maxLines={3}>
+   410→                    {provider.bio}
+   411→                  </ExpandableText>
+   412→                </div>
+   413→              </CardContent>
+   414→            </Card>
+   415→          )}
+   416→
+   417→          {/* ===== Services + Languages (side by side on desktop) ===== */}
+   418→          <div className="grid gap-6 md:grid-cols-2">
+   419→            {/* Services */}
+   420→            {provider.providerServices.length > 0 && (
+   421→              <Card className="overflow-hidden">
+   422→                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+   423→                <CardHeader className="pb-3">
+   424→                  <CardTitle className="text-lg flex items-center gap-2">
+   425→                    <Stethoscope className="size-5 text-emerald-600" />
+   426→                    Services
+   427→                  </CardTitle>
+   428→                </CardHeader>
+   429→                <CardContent>
+   430→                  <div className="flex flex-wrap gap-2">
+   431→                    {provider.providerServices.map((ps) => (
+   432→                      <Badge
+   433→                        key={ps.serviceId}
+   434→                        variant="outline"
+   435→                        className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 transition-colors cursor-default"
+   436→                      >
+   437→                        {ps.service.name}
+   438→                      </Badge>
+   439→                    ))}
+   440→                  </div>
+   441→                </CardContent>
+   442→              </Card>
+   443→            )}
+   444→
+   445→            {/* Languages */}
+   446→            {provider.languages.length > 0 && (
+   447→              <Card className="overflow-hidden">
+   448→                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+   449→                <CardHeader className="pb-3">
+   450→                  <CardTitle className="text-lg flex items-center gap-2">
+   451→                    <Globe className="size-5 text-emerald-600" />
+   452→                    Languages
+   453→                  </CardTitle>
+   454→                </CardHeader>
+   455→                <CardContent>
+   456→                  <div className="flex flex-wrap gap-2">
+   457→                    {provider.languages.map((pl) => (
+   458→                      <Badge
+   459→                        key={pl.languageId}
+   460→                        variant="outline"
+   461→                        className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 transition-colors cursor-default"
+   462→                      >
+   463→                        {pl.language.name}
+   464→                      </Badge>
+   465→                    ))}
+   466→                  </div>
+   467→                </CardContent>
+   468→              </Card>
+   469→            )}
+   470→          </div>
+   471→
+   472→          {/* ===== Reviews Section ===== */}
+   473→          {provider.reviews.length > 0 && (
+   474→            <div className="space-y-6">
+   475→              <div className="h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
+   476→
+   477→              <Card>
+   478→                <CardHeader className="pb-3">
+   479→                  <div className="flex items-center justify-between">
+   480→                    <CardTitle className="text-lg flex items-center gap-2">
+   481→                      <Star className="size-5 text-emerald-600 fill-emerald-600" />
+   482→                      Patient Reviews
+   483→                    </CardTitle>
+   484→                    <span className="text-sm text-muted-foreground">
+   485→                      {provider.reviews.length} {provider.reviews.length === 1 ? "review" : "reviews"}
+   486→                    </span>
+   487→                  </div>
+   488→                </CardHeader>
+   489→                <CardContent className="space-y-6">
+   490→                  {/* Rating Breakdown */}
+   491→                  <div className="rounded-lg border border-border p-4 space-y-3 bg-muted/20">
+   492→                    <h3 className="text-sm font-semibold text-foreground mb-2">Rating Breakdown</h3>
+   493→                    <RatingProgressBar label="Overall" value={avgOverall} />
+   494→                    <RatingProgressBar label="Wait Time" value={avgWait} />
+   495→                    <RatingProgressBar label="Bedside Manner" value={avgBedside} />
+   496→                    <RatingProgressBar label="Staff" value={avgStaff} />
+   497→                  </div>
+   498→
+   499→                  <Separator />
+   500→
+   501→                  {/* Individual Reviews */}
+   502→                  <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
+   503→                    {provider.reviews.map((review) => (
+   504→                      <div
+   505→                        key={review.id}
+   506→                        className="rounded-lg border border-border p-4 space-y-2 hover:bg-muted/20 transition-all duration-200 border-l-2 hover:border-l-4 hover:border-l-emerald-400"
+   507→                      >
+   508→                        <div className="flex items-center justify-between">
+   509→                          <div className="flex items-center gap-2">
+   510→                            <RatingStars rating={review.overallRating} size={3} />
+   511→                            <span className="text-sm font-medium text-foreground">
+   512→                              {review.overallRating}/5
+   513→                            </span>
+   514→                          </div>
+   515→                          <span className="text-xs text-muted-foreground">
+   516→                            {format(new Date(review.createdAt), "MMM d, yyyy")}
+   517→                          </span>
+   518→                        </div>
+   519→                        <p className="text-sm text-muted-foreground">
+   520→                          {review.comment || "No comment provided."}
+   521→                        </p>
+   522→                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   523→                          <span className="inline-flex items-center gap-1">
+   524→                            <Users className="size-3" />
+   525→                            {maskPatientName(review.appointment?.patientName ?? "Anonymous")}
+   526→                          </span>
+   527→                          {review.isVerified && (
+   528→                            <span className="inline-flex items-center gap-0.5 text-emerald-600">
+   529→                              <ShieldCheck className="size-3" />
+   530→                              Verified
+   531→                            </span>
+   532→                          )}
+   533→                        </div>
+   534→                      </div>
+   535→                    ))}
+   536→                  </div>
+   537→                </CardContent>
+   538→              </Card>
+   539→            </div>
+   540→          )}
+   541→
+   542→          {/* ===== CTA + Contact Info (side by side on desktop) ===== */}
+   543→          <div className="grid gap-6 md:grid-cols-2">
+   544→            {/* Book CTA */}
+   545→            <Card className="overflow-hidden">
+   546→              <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+   547→              <CardContent className="p-6 flex flex-col items-center text-center gap-4">
+   548→                <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center">
+   549→                  <CalendarCheck className="size-7 text-emerald-600" />
+   550→                </div>
+   551→                <div>
+   552→                  <h3 className="text-lg font-semibold text-foreground">
+   553→                    Book with {provider.firstName} {provider.lastName}
+   554→                  </h3>
+   555→                  <p className="text-sm text-muted-foreground mt-1">
+   556→                    Choose from available appointment times
+   557→                  </p>
+   558→                </div>
+   559→                <Link href={`/?specialtyId=${firstSpecialtySlug}`} className="w-full">
+   560→                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer text-base py-6">
+   561→                    <CalendarCheck className="size-5 mr-2" />
+   562→                    Find Available Times
+   563→                  </Button>
+   564→                </Link>
+   565→              </CardContent>
+   566→            </Card>
+   567→
+   568→            {/* Contact Info */}
+   569→            <Card className="overflow-hidden">
+   570→              <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+   571→              <CardHeader className="pb-3">
+   572→                <CardTitle className="text-lg flex items-center gap-2">
+   573→                  <Building2 className="size-5 text-emerald-600" />
+   574→                  Contact Info
+   575→                </CardTitle>
+   576→              </CardHeader>
+   577→              <CardContent className="space-y-3">
+   578→                {/* Clinic Name */}
+   579→                <Link
+   580→                  href={`/clinic/${provider.clinic.slug}`}
+   581→                  className="font-semibold text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+   582→                >
+   583→                  {provider.clinic.name}
+   584→                </Link>
+   585→
+   586→                {/* Address */}
+   587→                <div className="flex items-start gap-3">
+   588→                  <MapPin className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+   589→                  <a
+   590→                    href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
+   591→                    target="_blank"
+   592→                    rel="noopener noreferrer"
+   593→                    className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+   594→                  >
+   595→                    {fullAddress}
+   596→                    <ExternalLink className="inline size-3 ml-1" />
+   597→                  </a>
+   598→                </div>
+   599→
+   600→                {/* Phone */}
+   601→                <div className="flex items-center gap-3">
+   602→                  <Phone className="size-4 text-emerald-600 shrink-0" />
+   603→                  <a
+   604→                    href={`tel:${provider.clinic.phoneNumber}`}
+   605→                    className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+   606→                  >
+   607→                    {provider.clinic.phoneNumber}
+   608→                  </a>
+   609→                </div>
+   610→
+   611→                {/* Map Link */}
+   612→                <a
+   613→                  href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
+   614→                  target="_blank"
+   615→                  rel="noopener noreferrer"
+   616→                >
+   617→                  <Button
+   618→                    variant="outline"
+   619→                    className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
+   620→                  >
+   621→                    <MapPin className="size-4 mr-2" />
+   622→                    View on Google Maps
+   623→                  </Button>
+   624→                </a>
+   625→              </CardContent>
+   626→            </Card>
+   627→          </div>
+   628→        </div>
+   629→      </main>
+   630→
+   631→      {/* ===== Footer ===== */}
+   632→      <PublicFooter />
+   633→    </div>
+   634→  );
+   635→}
