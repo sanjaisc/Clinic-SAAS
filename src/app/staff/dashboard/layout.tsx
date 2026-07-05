@@ -13,10 +13,10 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
-  Bell,
   Building2,
   ShieldCheck,
   BarChart3,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,6 +32,7 @@ import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { ClinicBookSessionUser } from "@/lib/auth";
 import { hasMinimumRole, STAFF_ROLE } from "@/lib/enums";
+import { NotificationBell } from "@/components/notification-bell";
 
 const NAV_ITEMS = [
   {
@@ -56,6 +57,12 @@ const NAV_ITEMS = [
     href: "/staff/dashboard/appointments",
     label: "Appointments",
     icon: Clock,
+    minRole: STAFF_ROLE.CLINIC_RECEPTION,
+  },
+  {
+    href: "/staff/dashboard/activity",
+    label: "Activity",
+    icon: Activity,
     minRole: STAFF_ROLE.CLINIC_RECEPTION,
   },
   {
@@ -337,14 +344,7 @@ export default function StaffDashboardLayout({
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative cursor-pointer"
-            >
-              <Bell className="size-4.5 text-muted-foreground" />
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-500" />
-            </Button>
+            <NotificationBell />
             <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/60">
               <Avatar className="size-7 border border-emerald-200">
                 <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[10px] font-semibold">

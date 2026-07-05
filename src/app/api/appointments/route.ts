@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
       return newAppointment;
     });
 
-    // ---- 3. Generate secure token (outside transaction — token is separate) ----
+    // ---- 3. Generate secure tokens (outside transaction — tokens are separate) ----
     const rawToken = generateSecureToken();
     const tokenHash = hashToken(rawToken);
     const tokenExpiresAt = new Date(
@@ -308,6 +308,23 @@ export async function POST(request: NextRequest) {
         appointmentId: appointment.id,
         purpose: TOKEN_PURPOSE.MANAGE,
         expiresAt: tokenExpiresAt,
+      },
+    });
+
+    // Create a REVIEW token with 30-day expiry after appointment end time
+    const reviewRawToken = generateSecureToken();
+    const reviewTokenHash = hashToken(reviewRawToken);
+    const reviewTokenExpiresAt = new Date(
+      appointment.endTime.getTime() +
+        30 * 24 * 60 * 60 * 1000
+    );
+
+    await db.token.create({
+      data: {
+        tokenHash: reviewTokenHash,
+        appointmentId: appointment.id,
+        purpose: TOKEN_PURPOSE.REVIEW,
+        expiresAt: reviewTokenExpiresAt,
       },
     });
 

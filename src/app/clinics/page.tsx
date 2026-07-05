@@ -32,6 +32,14 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+interface ProviderBrief {
+  slug: string;
+  firstName: string;
+  lastName: string;
+  credentials: string | null;
+  rating: number;
+}
+
 interface ClinicData {
   id: string;
   slug: string;
@@ -53,6 +61,8 @@ interface ClinicData {
     lastName: string;
     credentials: string | null;
   } | null;
+  topProviders: ProviderBrief[];
+  allProviders: ProviderBrief[];
   availableSlotsCount: number;
 }
 
@@ -169,12 +179,27 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
           </div>
         )}
 
+        {/* Provider name badges */}
+        {clinic.allProviders.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {clinic.allProviders.map((p) => (
+              <Link
+                key={p.slug}
+                href={`/providers/${p.slug}`}
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-xs font-medium text-emerald-700 hover:text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-colors cursor-pointer"
+              >
+                {p.firstName} {p.lastName.charAt(0)}.
+              </Link>
+            ))}
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 pt-1">
-          {/* Provider count */}
-          <span className="flex items-center gap-1">
-            <Users className="h-3.5 w-3.5 text-gray-400" />
-            <span>
+          {/* Provider count with badge */}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <Users className="h-3 w-3" />
               {clinic.providerCount}{" "}
               {clinic.providerCount === 1 ? "provider" : "providers"}
             </span>

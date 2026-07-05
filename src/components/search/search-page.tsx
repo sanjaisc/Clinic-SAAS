@@ -177,6 +177,7 @@ export function SearchPage() {
   // ---- Taxonomy Data ----
   const [specialties, setSpecialties] = useState<TaxonomySpecialty[]>([]);
   const [insurances, setInsurances] = useState<TaxonomyInsurance[]>([]);
+  const [providerCount, setProviderCount] = useState<number>(0);
 
   // ---- Filter State ----
   const [query, setQuery] = useState("");
@@ -218,6 +219,7 @@ export function SearchPage() {
           const data = await taxRes.json();
           setSpecialties(data.specialties ?? []);
           setInsurances(data.insurances ?? []);
+          setProviderCount(data.providerCount ?? 0);
         }
         if (clinicRes.ok) {
           const clinicData = await clinicRes.json();
@@ -493,7 +495,7 @@ export function SearchPage() {
               <span className="text-muted-foreground/30">·</span>
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
                 <Stethoscope className="size-3.5 text-emerald-500" />
-                50+ providers
+                {providerCount > 0 ? `${providerCount} providers` : "Providers"}
               </span>
               <span className="text-muted-foreground/30">·</span>
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">

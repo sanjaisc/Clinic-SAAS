@@ -160,8 +160,8 @@ model Clinic {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  // 1:1 relationship — Provider holds the FK
-  provider                Provider?
+  // One-to-many relationship — multiple providers per clinic
+  providers               Provider[]
 
   // Many-to-many junctions
   insurances              ClinicInsurance[]
@@ -180,10 +180,10 @@ model Clinic {
   @@index([city, state])
 }
 
-/// Provider. Strict 1:1 with Clinic via unique FK on clinicId.
+/// Provider. Belongs to a Clinic (many providers per clinic).
 model Provider {
   id                  String   @id @default(cuid())
-  clinicId            String   @unique              // ENFORCES 1:1
+  clinicId            String
   firstName           String
   lastName            String
   credentials         String?              // e.g., "MD", "DO", "NP", "PA-C"
@@ -211,6 +211,7 @@ model Provider {
   waitlistEntries     WaitlistEntry[]
 
   @@index([status, rating])
+  @@index([clinicId, status])
 }
 
 // =============================================================================

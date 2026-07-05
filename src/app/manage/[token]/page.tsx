@@ -32,6 +32,7 @@ import {
   Loader2,
   Video,
   Timer,
+  Star,
 } from "lucide-react";
 
 // ---- Types ----
@@ -777,6 +778,22 @@ export default function ManagePage() {
                     </CardContent>
                   </Card>
                 </motion.div>
+
+                {/* ---- Leave a Review Button (completed appointments) ---- */}
+                {data.appointment.status === "COMPLETED" && (
+                  <motion.div {...fadeInUp}>
+                    <Button
+                      size="lg"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg"
+                      asChild
+                    >
+                      <a href={`/review/${token}`}>
+                        <Star className="size-5" />
+                        Leave a Review
+                      </a>
+                    </Button>
+                  </motion.div>
+                )}
 
                 {/* ---- Clinic Contact ---- */}
                 <motion.div {...fadeInUp}>

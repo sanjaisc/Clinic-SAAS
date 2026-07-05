@@ -1107,3 +1107,317 @@ Work Log:
 8. **Performance optimization** — Reduce search page component size (split into smaller components), implement route-based code splitting
 9. **Accessibility audit** — Full WCAG 2.1 AA compliance, keyboard navigation testing, screen reader testing
 10. **Mobile app optimizations** — Touch gestures on calendar, PWA manifest, offline caching
+
+---
+Task ID: 13-a
+Agent: Main Orchestrator
+Task: Build Staff Notification System (API + Bell Dropdown)
+
+Work Log:
+- Read worklog.md and analyzed existing project architecture (Prisma schema, auth, cache, constants, enums)
+- Read existing staff dashboard layout.tsx (static Bell button at line 340-347) and page.tsx
+- Identified AuditLog model with appointment relation, User model, and AUDIT_ACTIONS constants
+- Created `/src/app/api/staff/notifications/route.ts` — GET endpoint:
+  - Auth-gated via getServerSession(authOptions)
+  - Filters by session.user.clinicId (SYSTEM_MANAGER can override with ?clinicId= param)
+  - Queries AuditLog for 5 booking-related actions (CREATED, CANCELLED, CHECKED_IN, COMPLETED, NO_SHOW)
+  - Includes appointment data (patientName, provider name, service name, status) and triggering user
+  - Returns { notifications: [...], unreadCount: number } where unread = last 15 minutes
+  - Cached for 30 seconds via cache.getOrSet()
+- Created `/src/components/notification-bell.tsx` — Client component with:
+  - shadcn Popover dropdown (w-96, max-h-96, ScrollArea)
+  - Fetches notifications on mount and every 60 seconds via useEffect
+  - Unread count badge with emerald background (shown as number when >0)
+  - Per-action icons: CalendarPlus (CREATED), XCircle (CANCELLED), CheckCircle (CHECKED_IN), CheckCheck (COMPLETED), UserX (NO_SHOW)
+  - Description text: "New booking: [patient] with [provider]" etc.
+  - Time ago via date-fns formatDistanceToNow
+  - Emerald left border on unread items, hover:bg-muted/50
+  - "Mark all read" button (local state only)
+  - Empty state with Bell icon, loading state with 3 skeleton rows
+- Modified `/src/app/staff/dashboard/layout.tsx`:
+  - Replaced static Bell button with `<NotificationBell />` component
+  - Removed Bell from lucide-react imports, added NotificationBell import
+- Modified `/src/app/staff/dashboard/page.tsx`:
+  - Added "Recent Activity" section below the two-column layout
+  - Shows last 5 notifications in compact list (icon + description + time ago)
+  - Added "View all notifications →" link at bottom
+  - Added CalendarPlus, UserX, CheckCircle, CheckCheck, Bell to icon imports
+  - Added formatDistanceToNow to date-fns import
+- Ran `bun run lint` — 0 errors
+- Verified dev server compiles successfully
+
+---
+Task ID: 13-b
+Agent: Build Agent
+Task: Build Patient Review Submission System
+
+Work Log:
+- Read worklog, Prisma schema (Review model, Provider model, Token model), enums, crypto, audit, cache, and constants to understand the full project context
+- Read the existing patient portal page (`/src/app/manage/[token]/page.tsx`) — 843 lines — to understand structure and find correct insertion point
+- Read the existing appointments API (`/src/app/api/appointments/route.ts`) to understand token creation flow
+- Read the manage API (`/src/app/api/manage/route.ts`) to understand token validation pattern
+
+**Files Created:**
+1. `/src/app/api/reviews/route.ts` — POST endpoint for review submission:
+   - Validates token format (64-char hex regex), hashes via `hashToken()`, looks up in DB
+   - Validates token purpose is REVIEW, not consumed, not expired
+   - Validates appointment status is COMPLETED
+   - Checks no existing review for this appointment (unique constraint)
+   - Transaction: creates Review, consumes token, updates provider rating (running average), increments reviewCount
+   - Creates audit log with REVIEW_SUBMITTED action
+   - Invalidates cache keys matching "search:" and "clinics:"
+   - Returns 201 with `{ success: true, reviewId }`
+
+2. `/src/app/api/providers/[id]/reviews/route.ts` — GET endpoint for public provider reviews:
+   - Paginated with `?page=1&limit=10` (max 50)
+   - Returns masked patient names (first name + last initial)
+   - Includes provider name, rating, and review count in response
+   - Ordered by createdAt desc
+
+3. `/src/app/review/[token]/page.tsx` — "use client" review submission page:
+   - Fetches appointment details via `/api/manage?token=...`
+   - Shows appointment summary card (provider, clinic, date, service)
+   - 4 interactive star rating selectors (Overall Experience required, others optional)
+   - Star hover effects with yellow-400 fill, gray-300 empty, scale animation
+   - Comment textarea with 1000-char limit and counter
+   - Submit button disabled until overall rating selected
+   - Loading state with skeleton placeholders
+   - Error state, invalid token state
+   - Success state with animated checkmark + "Thank you for your review!" message
+   - Emerald color scheme, responsive design, sticky footer
+
+**Files Modified:**
+4. `/src/lib/constants.ts` — Added `REVIEW_SUBMITTED` audit action constant
+
+5. `/src/app/manage/[token]/page.tsx` — Added "Leave a Review" button:
+   - Added `Star` to lucide-react imports
+   - After cancellation policy card, if appointment status is COMPLETED, shows emerald "Leave a Review" button
+   - Uses `<Button asChild>` with `<a href>` linking to `/review/[token]`
+   - Minimal changes to existing complex page
+
+6. `/src/app/api/appointments/route.ts` — Added REVIEW token generation:
+   - After MANAGE token creation, generates a second token with purpose REVIEW
+   - REVIEW token expires 30 days after appointment end time
+   - Uses `generateSecureToken()` and `hashToken()` following existing pattern
+
+- Ran `bun run lint` — 0 errors
+- Verified dev server compiles successfully with no errors in log
+---
+Task ID: 13-c
+Agent: Main Developer
+Task: Enhance Seed Data + Build Provider Profile Page
+
+Work Log:
+- Modified `prisma/schema.prisma`: Changed Clinic↔Provider relationship from strict 1:1 to 1:many (removed `@unique` on `clinicId`, changed `provider Provider?` to `providers Provider[]`, added `@@index([clinicId, status])`)
+- Enhanced `prisma/seed.ts`:
+  - Added 8 new providers (14 total): Aisha Patel, Lisa Chang, Robert Martinez, Sophia Benjamin, Nina Kowalski, Marcus Thompson, Amir Hassan, Carmen Vasquez
+  - Each clinic now has 2-3 providers (previously 1 each)
+  - Added 2 new languages: French (code: fr), Arabic (code: ar) — 7 total
+  - Added 24 more reviews (29 total) across all providers with varied content (wait times, bedside manner, staff, facilities)
+  - All reviews linked to completed dummy appointments with slots
+  - Added rating recalculation step after review creation
+  - Updated deletion order to maintain FK safety
+  - Provider slugs simplified to firstname-lastname format (no "dr-" prefix)
+- Created `/src/components/ui/expandable-text.tsx`: Reusable client component with line-clamp, "Read more/Show less" toggle, emerald text color
+- Created `/src/app/providers/[slug]/page.tsx`: Full provider profile page (server component)
+  - Hero section: name, credentials, specialty badges, clinic link, star rating
+  - Stats bar: years experience, total appointments, patient rating (3-col grid)
+  - About section with ExpandableText
+  - Services section with emerald badges
+  - Languages section with emerald badges
+  - Reviews section: rating breakdown progress bars (Overall, Wait Time, Bedside Manner, Staff) + individual reviews with masked names
+  - "Book with Dr. [Name]" CTA button linking to search with specialty pre-selected
+  - Contact info card: clinic name, address, phone, Google Maps link
+  - Responsive design, emerald color scheme, sticky header/footer matching other pages
+- Updated `/src/components/search/provider-card.tsx`: Made provider name a Link to `/providers/[slug]`, updated "Read more reviews" link
+- Updated `/src/components/clinic/clinic-provider-row.tsx`: Made provider name a Link to `/providers/[slug]`, updated "View reviews" link
+- Updated `/src/app/api/taxonomies/route.ts`: Added providerCount (ACTIVE providers) to response
+- Updated `/src/app/api/clinics/route.ts`: Changed from `provider` (singular 1:1) to `providers` (plural 1:many) relation
+- Updated `/src/components/search/search-page.tsx`: Dynamic provider count from taxonomies API instead of hardcoded "50+"
+- Ran `bun run lint` — 0 errors
+
+---
+Task ID: 13-e
+Agent: Main Orchestrator
+Task: Enhance Clinic Cards, Search Results, and Provider Profile Links
+
+Work Log:
+- Updated `/src/app/api/clinics/route.ts`:
+  - Extended provider select to include `slug`, `reviewCount` fields
+  - Changed `take: 1` to `take: 5` to fetch all providers (up to 5) per clinic
+  - Added secondary sort by `lastName: "asc"`
+  - Aggregated specialties from ALL providers (not just first)
+  - Added `topProviders` field (first 3 providers with name + slug + credentials + rating)
+  - Added `allProviders` field (all fetched providers with slug for badge display)
+- Updated `/src/app/clinics/page.tsx` (Clinic Directory Cards):
+  - Added `ProviderBrief` interface and `topProviders`/`allProviders` fields to `ClinicData`
+  - Added provider name badges section showing all provider names as linked emerald badges linking to `/providers/[slug]`
+  - Changed provider count display from plain text to emerald badge with Users icon
+  - Added hover:text-emerald-700 transition-colors on provider name badges
+- Updated `/src/components/search/search-page.tsx`:
+  - Changed trust indicator from `${providerCount}+ providers` to `${providerCount} providers` (removed hardcoded "+")
+- Updated `/src/app/clinic/[slug]/page.tsx` (Clinic Detail Page):
+  - Changed header from "Our Providers" to "X providers at this clinic" with Users icon
+  - Added descriptive subtitle "Meet our team of healthcare professionals at [clinic name]"
+  - Changed provider layout from vertical `space-y-4` to responsive 2-column grid (`grid-cols-1 md:grid-cols-2`) when 2+ providers
+- Updated `/src/components/clinic/clinic-provider-row.tsx`:
+  - Added ChevronRight icon import
+  - Added "View full profile →" link with hover animation below the rating section
+- Updated `/src/components/search/provider-card.tsx`:
+  - Added "View full profile →" link with ChevronRight icon and hover animation below review snippet
+  - Provider name was already a Link to `/providers/[slug]` — confirmed working
+- Ran `bun run lint` — 0 errors
+- Verified dev server compiles successfully with no runtime errors
+
+Stage Summary:
+- Clinic directory cards now show all provider names as clickable emerald badges linking to provider profiles
+- Provider count displayed in emerald badge with Users icon
+- Search page trust indicators show exact provider count (e.g., "14 providers") instead of "14+ providers"
+- Clinic detail page providers section uses responsive 2-column grid and enhanced "X providers at this clinic" header
+- Provider cards in search results and clinic detail pages include "View full profile →" link
+- All links navigate to `/providers/[slug]` provider profile pages
+- Lint: 0 errors
+
+---
+Task ID: 13-d
+Agent: Main Orchestrator
+Task: Build Staff Activity Feed Page + Enhance Dashboard
+
+Work Log:
+- Added "Activity" nav item to dashboard sidebar layout (`/src/app/staff/dashboard/layout.tsx`):
+  - Imported `Activity` icon from lucide-react
+  - Inserted new nav item between "Appointments" and "Slot Management" with `minRole: CLINIC_RECEPTION`
+- Built full-page Staff Activity Feed (`/src/app/staff/dashboard/activity/page.tsx`):
+  - "use client" page fetching from existing `/api/staff/notifications` endpoint with 30-second polling
+  - Filter tabs: All | Bookings | Cancellations | Check-ins | Completions | No-shows, each mapping to specific `AUDIT_ACTIONS` constants
+  - Each notification card displays: left colored-circle icon (emerald/red/blue/green/amber by type), middle action description with bold patient name + provider name + service badge, right relative timestamp via date-fns `formatDistanceToNow`
+  - Colored left border (3px) on each card based on action type
+  - "Mark all as read" button (updates local read state), Refresh button with last-fetch timestamp
+  - Empty state: "No activity yet" with BellOff icon
+  - Loading state: 8 skeleton rows with circle + text skeleton
+  - Gradient header strip (emerald-500 to teal-500, h-1) on the card
+  - Responsive design, emerald color scheme throughout
+  - Uses shadcn/ui Tabs/TabsList/TabsTrigger, Card, Button, Skeleton, Badge
+- Enhanced Dashboard "Recent Activity" section (`/src/app/staff/dashboard/page.tsx`):
+  - Added `import Link from "next/link"` and `import { AUDIT_ACTIONS } from "@/lib/constants"`
+  - Updated `ACTIVITY_ICON_MAP` to use `AUDIT_ACTIONS` constants instead of raw strings, added `borderColor` property
+  - Updated `getActivityDescription` to use `AUDIT_ACTIONS` constants and improved descriptions
+  - Added subtle gradient header strip (emerald-500 to teal-500, h-1) with `overflow-hidden` on Card
+  - Each notification item now has colored left border (2px) based on action type
+  - Added hover effect: `hover:bg-muted/50 transition-colors duration-150`
+  - Shows provider name and service name in the detail line below the description
+  - Moved timestamp to the right side of each row
+  - Replaced plain `<button>` "View all" with `<Link href="/staff/dashboard/activity">` using ArrowRight icon
+- Ran `bun run lint` — 0 errors
+
+Stage Summary:
+- **Activity Feed Page**: Full-featured notification feed with 6 filter tabs, 30s polling, colored icons/borders, relative timestamps, mark-all-as-read, skeleton loading, empty state
+- **Dashboard Enhancement**: Recent Activity section now has gradient strip, colored left borders per action type, provider name display, hover effects, and working "View all" link to Activity Feed page
+- **Navigation**: New "Activity" nav item visible to CLINIC_RECEPTION+ roles in the dashboard sidebar
+
+---
+Task ID: 13
+Agent: Main Orchestrator
+Task: Sprint 7 — Notifications, Reviews, Provider Profiles, Activity Feed, Enhanced Data
+
+Work Log:
+- Reviewed worklog.md: Sprints 1-6 all complete (Data Layer, Auth, Search, Booking, Staff Portal, Patient Portal, Clinics Directory, Analytics, Waitlist, Dark Mode, Styling)
+- Ran `bun run lint` — 0 errors, 0 warnings
+- Dispatched 5 parallel subagents for Sprint 7 feature development:
+  1. **Notification Agent (13-a)**: Notification API + Bell dropdown + Dashboard Recent Activity
+  2. **Review Agent (13-b)**: Review submission API + Review page + Patient portal integration + REVIEW token
+  3. **Seed+Provider Agent (13-c)**: Enhanced seed data (14 providers, 29 reviews, 7 languages) + Provider Profile page + ExpandableText component
+  4. **Activity Feed Agent (13-d)**: Full Activity Feed page + Dashboard enhancement
+  5. **Clinic Enhancement Agent (13-e)**: Clinic cards with provider badges + Provider links everywhere
+- Fixed Clinic↔Provider relationship from 1:1 to 1:many (removed @unique on clinicId)
+- Re-seeded database: 14 providers (up from 6), 29 reviews (up from 5), 1792 slots, 7 languages
+- All subagent work verified: 0 lint errors across all files
+- Browser QA blocked by OOM in 4GB container (Turbopack + Chromium exceeds memory limit)
+- Verified via curl: all routes return 200, HTML content renders correctly
+
+# Current Project Status Assessment
+- Sprint 1 (Data Layer + Auth): ✅ COMPLETE
+- Sprint 2 (Public Search): ✅ COMPLETE
+- Sprint 3 (Booking Wizard + Two-Phase Locking): ✅ COMPLETE
+- Sprint 4 (Staff Portal): ✅ COMPLETE
+- Sprint 5 (Additional Features): ✅ COMPLETE
+- Sprint 6 (Advanced Features + Styling): ✅ COMPLETE
+- Sprint 7 (Notifications, Reviews, Provider Profiles): ✅ COMPLETE
+  - Staff Notification System (API + Bell dropdown with unread count)
+  - Staff Activity Feed page with 6 filter tabs and 30s polling
+  - Dashboard Recent Activity section with colored borders
+  - Patient Review Submission system (API + dedicated page + star ratings)
+  - Review token generation on booking (30-day expiry)
+  - "Leave a Review" button on patient portal for completed appointments
+  - Provider Profile pages (bio, stats, services, languages, reviews, contact)
+  - Expandable Text reusable component
+  - Enhanced seed data: 14 providers, 29 reviews, 7 languages, 1792 slots
+  - Clinic↔Provider 1:many relationship (multi-provider clinics)
+  - Clinic cards show provider name badges linking to profiles
+  - Clinic detail page shows 2-column provider grid
+  - Dynamic provider count in search page trust indicators
+- **Project Scale**: ~110 source files, ~26,000+ lines of TypeScript/TSX, 25+ API routes, 18+ pages, 8+ custom components
+- **Full End-to-End Flow**: Search → Browse Clinics → View Provider Profile → Book → Confirm → Patient Portal → Leave Review → Staff Manage → Notifications → Analytics
+
+# Completed Modifications (Sprint 7)
+
+### New Files
+- `src/app/api/staff/notifications/route.ts`: Notification API (AuditLog-based, 30s cache)
+- `src/components/notification-bell.tsx`: Bell dropdown with unread badge, icons, time ago
+- `src/app/api/reviews/route.ts`: Review submission API (token-validated, transaction-safe)
+- `src/app/api/providers/[id]/reviews/route.ts`: Public provider reviews API (paginated)
+- `src/app/review/[token]/page.tsx`: Review submission page (4 star selectors, comment, success animation)
+- `src/components/ui/expandable-text.tsx`: Reusable line-clamp component
+- `src/app/providers/[slug]/page.tsx`: Provider profile page (hero, stats, reviews, contact)
+- `src/app/staff/dashboard/activity/page.tsx`: Activity Feed page (6 filter tabs, 30s polling)
+
+### Modified Files
+- `prisma/schema.prisma`: Clinic↔Provider 1:1 → 1:many (removed @unique, added index)
+- `prisma/seed.ts`: 14 providers, 29 reviews, 7 languages, 1792 slots, rating recalculation
+- `src/app/staff/dashboard/layout.tsx`: NotificationBell component, Activity nav item
+- `src/app/staff/dashboard/page.tsx`: Recent Activity section with colored borders, provider names
+- `src/lib/constants.ts`: Added REVIEW_SUBMITTED audit action
+- `src/app/manage/[token]/page.tsx`: "Leave a Review" button for completed appointments
+- `src/app/api/appointments/route.ts`: REVIEW token generation (30-day expiry)
+- `src/app/api/clinics/route.ts`: providers (plural), topProviders/allProviders fields
+- `src/app/api/taxonomies/route.ts`: providerCount in response
+- `src/components/search/search-page.tsx`: Dynamic provider count
+- `src/components/search/provider-card.tsx`: "View full profile →" link
+- `src/components/clinic/clinic-provider-row.tsx`: "View full profile →" link
+- `src/app/clinics/page.tsx`: Provider name badges on clinic cards
+- `src/app/clinic/[slug]/page.tsx`: 2-column provider grid, enhanced header
+
+### Database Summary (Post Seed)
+- SystemConfig: 1
+- Specialties: 5 (Family Medicine, Cardiology, Dermatology, Pediatrics, Orthopedics)
+- Services: 10
+- Insurances: 3 (Demo Insurance, Aetna, Blue Cross Blue Shield)
+- Languages: 7 (English, Spanish, Mandarin, French, Hindi, Arabic, Korean)
+- Clinics: 6 (all NYC area)
+- Providers: 14 (2-3 per clinic)
+- Slots: 1,792 (14 days × 14 providers)
+- Reviews: 29
+- SlotTemplates: 238
+- Staff Users: 13 (1 SYS_MANAGER + 6 CLINIC_ADMIN + 6 CLINIC_RECEPTION)
+
+# Unresolved Issues / Risks
+1. **OOM in dev environment**: Turbopack compilation + Chromium (agent-browser) exceeds 4GB container memory. Mitigation: use curl for API verification, lint for code quality. Production builds would not have this issue.
+2. The "middleware" deprecation warning in Next.js 16 (functional, cosmetic only)
+3. Geolocation requires user to grant browser location permission
+4. Stripe SDK not installed — all bookings use MANUAL_WAIVER or CASH_AT_DESK
+5. No email sending configured — confirmation/review emails not sent
+6. Background slot generator not built (slots come from seed script only)
+7. Provider profile pages use server components — first load may be slow with large provider data
+8. Review submission requires a COMPLETED appointment — no way to test end-to-end without completing a real booking flow
+
+# Priority Recommendations for Next Phase (Sprint 8: Production Readiness)
+1. **System Admin Dashboard** — Cross-clinic analytics, user management, system configuration
+2. **Background slot generator mini-service** — Reads SlotTemplates, generates Slots for rolling 90-day window
+3. **Slot lock cleanup job** — Sweep expired SlotLock entries every 5 minutes
+4. **Email notification stubs** — Toast/inline notifications for booking confirmations, reminders
+5. **Intake form system** — Dynamic forms per specialty, patient pre-visit completion
+6. **Performance optimization** — Split large components, implement route-based code splitting
+7. **Accessibility audit** — WCAG 2.1 AA compliance, keyboard navigation, screen reader testing
+8. **PWA manifest** — Offline caching, install prompt, service worker for patient portal
+9. **QR code generation** — For check-in kiosks and appointment management links
+10. **Mobile touch optimizations** — Swipe gestures on calendar, pull-to-refresh on activity feed

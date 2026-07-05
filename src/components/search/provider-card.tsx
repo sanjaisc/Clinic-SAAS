@@ -197,9 +197,12 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
             {/* Name + Verified Badge + Cost Badge */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <h3 className="text-lg font-semibold leading-tight truncate">
+                <Link
+                  href={`/providers/${provider.slug}`}
+                  className="text-lg font-semibold leading-tight truncate hover:text-emerald-700 transition-colors cursor-pointer"
+                >
                   {displayName}
-                </h3>
+                </Link>
                 <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50/80 px-1.5 py-0.5">
                   <ShieldCheck className="size-3 text-emerald-600" />
                   <span className="text-[10px] font-medium text-emerald-700 leading-none">Verified</span>
@@ -401,7 +404,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                 </p>
               </div>
               <Link
-                href="#"
+                href={`/providers/${provider.slug}`}
                 className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline hover:translate-x-0.5 transition-all cursor-pointer pl-6"
               >
                 Read more reviews
@@ -410,6 +413,15 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
             </div>
           </>
         )}
+
+        {/* View full profile link */}
+        <Link
+          href={`/providers/${provider.slug}`}
+          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:translate-x-0.5 transition-all cursor-pointer"
+        >
+          View full profile →
+          <ChevronRight className="size-3" />
+        </Link>
       </CardContent>
     </Card>
   );

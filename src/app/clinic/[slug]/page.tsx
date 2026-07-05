@@ -471,12 +471,11 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 <div>
                   <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                     <Users className="size-5 text-emerald-600" />
-                    Our Providers
+                    {providers.length}{" "}
+                    {providers.length === 1 ? "provider" : "providers"} at this clinic
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {providers.length}{" "}
-                    {providers.length === 1 ? "provider" : "providers"} at{" "}
-                    {clinic.name}
+                    Meet our team of healthcare professionals at {clinic.name}
                   </p>
                 </div>
                 <Link
@@ -487,7 +486,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 </Link>
               </div>
 
-              <div className="space-y-4">
+              <div className={`grid gap-4 ${providers.length >= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
                 {providers.map((provider) => {
                   const specialty =
                     provider.providerServices[0]?.service.specialty.name ?? null;

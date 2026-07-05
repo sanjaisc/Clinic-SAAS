@@ -1,0 +1,856 @@
+     1→     1→// =============================================================================
+     2→     2→// Database Seed Script — Demo Data for Medical Marketplace
+     3→     3→// Run: npx tsx prisma/seed.ts  OR  bunx tsx prisma/seed.ts
+     4→     4→// =============================================================================
+     5→     5→
+     6→     6→import { db } from '../src/lib/db';
+     7→     7→import {
+     8→     8→  CLINIC_STATUS,
+     9→     9→  PROVIDER_STATUS,
+    10→    10→  SLOT_STATUS,
+    11→    11→  SLOT_MODALITY,
+    12→    12→  STAFF_ROLE,
+    13→    13→} from '../src/lib/enums';
+    14→    14→import { hashPassword } from '../src/lib/crypto';
+    15→    15→
+    16→    16→// ─── Helpers ───────────────────────────────────────────────────────────────────
+    17→    17→
+    18→    18→/** Convert a NYC local date + time string to a UTC Date object.
+    19→    19→ *  EST = UTC-5 (we ignore DST for seed simplicity). */
+    20→    20→function nycToUTC(
+    21→    21→  date: Date,
+    22→    22→  hours: number,
+    23→    23→  minutes: number
+    24→    24→): Date {
+    25→    25→  const utc = new Date(date);
+    26→    26→  utc.setUTCHours(hours + 5, minutes, 0, 0); // NYC EST is UTC-5 → add 5
+    27→    27→  return utc;
+    28→    28→}
+    29→    29→
+    30→    30→/** Add N days to a date, returning a new Date. */
+    31→    31→function addDays(date: Date, days: number): Date {
+    32→    32→  const d = new Date(date);
+    33→    33→  d.setDate(d.getDate() + days);
+    34→    34→  return d;
+    35→    35→}
+    36→    36→
+    37→    37→/** Return a date-only UTC Date for the given day offset from today. */
+    38→    38→function dayOffset(days: number): Date {
+    39→    39→  const d = new Date();
+    40→    40→  d.setUTCHours(0, 0, 0, 0);
+    41→    41→  d.setDate(d.getDate() + days);
+    42→    42→  return d;
+    43→    43→}
+    44→    44→
+    45→    45→// Standard hours-of-operation JSON
+    46→    46→const HOURS_OF_OPERATION = JSON.stringify({
+    47→    47→  mon: { open: '09:00', close: '17:00' },
+    48→    48→  tue: { open: '09:00', close: '17:00' },
+    49→    49→  wed: { open: '09:00', close: '17:00' },
+    50→    50→  thu: { open: '09:00', close: '17:00' },
+    51→    51→  fri: { open: '09:00', close: '17:00' },
+    52→    52→  sat: { open: '09:00', close: '13:00' },
+    53→    53→  sun: null,
+    54→    54→});
+    55→    55→
+    56→    56→// ─── Main ──────────────────────────────────────────────────────────────────────
+    57→    57→
+    58→    58→async function main() {
+    59→    59→  console.log('🌱 Seeding database with demo data...\n');
+    60→    60→
+    61→    61→  // ── 0. Clean existing data (idempotent re-runs) ────────────────────────────
+    62→    62→
+    63→    63→  console.log('0️⃣  Cleaning existing data for idempotent re-run...');
+    64→    64→  // Delete in reverse dependency order to avoid FK violations (sequential)
+    65→    65→  await db.auditLog.deleteMany();
+    66→    66→  await db.internalNote.deleteMany();
+    67→    67→  await db.review.deleteMany();
+    68→    68→  await db.appointmentLedger.deleteMany();
+    69→    69→  await db.token.deleteMany();
+    70→    70→  await db.slotLock.deleteMany();
+    71→    71→  await db.appointment.deleteMany();
+    72→    72→  await db.waitlistEntry.deleteMany();
+    73→    73→  await db.clinicClosure.deleteMany();
+    74→    74→  await db.user.deleteMany();
+    75→    75→  await db.slot.deleteMany();
+    76→    76→  await db.slotTemplate.deleteMany();
+    77→    77→  await db.providerService.deleteMany();
+    78→    78→  await db.providerLanguage.deleteMany();
+    79→    79→  await db.clinicInsurance.deleteMany();
+    80→    80→  await db.serviceInsurance.deleteMany();
+    81→    81→  await db.provider.deleteMany();
+    82→    82→  await db.clinic.deleteMany();
+    83→    83→  await db.service.deleteMany();
+    84→    84→  await db.insurance.deleteMany();
+    85→    85→  await db.specialty.deleteMany();
+    86→    86→  await db.language.deleteMany();
+    87→    87→  await db.systemConfig.deleteMany();
+    88→    88→  console.log('   ✅ All existing data cleared\n');
+    89→    89→
+    90→    90→  // ── 1. SystemConfig ────────────────────────────────────────────────────────
+    91→    91→
+    92→    92→  console.log('1️⃣  Creating SystemConfig...');
+    93→    93→  await db.systemConfig.upsert({
+    94→    94→    where: { id: 'singleton' },
+    95→    95→    update: {},
+    96→    96→    create: {
+    97→    97→      id: 'singleton',
+    98→    98→      minDepositCents: 0,
+    99→    99→      maxDepositCents: 50000,
+   100→   100→      lockTtlSeconds: 600,
+   101→   101→      slotGenerationWindowDays: 90,
+   102→   102→      waitlistProcessingDelayMin: 3,
+   103→   103→      zeroDepositRequireCard: false,
+   104→   104→      platformFeeCents: 0,
+   105→   105→    },
+   106→   106→  });
+   107→   107→  console.log('   ✅ SystemConfig created\n');
+   108→   108→
+   109→   109→  // ── 2. Specialties ─────────────────────────────────────────────────────────
+   110→   110→
+   111→   111→  console.log('2️⃣  Creating Specialties...');
+   112→   112→  const specialtiesData = [
+   113→   113→    { name: 'Family Medicine', slug: 'family-medicine', icon: '🩺', description: 'Comprehensive primary care for patients of all ages.', sortOrder: 1 },
+   114→   114→    { name: 'Cardiology', slug: 'cardiology', icon: '❤️', description: 'Diagnosis and treatment of heart and cardiovascular conditions.', sortOrder: 2 },
+   115→   115→    { name: 'Dermatology', slug: 'dermatology', icon: '🔬', description: 'Skin, hair, and nail conditions — medical and cosmetic.', sortOrder: 3 },
+   116→   116→    { name: 'Pediatrics', slug: 'pediatrics', icon: '👶', description: 'Specialized care for infants, children, and adolescents.', sortOrder: 4 },
+   117→   117→    { name: 'Orthopedics', slug: 'orthopedics', icon: '🦴', description: 'Musculoskeletal conditions, injuries, and joint care.', sortOrder: 5 },
+   118→   118→  ];
+   119→   119→
+   120→   120→  const specialties: Record<string, string> = {};
+   121→   121→  for (const s of specialtiesData) {
+   122→   122→    const record = await db.specialty.create({ data: s });
+   123→   123→    specialties[s.slug] = record.id;
+   124→   124→    console.log(`   ✅ ${s.name} (${record.id})`);
+   125→   125→  }
+   126→   126→  console.log('');
+   127→   127→
+   128→   128→  // ── 3. Services (2 per specialty) ──────────────────────────────────────────
+   129→   129→
+   130→   130→  console.log('3️⃣  Creating Services...');
+   131→   131→  const servicesData = [
+   132→   132→    // Family Medicine
+   133→   133→    { name: 'Annual Physical', slug: 'annual-physical', specialtySlug: 'family-medicine', durationMinutes: 30, selfPayPriceCents: 15000, copayDemoCents: 0, description: 'Comprehensive yearly health examination and preventive screening.', sortOrder: 1 },
+   134→   134→    { name: 'Sick Visit', slug: 'sick-visit', specialtySlug: 'family-medicine', durationMinutes: 30, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Urgent same-day visit for acute illness symptoms.', sortOrder: 2 },
+   135→   135→    // Cardiology
+   136→   136→    { name: 'Heart Screening', slug: 'heart-screening', specialtySlug: 'cardiology', durationMinutes: 45, selfPayPriceCents: 25000, copayDemoCents: 5000, description: 'Cardiovascular risk assessment including blood pressure, cholesterol review, and ECG.', sortOrder: 1 },
+   137→   137→    { name: 'ECG Consultation', slug: 'ecg-consultation', specialtySlug: 'cardiology', durationMinutes: 30, selfPayPriceCents: 18000, copayDemoCents: 0, description: 'Electrocardiogram interpretation and cardiac consultation.', sortOrder: 2 },
+   138→   138→    // Dermatology
+   139→   139→    { name: 'Skin Check', slug: 'skin-check', specialtySlug: 'dermatology', durationMinutes: 20, selfPayPriceCents: 15000, copayDemoCents: 3000, description: 'Full-body skin examination for moles, lesions, and signs of skin cancer.', sortOrder: 1 },
+   140→   140→    { name: 'Acne Consultation', slug: 'acne-consultation', specialtySlug: 'dermatology', durationMinutes: 20, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Evaluation and treatment planning for acne and related skin conditions.', sortOrder: 2 },
+   141→   141→    // Pediatrics
+   142→   142→    { name: 'Well Child Visit', slug: 'well-child-visit', specialtySlug: 'pediatrics', durationMinutes: 30, selfPayPriceCents: 15000, copayDemoCents: 0, description: 'Routine well-child checkup including growth assessment and vaccinations.', sortOrder: 1 },
+   143→   143→    { name: 'Pediatric Sick Visit', slug: 'pediatric-sick-visit', specialtySlug: 'pediatrics', durationMinutes: 30, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Same-day visit for acute childhood illness.', sortOrder: 2 },
+   144→   144→    // Orthopedics
+   145→   145→    { name: 'Joint Assessment', slug: 'joint-assessment', specialtySlug: 'orthopedics', durationMinutes: 30, selfPayPriceCents: 20000, copayDemoCents: 4000, description: 'Comprehensive evaluation of joint pain, stiffness, or mobility issues.', sortOrder: 1 },
+   146→   146→    { name: 'Sports Injury Evaluation', slug: 'sports-injury-evaluation', specialtySlug: 'orthopedics', durationMinutes: 30, selfPayPriceCents: 18000, copayDemoCents: 3000, description: 'Assessment and treatment plan for sports-related injuries.', sortOrder: 2 },
+   147→   147→  ];
+   148→   148→
+   149→   149→  const services: Record<string, string> = {};
+   150→   150→  const serviceCopays: Record<string, number> = {};
+   151→   151→  for (const s of servicesData) {
+   152→   152→    const record = await db.service.create({
+   153→   153→      data: {
+   154→   154→        name: s.name,
+   155→   155→        slug: s.slug,
+   156→   156→        description: s.description,
+   157→   157→        specialtyId: specialties[s.specialtySlug],
+   158→   158→        durationMinutes: s.durationMinutes,
+   159→   159→        selfPayPriceCents: s.selfPayPriceCents,
+   160→   160→        selfPayPaymentType: 'STANDARD_DEPOSIT',
+   161→   161→        isActive: true,
+   162→   162→        sortOrder: s.sortOrder,
+   163→   163→      },
+   164→   164→    });
+   165→   165→    services[s.slug] = record.id;
+   166→   166→    serviceCopays[s.slug] = s.copayDemoCents;
+   167→   167→    console.log(`   ✅ ${s.name} (${record.id})`);
+   168→   168→  }
+   169→   169→  console.log('');
+   170→   170→
+   171→   171→  // ── 4. Insurances ──────────────────────────────────────────────────────────
+   172→   172→
+   173→   173→  console.log('4️⃣  Creating Insurances...');
+   174→   174→  const insurancesData = [
+   175→   175→    { name: 'Demo Insurance', slug: 'demo-insurance', isDemo: true, sortOrder: 1 },
+   176→   176→    { name: 'Aetna', slug: 'aetna', isDemo: false, sortOrder: 2 },
+   177→   177→    { name: 'Blue Cross Blue Shield', slug: 'blue-cross-blue-shield', isDemo: false, sortOrder: 3 },
+   178→   178→  ];
+   179→   179→
+   180→   180→  const insurances: Record<string, string> = {};
+   181→   181→  for (const ins of insurancesData) {
+   182→   182→    const record = await db.insurance.create({ data: ins });
+   183→   183→    insurances[ins.slug] = record.id;
+   184→   184→    console.log(`   ✅ ${ins.name} (${record.id})`);
+   185→   185→  }
+   186→   186→  console.log('');
+   187→   187→
+   188→   188→  // ── 5. ServiceInsurance entries ────────────────────────────────────────────
+   189→   189→
+   190→   190→  console.log('5️⃣  Creating ServiceInsurance entries...');
+   191→   191→  const demoInsuranceId = insurances['demo-insurance'];
+   192→   192→  const serviceInsuranceRows = servicesData.map((s) => ({
+   193→   193→    serviceId: services[s.slug],
+   194→   194→    insuranceId: demoInsuranceId,
+   195→   195→    copayCents: s.copayDemoCents,
+   196→   196→    isActive: true,
+   197→   197→  }));
+   198→   198→
+   199→   199→  await db.serviceInsurance.createMany({ data: serviceInsuranceRows });
+   200→   200→  console.log(`   ✅ Created ${serviceInsuranceRows.length} ServiceInsurance entries\n`);
+   201→   201→
+   202→   202→  // ── 11. Languages (created early for ProviderLanguage FK) ──────────────────
+   203→   203→
+   204→   204→  console.log('6️⃣  Creating Languages...');
+   205→   205→  const languagesData = [
+   206→   206→    { name: 'English', code: 'en', sortOrder: 1 },
+   207→   207→    { name: 'Spanish', code: 'es', sortOrder: 2 },
+   208→   208→    { name: 'Mandarin', code: 'zh', sortOrder: 3 },
+   209→   209→    { name: 'Hindi', code: 'hi', sortOrder: 4 },
+   210→   210→    { name: 'Korean', code: 'ko', sortOrder: 5 },
+   211→   211→  ];
+   212→   212→
+   213→   213→  const languages: Record<string, string> = {};
+   214→   214→  for (const lang of languagesData) {
+   215→   215→    const record = await db.language.create({ data: lang });
+   216→   216→    languages[lang.code] = record.id;
+   217→   217→    console.log(`   ✅ ${lang.name} (${record.id})`);
+   218→   218→  }
+   219→   219→  console.log('');
+   220→   220→
+   221→   221→  // ── 6. Clinics ─────────────────────────────────────────────────────────────
+   222→   222→
+   223→   223→  console.log('7️⃣  Creating Clinics...');
+   224→   224→  const clinicsData = [
+   225→   225→    {
+   226→   226→      name: 'Downtown Medical Group',
+   227→   227→      slug: 'downtown-medical-group',
+   228→   228→      streetAddress: '100 Broadway, Suite 400',
+   229→   229→      city: 'New York',
+   230→   230→      state: 'NY',
+   231→   231→      zipCode: '10005',
+   232→   232→      latitude: 40.7128,
+   233→   233→      longitude: -74.006,
+   234→   234→      phoneNumber: '(212) 555-0101',
+   235→   235→      email: 'info@downtownmedical.com',
+   236→   236→      website: 'https://downtownmedical.example.com',
+   237→   237→      tagline: 'Comprehensive care in the heart of Lower Manhattan',
+   238→   238→      description: 'Downtown Medical Group has been serving the Lower Manhattan community for over 15 years. Our board-certified physicians provide personalized primary care with a focus on preventive medicine and patient education.',
+   239→   239→      inPersonDepositCents: 2500,
+   240→   240→      videoDepositCents: 1500,
+   241→   241→      selfPayFlatRateCents: 20000,
+   242→   242→    },
+   243→   243→    {
+   244→   244→      name: 'Midtown Health Center',
+   245→   245→      slug: 'midtown-health-center',
+   246→   246→      streetAddress: '350 Fifth Avenue, Floor 18',
+   247→   247→      city: 'New York',
+   248→   248→      state: 'NY',
+   249→   249→      zipCode: '10118',
+   250→   250→      latitude: 40.7549,
+   251→   251→      longitude: -73.984,
+   252→   252→      phoneNumber: '(212) 555-0202',
+   253→   253→      email: 'info@midtownhealth.com',
+   254→   254→      website: 'https://midtownhealth.example.com',
+   255→   255→      tagline: 'Expert cardiac care in Midtown Manhattan',
+   256→   256→      description: 'Midtown Health Center is a premier cardiology practice offering state-of-the-art cardiovascular diagnostics and treatment. Our team of fellowship-trained cardiologists is dedicated to heart health and prevention.',
+   257→   257→      inPersonDepositCents: 2500,
+   258→   258→      videoDepositCents: 1500,
+   259→   259→      selfPayFlatRateCents: 20000,
+   260→   260→    },
+   261→   261→    {
+   262→   262→      name: 'Brooklyn Family Care',
+   263→   263→      slug: 'brooklyn-family-care',
+   264→   264→      streetAddress: '189 Atlantic Avenue',
+   265→   265→      city: 'Brooklyn',
+   266→   266→      state: 'NY',
+   267→   267→      zipCode: '11201',
+   268→   268→      latitude: 40.6782,
+   269→   269→      longitude: -73.9442,
+   270→   270→      phoneNumber: '(718) 555-0303',
+   271→   271→      email: 'info@brooklynfamilycare.com',
+   272→   272→      website: 'https://brooklynfamilycare.example.com',
+   273→   273→      tagline: 'Your neighborhood dermatology experts in Brooklyn Heights',
+   274→   274→      description: 'Brooklyn Family Care provides expert dermatological services in a warm, welcoming environment. We treat everything from routine skin checks to complex dermatological conditions using the latest evidence-based approaches.',
+   275→   275→      inPersonDepositCents: 2500,
+   276→   276→      videoDepositCents: 1500,
+   277→   277→      selfPayFlatRateCents: 20000,
+   278→   278→    },
+   279→   279→    {
+   280→   280→      name: 'Upper East Side Clinic',
+   281→   281→      slug: 'upper-east-side-clinic',
+   282→   282→      streetAddress: '720 Park Avenue, Suite 2B',
+   283→   283→      city: 'New York',
+   284→   284→      state: 'NY',
+   285→   285→      zipCode: '10021',
+   286→   286→      latitude: 40.7736,
+   287→   287→      longitude: -73.9566,
+   288→   288→      phoneNumber: '(212) 555-0404',
+   289→   289→      email: 'info@uesclinic.com',
+   290→   290→      website: 'https://uesclinic.example.com',
+   291→   291→      tagline: 'Trusted pediatric care on the Upper East Side',
+   292→   292→      description: 'Upper East Side Clinic specializes in comprehensive pediatric care from newborn through adolescence. Our child-friendly environment and experienced team make every visit comfortable for both children and parents.',
+   293→   293→      inPersonDepositCents: 2500,
+   294→   294→      videoDepositCents: 1500,
+   295→   295→      selfPayFlatRateCents: 20000,
+   296→   296→    },
+   297→   297→    {
+   298→   298→      name: 'Harlem Wellness Center',
+   299→   299→      slug: 'harlem-wellness-center',
+   300→   300→      streetAddress: '2080 Adam Clayton Powell Jr. Blvd',
+   301→   301→      city: 'New York',
+   302→   302→      state: 'NY',
+   303→   303→      zipCode: '10027',
+   304→   304→      latitude: 40.8116,
+   305→   305→      longitude: -73.9465,
+   306→   306→      phoneNumber: '(212) 555-0505',
+   307→   307→      email: 'info@harlemwellness.com',
+   308→   308→      website: 'https://harlemwellness.example.com',
+   309→   309→      tagline: 'Holistic family medicine serving the Harlem community',
+   310→   310→      description: 'Harlem Wellness Center is dedicated to providing accessible, high-quality family medicine. We believe in treating the whole person — body, mind, and spirit — with culturally sensitive care that honors our diverse community.',
+   311→   311→      inPersonDepositCents: 2500,
+   312→   312→      videoDepositCents: 1500,
+   313→   313→      selfPayFlatRateCents: 20000,
+   314→   314→    },
+   315→   315→    {
+   316→   316→      name: 'Queens Medical Associates',
+   317→   317→      slug: 'queens-medical-associates',
+   318→   318→      streetAddress: '28-20 Astoria Boulevard',
+   319→   319→      city: 'Astoria',
+   320→   320→      state: 'NY',
+   321→   321→      zipCode: '11102',
+   322→   322→      latitude: 40.7282,
+   323→   323→      longitude: -73.7949,
+   324→   324→      phoneNumber: '(718) 555-0606',
+   325→   325→      email: 'info@queensmedical.com',
+   326→   326→      website: 'https://queensmedical.example.com',
+   327→   327→      tagline: 'Orthopedic excellence in the heart of Astoria, Queens',
+   328→   328→      description: 'Queens Medical Associates offers comprehensive orthopedic care including sports medicine, joint replacement, and fracture management. Our state-of-the-art facility and experienced orthopedic surgeons help patients regain mobility and live pain-free.',
+   329→   329→      inPersonDepositCents: 2500,
+   330→   330→      videoDepositCents: 1500,
+   331→   331→      selfPayFlatRateCents: 20000,
+   332→   332→    },
+   333→   333→  ];
+   334→   334→
+   335→   335→  const clinics: Record<string, string> = {};
+   336→   336→  for (const c of clinicsData) {
+   337→   337→    const record = await db.clinic.create({
+   338→   338→      data: {
+   339→   339→        ...c,
+   340→   340→        hoursOfOperation: HOURS_OF_OPERATION,
+   341→   341→        status: CLINIC_STATUS.PUBLISHED,
+   342→   342→        commonInstructions: 'Please arrive 15 minutes before your appointment. Bring a valid photo ID and your insurance card.',
+   343→   343→        intakeReminderDays: '3,1',
+   344→   344→      },
+   345→   345→    });
+   346→   346→    clinics[c.slug] = record.id;
+   347→   347→    console.log(`   ✅ ${c.name} (${record.id})`);
+   348→   348→  }
+   349→   349→  console.log('');
+   350→   350→
+   351→   351→  // ── 7. Providers (1 per clinic, strict 1:1) ────────────────────────────────
+   352→   352→
+   353→   353→  console.log('8️⃣  Creating Providers...');
+   354→   354→  const providersData = [
+   355→   355→    {
+   356→   356→      firstName: 'Sarah', lastName: 'Chen', credentials: 'MD',
+   357→   357→      slug: 'dr-sarah-chen',
+   358→   358→      bio: 'Dr. Sarah Chen is a board-certified family medicine physician with over 12 years of experience. She graduated from Columbia University College of Physicians and Surgeons and completed her residency at NYU Langone. Dr. Chen is passionate about preventive care and building long-term patient relationships.',
+   359→   359→      clinicSlug: 'downtown-medical-group',
+   360→   360→      yearsExperience: 12, rating: 4.8, reviewCount: 67,
+   361→   361→      specialtySlugs: ['annual-physical', 'sick-visit', 'well-child-visit'],
+   362→   362→      languageCodes: ['en', 'zh'],
+   363→   363→    },
+   364→   364→    {
+   365→   365→      firstName: 'Michael', lastName: 'Rodriguez', credentials: 'MD, FACC',
+   366→   366→      slug: 'dr-michael-rodriguez',
+   367→   367→      bio: 'Dr. Michael Rodriguez is a fellowship-trained cardiologist and Fellow of the American College of Cardiology. With 18 years of clinical experience, he specializes in preventive cardiology, heart failure management, and cardiac imaging. He completed his training at Mount Sinai Hospital.',
+   368→   368→      clinicSlug: 'midtown-health-center',
+   369→   369→      yearsExperience: 18, rating: 4.9, reviewCount: 95,
+   370→   370→      specialtySlugs: ['heart-screening', 'ecg-consultation', 'joint-assessment'],
+   371→   371→      languageCodes: ['en', 'es'],
+   372→   372→    },
+   373→   373→    {
+   374→   374→      firstName: 'Emily', lastName: 'Watson', credentials: 'MD, FAAD',
+   375→   375→      slug: 'dr-emily-watson',
+   376→   376→      bio: 'Dr. Emily Watson is a board-certified dermatologist and Fellow of the American Academy of Dermatology. She has 8 years of experience treating a wide range of skin conditions with a special interest in skin cancer screening and acne management. She earned her medical degree from Weill Cornell Medicine.',
+   377→   377→      clinicSlug: 'brooklyn-family-care',
+   378→   378→      yearsExperience: 8, rating: 4.6, reviewCount: 42,
+   379→   379→      specialtySlugs: ['skin-check', 'acne-consultation', 'annual-physical'],
+   380→   380→      languageCodes: ['en'],
+   381→   381→    },
+   382→   382→    {
+   383→   383→      firstName: 'James', lastName: 'Okafor', credentials: 'MD, FAAP',
+   384→   384→      slug: 'dr-james-okafor',
+   385→   385→      bio: 'Dr. James Okafor is a board-certified pediatrician and Fellow of the American Academy of Pediatrics. He has been caring for children in the New York area for over 10 years. Dr. Okafor is known for his gentle bedside manner and thorough approach to child wellness.',
+   386→   386→      clinicSlug: 'upper-east-side-clinic',
+   387→   387→      yearsExperience: 10, rating: 4.7, reviewCount: 54,
+   388→   388→      specialtySlugs: ['well-child-visit', 'pediatric-sick-visit', 'sick-visit'],
+   389→   389→      languageCodes: ['en'],
+   390→   390→    },
+   391→   391→    {
+   392→   392→      firstName: 'Priya', lastName: 'Sharma', credentials: 'MD',
+   393→   393→      slug: 'dr-priya-sharma',
+   394→   394→      bio: 'Dr. Priya Sharma is a compassionate family medicine physician with 15 years of experience. She completed her medical education at Johns Hopkins University School of Medicine and her residency at Stanford. Dr. Sharma takes a holistic approach to primary care, emphasizing wellness and prevention.',
+   395→   395→      clinicSlug: 'harlem-wellness-center',
+   396→   396→      yearsExperience: 15, rating: 4.5, reviewCount: 38,
+   397→   397→      specialtySlugs: ['annual-physical', 'sick-visit', 'well-child-visit'],
+   398→   398→      languageCodes: ['en', 'hi'],
+   399→   399→    },
+   400→   400→    {
+   401→   401→      firstName: 'David', lastName: 'Kim', credentials: 'MD',
+   402→   402→      slug: 'dr-david-kim',
+   403→   403→      bio: 'Dr. David Kim is a board-certified orthopedic surgeon specializing in sports medicine and joint replacement. He has 14 years of experience and serves as team physician for several local sports organizations. Dr. Kim completed his orthopedic surgery residency at Hospital for Special Surgery.',
+   404→   404→      clinicSlug: 'queens-medical-associates',
+   405→   405→      yearsExperience: 14, rating: 4.8, reviewCount: 73,
+   406→   406→      specialtySlugs: ['joint-assessment', 'sports-injury-evaluation', 'heart-screening'],
+   407→   407→      languageCodes: ['en', 'ko'],
+   408→   408→    },
+   409→   409→  ];
+   410→   410→
+   411→   411→  const providers: Record<string, string> = {};
+   412→   412→  for (const p of providersData) {
+   413→   413→    const record = await db.provider.create({
+   414→   414→      data: {
+   415→   415→        clinicId: clinics[p.clinicSlug],
+   416→   416→        firstName: p.firstName,
+   417→   417→        lastName: p.lastName,
+   418→   418→        credentials: p.credentials,
+   419→   419→        slug: p.slug,
+   420→   420→        bio: p.bio,
+   421→   421→        yearsExperience: p.yearsExperience,
+   422→   422→        rating: p.rating,
+   423→   423→        reviewCount: p.reviewCount,
+   424→   424→        slotDurationMinutes: 30,
+   425→   425→        status: PROVIDER_STATUS.ACTIVE,
+   426→   426→      },
+   427→   427→    });
+   428→   428→    providers[p.slug] = record.id;
+   429→   429→    console.log(`   ✅ ${p.firstName} ${p.lastName} (${record.id})`);
+   430→   430→  }
+   431→   431→  console.log('');
+   432→   432→
+   433→   433→  // ── 8. ProviderService entries ──────────────────────────────────────────────
+   434→   434→
+   435→   435→  console.log('9️⃣  Creating ProviderService entries...');
+   436→   436→  const providerServiceRows: Array<{ providerId: string; serviceId: string }> = [];
+   437→   437→  for (const p of providersData) {
+   438→   438→    for (const serviceSlug of p.specialtySlugs) {
+   439→   439→      providerServiceRows.push({
+   440→   440→        providerId: providers[p.slug],
+   441→   441→        serviceId: services[serviceSlug],
+   442→   442→      });
+   443→   443→    }
+   444→   444→  }
+   445→   445→
+   446→   446→  await db.providerService.createMany({ data: providerServiceRows });
+   447→   447→  console.log(`   ✅ Created ${providerServiceRows.length} ProviderService entries\n`);
+   448→   448→
+   449→   449→  // ── 9. ClinicInsurance entries ──────────────────────────────────────────────
+   450→   450→
+   451→   451→  console.log('🔟 Creating ClinicInsurance entries...');
+   452→   452→  const clinicInsuranceRows: Array<{ clinicId: string; insuranceId: string }> = [];
+   453→   453→  const insuranceIds = Object.values(insurances);
+   454→   454→
+   455→   455→  // Each clinic gets Demo Insurance + 2 real insurances (cycling through Aetna, BCBS)
+   456→   456→  const clinicSlugs = clinicsData.map((c) => c.slug);
+   457→   457→  for (let i = 0; i < clinicSlugs.length; i++) {
+   458→   458→    clinicInsuranceRows.push(
+   459→   459→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insurances['demo-insurance'] },
+   460→   460→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insuranceIds[1] }, // Aetna
+   461→   461→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insuranceIds[2] }, // BCBS
+   462→   462→    );
+   463→   463→  }
+   464→   464→
+   465→   465→  await db.clinicInsurance.createMany({ data: clinicInsuranceRows });
+   466→   466→  console.log(`   ✅ Created ${clinicInsuranceRows.length} ClinicInsurance entries\n`);
+   467→   467→
+   468→   468→  // ── 10. ProviderLanguage entries ────────────────────────────────────────────
+   469→   469→
+   470→   470→  console.log('1️⃣1️⃣  Creating ProviderLanguage entries...');
+   471→   471→  const providerLanguageRows: Array<{ providerId: string; languageId: string }> = [];
+   472→   472→  for (const p of providersData) {
+   473→   473→    for (const langCode of p.languageCodes) {
+   474→   474→      providerLanguageRows.push({
+   475→   475→        providerId: providers[p.slug],
+   476→   476→        languageId: languages[langCode],
+   477→   477→      });
+   478→   478→    }
+   479→   479→  }
+   480→   480→
+   481→   481→  await db.providerLanguage.createMany({ data: providerLanguageRows });
+   482→   482→  console.log(`   ✅ Created ${providerLanguageRows.length} ProviderLanguage entries\n`);
+   483→   483→
+   484→   484→  // ── 12. Slots for next 14 days ─────────────────────────────────────────────
+   485→   485→
+   486→   486→  console.log('1️⃣2️⃣  Generating Slots (next 14 days)...');
+   487→   487→
+   488→   488→  // Morning and afternoon slot times in NYC local (EST = UTC-5)
+   489→   489→  const MORNING_SLOTS = [9, 9, 10, 10, 11, 11]; // pairs → every 30 min
+   490→   490→  const MORNING_MINUTES = [0, 30, 0, 30, 0, 30];
+   491→   491→  const AFTERNOON_SLOTS = [13, 13, 14, 14, 15, 15];
+   492→   492→  const AFTERNOON_MINUTES = [0, 30, 0, 30, 0, 30];
+   493→   493→
+   494→   494→  const allSlotData: Array<{
+   495→   495→    clinicId: string;
+   496→   496→    providerId: string;
+   497→   497→    startTime: Date;
+   498→   498→    endTime: Date;
+   499→   499→    modality: string;
+   500→   500→    status: string;
+   501→   501→  }> = [];
+   502→   502→
+   503→   503→  const providerList = providersData.map((p) => ({
+   504→   504→    providerId: providers[p.slug],
+   505→   505→    clinicId: clinics[p.clinicSlug],
+   506→   506→  }));
+   507→   507→
+   508→   508→  let totalSlots = 0;
+   509→   509→
+   510→   510→  for (const { providerId, clinicId } of providerList) {
+   511→   511→    for (let day = 0; day < 14; day++) {
+   512→   512→      const baseDate = dayOffset(day);
+   513→   513→      const dayOfWeek = baseDate.getUTCDay(); // 0=Sun, 6=Sat
+   514→   514→
+   515→   515→      // Skip Sundays entirely
+   516→   516→      if (dayOfWeek === 0) continue;
+   517→   517→
+   518→   518→      // Saturdays: only morning slots (4)
+   519→   519→      const isSaturday = dayOfWeek === 6;
+   520→   520→      const numMorningSlots = isSaturday ? 4 : 6;
+   521→   521→      const numAfternoonSlots = isSaturday ? 0 : 6;
+   522→   522→
+   523→   523→      // Morning slots
+   524→   524→      for (let i = 0; i < numMorningSlots; i++) {
+   525→   525→        const start = nycToUTC(baseDate, MORNING_SLOTS[i], MORNING_MINUTES[i]);
+   526→   526→        const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 min
+   527→   527→
+   528→   528→        // Determine modality: roughly 70% IN_PERSON, 30% VIDEO
+   529→   529→        const modality = Math.random() < 0.7 ? SLOT_MODALITY.IN_PERSON : SLOT_MODALITY.VIDEO;
+   530→   530→
+   531→   531→        // Determine status: mostly AVAILABLE, some BOOKED/BLOCKED for realism
+   532→   532→        let status = SLOT_STATUS.AVAILABLE;
+   533→   533→
+   534→   534→        // Make some past or early slots BOOKED/BLOCKED
+   535→   535→        if (day <= 1 && Math.random() < 0.2) {
+   536→   536→          status = SLOT_STATUS.BOOKED;
+   537→   537→        } else if (day <= 3 && Math.random() < 0.1) {
+   538→   538→          status = SLOT_STATUS.BLOCKED;
+   539→   539→        }
+   540→   540→
+   541→   541→        // Ensure at least 3 AVAILABLE slots today/tomorrow per provider
+   542→   542→        // (we'll fix this after generation)
+   543→   543→
+   544→   544→        allSlotData.push({ clinicId, providerId, startTime: start, endTime: end, modality, status });
+   545→   545→        totalSlots++;
+   546→   546→      }
+   547→   547→
+   548→   548→      // Afternoon slots
+   549→   549→      for (let i = 0; i < numAfternoonSlots; i++) {
+   550→   550→        const start = nycToUTC(baseDate, AFTERNOON_SLOTS[i], AFTERNOON_MINUTES[i]);
+   551→   551→        const end = new Date(start.getTime() + 30 * 60 * 1000);
+   552→   552→
+   553→   553→        const modality = Math.random() < 0.7 ? SLOT_MODALITY.IN_PERSON : SLOT_MODALITY.VIDEO;
+   554→   554→
+   555→   555→        let status = SLOT_STATUS.AVAILABLE;
+   556→   556→        if (day <= 1 && Math.random() < 0.15) {
+   557→   557→          status = SLOT_STATUS.BOOKED;
+   558→   558→        } else if (day <= 2 && Math.random() < 0.08) {
+   559→   559→          status = SLOT_STATUS.BLOCKED;
+   560→   560→        }
+   561→   561→
+   562→   562→        allSlotData.push({ clinicId, providerId, startTime: start, endTime: end, modality, status });
+   563→   563→        totalSlots++;
+   564→   564→      }
+   565→   565→    }
+   566→   566→  }
+   567→   567→
+   568→   568→  // Insert all slots in batches (SQLite has limits on batch size)
+   569→   569→  const BATCH_SIZE = 500;
+   570→   570→  for (let i = 0; i < allSlotData.length; i += BATCH_SIZE) {
+   571→   571→    const batch = allSlotData.slice(i, i + BATCH_SIZE);
+   572→   572→    await db.slot.createMany({ data: batch });
+   573→   573→  }
+   574→   574→  console.log(`   ✅ Created ${totalSlots} slots across 6 providers × 14 days\n`);
+   575→   575→
+   576→   576→  // ── 13. Reviews (need past completed appointments) ──────────────────────────
+   577→   577→
+   578→   578→  console.log('1️⃣3️⃣  Creating Reviews with completed appointments...');
+   579→   579→
+   580→   580→  // Create 5 completed appointments in the past for review purposes
+   581→   581→  // We'll create BOOKED slots in the past, then appointments, then reviews
+   582→   582→  const reviewData = [
+   583→   583→    {
+   584→   584→      providerSlug: 'dr-sarah-chen',
+   585→   585→      patientName: 'Maria Gonzalez',
+   586→   586→      patientDob: new Date('1988-03-15'),
+   587→   587→      patientPhone: '(212) 555-1001',
+   588→   588→      patientEmail: 'maria.gonzalez@example.com',
+   589→   589→      serviceSlug: 'annual-physical',
+   590→   590→      daysAgo: 14,
+   591→   591→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   592→   592→      comment: 'Dr. Chen is incredibly thorough and took the time to explain everything. The staff was friendly and the office was very clean. Highly recommend!',
+   593→   593→    },
+   594→   594→    {
+   595→   595→      providerSlug: 'dr-michael-rodriguez',
+   596→   596→      patientName: 'John Mitchell',
+   597→   597→      patientDob: new Date('1975-07-22'),
+   598→   598→      patientPhone: '(646) 555-1002',
+   599→   599→      patientEmail: 'john.mitchell@example.com',
+   600→   600→      serviceSlug: 'heart-screening',
+   601→   601→      daysAgo: 10,
+   602→   602→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 4,
+   603→   603→      comment: 'Outstanding cardiologist. Dr. Rodriguez explained my test results clearly and put me at ease. The screening was comprehensive and well-organized.',
+   604→   604→    },
+   605→   605→    {
+   606→   606→      providerSlug: 'dr-james-okafor',
+   607→   607→      patientName: 'Rebecca Torres',
+   608→   608→      patientDob: new Date('1992-11-08'),
+   609→   609→      patientPhone: '(917) 555-1003',
+   610→   610→      patientEmail: 'rebecca.torres@example.com',
+   611→   611→      serviceSlug: 'well-child-visit',
+   612→   612→      daysAgo: 7,
+   613→   613→      overallRating: 4, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   614→   614→      comment: 'My 3-year-old actually enjoyed his visit! Dr. Okafor is so gentle and patient with kids. The waiting area has toys and books which was a nice touch.',
+   615→   615→    },
+   616→   616→    {
+   617→   617→      providerSlug: 'dr-priya-sharma',
+   618→   618→      patientName: 'Alex Nguyen',
+   619→   619→      patientDob: new Date('1990-01-30'),
+   620→   620→      patientPhone: '(347) 555-1004',
+   621→   621→      patientEmail: 'alex.nguyen@example.com',
+   622→   622→      serviceSlug: 'sick-visit',
+   623→   623→      daysAgo: 4,
+   624→   624→      overallRating: 4, waitTimeRating: 3, bedsideRating: 4, staffRating: 4,
+   625→   625→      comment: 'Dr. Sharma was very thorough in diagnosing my condition. The wait was a bit long but the care quality made up for it. She prescribed the right treatment and I felt better within days.',
+   626→   626→    },
+   627→   627→    {
+   628→   628→      providerSlug: 'dr-david-kim',
+   629→   629→      patientName: 'Patricia Williams',
+   630→   630→      patientDob: new Date('1983-05-12'),
+   631→   631→      patientPhone: '(718) 555-1005',
+   632→   632→      patientEmail: 'patricia.williams@example.com',
+   633→   633→      serviceSlug: 'joint-assessment',
+   634→   634→      daysAgo: 2,
+   635→   635→      overallRating: 5, waitTimeRating: 5, bedsideRating: 4, staffRating: 5,
+   636→   636→      comment: 'Finally found an orthopedist who listens! Dr. Kim took the time to understand my knee issues and created a detailed treatment plan. The facility is modern and well-equipped.',
+   637→   637→    },
+   638→   638→  ];
+   639→   639→
+   640→   640→  const clinicForProvider: Record<string, string> = {};
+   641→   641→  for (const p of providersData) {
+   642→   642→    clinicForProvider[p.slug] = clinics[p.clinicSlug];
+   643→   643→  }
+   644→   644→
+   645→   645→  // Get specialtyId for each service
+   646→   646→  const serviceSpecialty: Record<string, string> = {};
+   647→   647→  for (const s of servicesData) {
+   648→   648→    serviceSpecialty[s.slug] = specialties[s.specialtySlug];
+   649→   649→  }
+   650→   650→
+   651→   651→  for (const r of reviewData) {
+   652→   652→    const providerId = providers[r.providerSlug];
+   653→   653→    const clinicId = clinicForProvider[r.providerSlug];
+   654→   654→    const serviceId = services[r.serviceSlug];
+   655→   655→    const specialtyId = serviceSpecialty[r.serviceSlug];
+   656→   656→
+   657→   657→    // Create a past slot for this appointment
+   658→   658→    const slotDate = dayOffset(-r.daysAgo);
+   659→   659→    const dayOfWeek = slotDate.getUTCDay();
+   660→   660→    if (dayOfWeek === 0) {
+   661→   661→      // Shift to Monday if it landed on Sunday
+   662→   662→      slotDate.setDate(slotDate.getDate() + 1);
+   663→   663→    }
+   664→   664→    const slotStart = nycToUTC(slotDate, 10, 0);
+   665→   665→    const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
+   666→   666→
+   667→   667→    const slot = await db.slot.create({
+   668→   668→      data: {
+   669→   669→        clinicId,
+   670→   670→        providerId,
+   671→   671→        startTime: slotStart,
+   672→   672→        endTime: slotEnd,
+   673→   673→        modality: SLOT_MODALITY.IN_PERSON,
+   674→   674→        status: SLOT_STATUS.BOOKED,
+   675→   675→      },
+   676→   676→    });
+   677→   677→
+   678→   678→    // Create a completed appointment
+   679→   679→    const appointment = await db.appointment.create({
+   680→   680→      data: {
+   681→   681→        slotId: slot.id,
+   682→   682→        clinicId,
+   683→   683→        providerId,
+   684→   684→        specialtyId,
+   685→   685→        serviceId,
+   686→   686→        patientName: r.patientName,
+   687→   687→        patientDob: r.patientDob,
+   688→   688→        patientPhone: r.patientPhone,
+   689→   689→        patientEmail: r.patientEmail,
+   690→   690→        patientType: r.serviceSlug.startsWith('well-child') || r.serviceSlug.startsWith('pediatric') ? 'PEDIATRIC' : 'ADULT',
+   691→   691→        reasonForVisit: `Follow-up / ${r.serviceSlug.replace(/-/g, ' ')}`,
+   692→   692→        insuranceId: demoInsuranceId,
+   693→   693→        isDemoInsurance: true,
+   694→   694→        depositCents: 2500,
+   695→   695→        paymentStatus: 'CAPTURED',
+   696→   696→        paymentMethod: 'MANUAL_WAIVER',
+   697→   697→        modality: SLOT_MODALITY.IN_PERSON,
+   698→   698→        startTime: slotStart,
+   699→   699→        endTime: slotEnd,
+   700→   700→        status: 'COMPLETED',
+   701→   701→        intakeCompleted: true,
+   702→   702→        insuranceVerified: true,
+   703→   703→      },
+   704→   704→    });
+   705→   705→
+   706→   706→    // Create the review
+   707→   707→    await db.review.create({
+   708→   708→      data: {
+   709→   709→        appointmentId: appointment.id,
+   710→   710→        clinicId,
+   711→   711→        providerId,
+   712→   712→        overallRating: r.overallRating,
+   713→   713→        waitTimeRating: r.waitTimeRating,
+   714→   714→        bedsideRating: r.bedsideRating,
+   715→   715→        staffRating: r.staffRating,
+   716→   716→        comment: r.comment,
+   717→   717→        isVerified: true,
+   718→   718→      },
+   719→   719→    });
+   720→   720→
+   721→   721→    console.log(`   ✅ Review for ${r.providerSlug} (${r.overallRating}/5)`);
+   722→   722→  }
+   723→   723→  console.log('');
+   724→   724→
+   725→   725→  // ── 14. SlotTemplates ──────────────────────────────────────────────────────
+   726→   726→
+   727→   727→  console.log('1️⃣4️⃣  Creating SlotTemplates...');
+   728→   728→
+   729→   729→  // Mon=1 through Sat=6
+   730→   730→  const DAY_OF_WEEK_MAP: Record<string, number> = {
+   731→   731→    mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
+   732→   732→  };
+   733→   733→
+   734→   734→  const slotTemplateRows: Array<{
+   735→   735→    providerId: string;
+   736→   736→    dayOfWeek: number;
+   737→   737→    startTime: string;
+   738→   738→    endTime: string;
+   739→   739→    modality: string;
+   740→   740→  }> = [];
+   741→   741→
+   742→   742→  for (const p of providersData) {
+   743→   743→    const pid = providers[p.slug];
+   744→   744→
+   745→   745→    // Morning block: 09:00-12:00 IN_PERSON
+   746→   746→    // Afternoon block: 13:00-16:00 IN_PERSON (Mon-Fri only)
+   747→   747→    // Video block: 09:00-12:00 VIDEO
+   748→   748→    for (const dayCode of Object.keys(DAY_OF_WEEK_MAP)) {
+   749→   749→      const dow = DAY_OF_WEEK_MAP[dayCode];
+   750→   750→      const isSaturday = dow === 6;
+   751→   751→
+   752→   752→      slotTemplateRows.push(
+   753→   753→        { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.IN_PERSON },
+   754→   754→        { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.VIDEO },
+   755→   755→      );
+   756→   756→      if (!isSaturday) {
+   757→   757→        slotTemplateRows.push(
+   758→   758→          { providerId: pid, dayOfWeek: dow, startTime: '13:00', endTime: '16:00', modality: SLOT_MODALITY.IN_PERSON },
+   759→   759→        );
+   760→   760→      }
+   761→   761→    }
+   762→   762→  }
+   763→   763→
+   764→   764→  await db.slotTemplate.createMany({ data: slotTemplateRows });
+   765→   765→  console.log(`   ✅ Created ${slotTemplateRows.length} SlotTemplate entries (2-3 templates × 6 days × 6 providers)\n`);
+   766→   766→
+   767→   767→  // ── 15. Staff User Accounts ─────────────────────────────────────────────
+   768→   768→
+   769→   769→  console.log('1️⃣5️⃣  Creating Staff User Accounts...');
+   770→   770→
+   771→   771→  // System Manager (no clinic)
+   772→   772→  const sysMgrHash = await hashPassword('sysadmin123');
+   773→   773→  const sysMgr = await db.user.create({
+   774→   774→    data: {
+   775→   775→      email: 'sysadmin@clinicbook.com',
+   776→   776→      name: 'System Manager',
+   777→   777→      passwordHash: sysMgrHash,
+   778→   778→      role: STAFF_ROLE.SYSTEM_MANAGER,
+   779→   779→      clinicId: null,
+   780→   780→      isActive: true,
+   781→   781→    },
+   782→   782→  });
+   783→   783→  console.log(`   ✅ ${sysMgr.email} (${sysMgr.role})`);
+   784→   784→
+   785→   785→  // One admin + one receptionist per clinic
+   786→   786→  const staffCount = { admin: 0, reception: 0 };
+   787→   787→  for (const clinicInfo of clinicsData) {
+   788→   788→    const clinicRec = await db.clinic.findFirst({ where: { slug: clinicInfo.slug }, select: { id: true, name: true } });
+   789→   789→    if (!clinicRec) continue;
+   790→   790→    const clinicDomain = clinicInfo.slug.replace(/-/g, '');
+   791→   791→
+   792→   792→    const adminHash = await hashPassword('admin123');
+   793→   793→    await db.user.create({
+   794→   794→      data: {
+   795→   795→        email: `admin@${clinicDomain}.clinicbook.com`,
+   796→   796→        name: `${clinicRec.name} Admin`,
+   797→   797→        passwordHash: adminHash,
+   798→   798→        role: STAFF_ROLE.CLINIC_ADMIN,
+   799→   799→        clinicId: clinicRec.id,
+   800→   800→        isActive: true,
+   801→   801→      },
+   802→   802→    });
+   803→   803→    staffCount.admin++;
+   804→   804→    console.log(`   ✅ admin@${clinicDomain}.clinicbook.com (CLINIC_ADMIN) → ${clinicRec.name}`);
+   805→   805→
+   806→   806→    const receptionHash = await hashPassword('reception123');
+   807→   807→    await db.user.create({
+   808→   808→      data: {
+   809→   809→        email: `reception@${clinicDomain}.clinicbook.com`,
+   810→   810→        name: `${clinicRec.name} Reception`,
+   811→   811→        passwordHash: receptionHash,
+   812→   812→        role: STAFF_ROLE.CLINIC_RECEPTION,
+   813→   813→        clinicId: clinicRec.id,
+   814→   814→        isActive: true,
+   815→   815→      },
+   816→   816→    });
+   817→   817→    staffCount.reception++;
+   818→   818→    console.log(`   ✅ reception@${clinicDomain}.clinicbook.com (CLINIC_RECEPTION) → ${clinicRec.name}`);
+   819→   819→  }
+   820→   820→  console.log(`   Total staff: 1 system manager + ${staffCount.admin} admins + ${staffCount.reception} receptionists\n`);
+   821→   821→
+   822→   822→  // ── Done ───────────────────────────────────────────────────────────────────
+   823→   823→
+   824→   824→  console.log('═══════════════════════════════════════════════════════════════');
+   825→   825→  console.log('✅ Seed complete! Summary:');
+   826→   826→  console.log(`   • SystemConfig: 1`);
+   827→   827→  console.log(`   • Specialties: ${specialtiesData.length}`);
+   828→   828→  console.log(`   • Services: ${servicesData.length}`);
+   829→   829→  console.log(`   • Insurances: ${insurancesData.length}`);
+   830→   830→  console.log(`   • ServiceInsurance: ${serviceInsuranceRows.length}`);
+   831→   831→  console.log(`   • Languages: ${languagesData.length}`);
+   832→   832→  console.log(`   • Clinics: ${clinicsData.length}`);
+   833→   833→  console.log(`   • Providers: ${providersData.length}`);
+   834→   834→  console.log(`   • ProviderService: ${providerServiceRows.length}`);
+   835→   835→  console.log(`   • ClinicInsurance: ${clinicInsuranceRows.length}`);
+   836→   836→  console.log(`   • ProviderLanguage: ${providerLanguageRows.length}`);
+   837→   837→  console.log(`   • Slots: ${totalSlots}`);
+   838→   838→  console.log(`   • Appointments (completed): ${reviewData.length}`);
+   839→   839→  console.log(`   • Reviews: ${reviewData.length}`);
+   840→   840→  console.log(`   • SlotTemplates: ${slotTemplateRows.length}`);
+   841→   841→  console.log(`   • Staff Users: ${1 + staffCount.admin + staffCount.reception}`);
+   842→   842→  console.log('═══════════════════════════════════════════════════════════════');
+   843→   843→}
+   844→   844→
+   845→   845→// ── Run ────────────────────────────────────────────────────────────────────────
+   846→   846→
+   847→   847→main()
+   848→   848→  .then(async () => {
+   849→   849→    await db.$disconnect();
+   850→   850→  })
+   851→   851→  .catch(async (e) => {
+   852→   852→    console.error('❌ Seed failed:');
+   853→   853→    console.error(e);
+   854→   854→    await db.$disconnect();
+   855→   855→    process.exit(1);
+   856→   856→  });

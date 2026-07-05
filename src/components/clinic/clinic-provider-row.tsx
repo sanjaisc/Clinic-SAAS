@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Star, Calendar, Bell } from "lucide-react";
+import { Star, Calendar, Bell, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -119,18 +119,12 @@ export function ClinicProviderRow({
           <div className="flex-1 min-w-0 space-y-1">
             {/* Provider name as link + specialty badge */}
             <div className="flex items-center gap-2 flex-wrap">
-              {firstSlotId ? (
-                <Link
-                  href={`/book?providerId=${provider.id}&slotId=${firstSlotId}`}
-                  className="text-lg font-semibold leading-tight text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-2 transition-colors cursor-pointer"
-                >
-                  {displayName}
-                </Link>
-              ) : (
-                <span className="text-lg font-semibold leading-tight text-foreground">
-                  {displayName}
-                </span>
-              )}
+              <Link
+                href={`/providers/${provider.slug}`}
+                className="text-lg font-semibold leading-tight text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-2 transition-colors cursor-pointer"
+              >
+                {displayName}
+              </Link>
               {provider.specialty && (
                 <Badge
                   variant="outline"
@@ -141,7 +135,7 @@ export function ClinicProviderRow({
               )}
             </div>
 
-            {/* Rating + View reviews */}
+            {/* Rating + View reviews + View full profile */}
             <div className="flex items-center gap-2 flex-wrap">
               <RatingStars rating={provider.rating} />
               <span className="text-sm text-muted-foreground">
@@ -150,12 +144,22 @@ export function ClinicProviderRow({
               </span>
               {provider.reviewCount > 0 && (
                 <Link
-                  href="#"
+                  href={`/providers/${provider.slug}`}
                   className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
                 >
                   View reviews
                 </Link>
               )}
+            </div>
+            {/* View full profile link */}
+            <div>
+              <Link
+                href={`/providers/${provider.slug}`}
+                className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:translate-x-0.5 transition-all cursor-pointer"
+              >
+                View full profile
+                <ChevronRight className="size-3" />
+              </Link>
             </div>
           </div>
 

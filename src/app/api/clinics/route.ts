@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { addDays, startOfDay, format } from "date-fns";
+import { addDays, startOfDay } from "date-fns";
 
 export async function GET() {
   try {
-    // Fetch all published clinics with their provider and service/specialty data
+    // Fetch all published clinics with their providers and service/specialty data
     const clinics = await db.clinic.findMany({
       where: { status: "PUBLISHED" },
       select: {
@@ -20,13 +20,16 @@ export async function GET() {
         email: true,
         website: true,
         coverImageUrl: true,
-        provider: {
+        providers: {
+          where: { status: "ACTIVE" },
           select: {
             id: true,
+            slug: true,
             firstName: true,
             lastName: true,
             credentials: true,
             rating: true,
+            reviewCount: true,
             status: true,
             providerServices: {
               select: {
@@ -42,6 +45,8 @@ export async function GET() {
               },
             },
           },
+          orderBy: [{ rating: "desc" }, { lastName: "asc" }],
+          take: 5,
         },
         slots: {
           where: {
@@ -56,14 +61,13 @@ export async function GET() {
       },
     });
 
-    const now = startOfDay(new Date());
-    const weekEnd = startOfDay(addDays(new Date(), 7));
-
     const result = clinics.map((clinic) => {
-      // Aggregate unique specialties from all providers
+      // Aggregate unique specialties from ALL providers
       const specialtySet = new Set<string>();
-      if (clinic.provider) {
-        for (const ps of clinic.provider.providerServices) {
+      const firstProviderRecord = clinic.providers[0] ?? null;
+
+      for (const p of clinic.providers) {
+        for (const ps of p.providerServices) {
           if (ps.service?.specialty?.name) {
             specialtySet.add(ps.service.specialty.name);
           }
@@ -71,20 +75,38 @@ export async function GET() {
       }
       const specialties = Array.from(specialtySet);
 
-      // Provider count (active providers — currently 1:1 but future-proofed)
-      const providerCount = clinic.provider && clinic.provider.status === "ACTIVE" ? 1 : 0;
+      // Provider count (active providers, up to take limit)
+      const providerCount = clinic.providers.length;
 
-      // Aggregate rating from providers
-      const rating = clinic.provider?.rating ?? 0;
+      // Aggregate rating from top provider
+      const rating = firstProviderRecord?.rating ?? 0;
 
       // First provider info
-      const firstProvider = clinic.provider
+      const firstProvider = firstProviderRecord
         ? {
-            firstName: clinic.provider.firstName,
-            lastName: clinic.provider.lastName,
-            credentials: clinic.provider.credentials,
+            firstName: firstProviderRecord.firstName,
+            lastName: firstProviderRecord.lastName,
+            credentials: firstProviderRecord.credentials,
           }
         : null;
+
+      // Top 3 providers for badge display
+      const topProviders = clinic.providers.slice(0, 3).map((p) => ({
+        slug: p.slug,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        credentials: p.credentials,
+        rating: p.rating,
+      }));
+
+      // All provider names for display
+      const allProviders = clinic.providers.map((p) => ({
+        slug: p.slug,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        credentials: p.credentials,
+        rating: p.rating,
+      }));
 
       // Available slots in next 7 days
       const availableSlotsCount = clinic.slots.length;
@@ -106,6 +128,8 @@ export async function GET() {
         providerCount,
         rating,
         firstProvider,
+        topProviders,
+        allProviders,
         availableSlotsCount,
       };
     });

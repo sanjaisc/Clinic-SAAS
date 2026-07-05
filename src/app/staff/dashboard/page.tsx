@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   CalendarDays,
   CalendarPlus,
@@ -21,13 +22,18 @@ import {
   Video,
   UserCheck,
   BarChart3,
+  CheckCheck,
+  Bell,
+  UserX,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import type { ClinicBookSessionUser } from "@/lib/auth";
+import { AUDIT_ACTIONS } from "@/lib/constants";
 
 interface DashboardStats {
   todayAppointments: number;
@@ -185,6 +191,144 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{description}</p>
     </div>
+  );
+}
+
+// ---- Recent Activity ----
+
+interface ActivityNotification {
+  id: string;
+  action: string;
+  createdAt: string;
+  patientName: string | null;
+  providerName: string | null;
+  serviceName: string | null;
+}
+
+const ACTIVITY_ICON_MAP: Record<string, { icon: React.ElementType; color: string; bg: string; borderColor: string }> = {
+  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-emerald-600", bg: "bg-emerald-100", borderColor: "border-l-emerald-500" },
+  [AUDIT_ACTIONS.BOOKING_CANCELLED]: { icon: XCircle, color: "text-red-500", bg: "bg-red-100", borderColor: "border-l-red-500" },
+  [AUDIT_ACTIONS.BOOKING_CHECKED_IN]: { icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-100", borderColor: "border-l-blue-500" },
+  [AUDIT_ACTIONS.BOOKING_COMPLETED]: { icon: CheckCheck, color: "text-green-600", bg: "bg-green-100", borderColor: "border-l-green-500" },
+  [AUDIT_ACTIONS.BOOKING_NO_SHOW]: { icon: UserX, color: "text-amber-600", bg: "bg-amber-100", borderColor: "border-l-amber-500" },
+};
+
+function getActivityDescription(n: ActivityNotification): string {
+  const patient = n.patientName ?? "Patient";
+  switch (n.action) {
+    case AUDIT_ACTIONS.BOOKING_CREATED:
+      return `New booking for ${patient}`;
+    case AUDIT_ACTIONS.BOOKING_CANCELLED:
+      return `Booking cancelled for ${patient}`;
+    case AUDIT_ACTIONS.BOOKING_CHECKED_IN:
+      return `${patient} checked in`;
+    case AUDIT_ACTIONS.BOOKING_COMPLETED:
+      return `${patient}'s appointment completed`;
+    case AUDIT_ACTIONS.BOOKING_NO_SHOW:
+      return `${patient} did not show up`;
+    default:
+      return n.action;
+  }
+}
+
+function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
+  const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    fetch(`/api/staff/notifications?clinicId=${clinicId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json) setNotifications(json.notifications.slice(0, 5));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clinicId]);
+
+  return (
+    <Card className="border-border/50 shadow-sm overflow-hidden">
+      {/* Subtle gradient header strip */}
+      <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <Bell className="size-4 text-emerald-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Recent Activity</CardTitle>
+              <CardDescription className="text-xs">
+                Latest booking events
+              </CardDescription>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 rounded-lg" />
+            ))}
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+              <Bell className="size-4 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {notifications.map((n) => {
+              const cfg = ACTIVITY_ICON_MAP[n.action];
+              const Icon = cfg?.icon ?? Bell;
+              return (
+                <div
+                  key={n.id}
+                  className={`
+                    flex items-center gap-3 p-2.5 rounded-lg border-l-2
+                    hover:bg-muted/50 transition-colors duration-150
+                    ${cfg?.borderColor ?? "border-l-muted-foreground/30"}
+                  `}
+                >
+                  <div
+                    className={`size-7 rounded-md flex items-center justify-center shrink-0 ${
+                      cfg?.bg ?? "bg-muted"
+                    }`}
+                  >
+                    <Icon className={`size-3.5 ${cfg?.color ?? "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">
+                      {getActivityDescription(n)}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {n.providerName && <span>{n.providerName}</span>}
+                      {n.providerName && n.serviceName && <span> &middot; </span>}
+                      {n.serviceName && <span>{n.serviceName}</span>}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                    {formatDistanceToNow(new Date(n.createdAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
+              );
+            })}
+            <Link
+              href="/staff/dashboard/activity"
+              className="w-full flex items-center justify-center gap-1 pt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
+              View all
+              <ArrowRight className="size-3" />
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -500,6 +644,9 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Recent Activity */}
+      <RecentActivitySection clinicId={user.clinicId} />
     </div>
   );
 }
