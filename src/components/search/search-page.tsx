@@ -24,7 +24,6 @@ import {
   Bone,
   Sparkles,
   LayoutGrid,
-  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -696,7 +695,6 @@ export function SearchPage() {
                 {/* ZIP Code Input */}
                 <div className="flex items-center gap-2">
                   <div className="relative">
-                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                     <Input
                       type="text"
                       inputMode="numeric"
@@ -722,7 +720,7 @@ export function SearchPage() {
                           geocodeZip(zipCode);
                         }
                       }}
-                      className="h-9 w-[120px] pl-8 pr-8 text-sm"
+                      className="h-9 w-[120px] pr-8 text-sm"
                     />
                     {zipStatus === "resolved" && (
                       <CheckCircle2
