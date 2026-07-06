@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Heart,
   Shield,
   CreditCard,
   Banknote,
@@ -12,10 +11,9 @@ import {
   Loader2,
   ChevronDown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/public-navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { PublicFooter } from "@/components/public-footer";
 
 // ---------------------------------------------------------------------------
@@ -89,25 +87,7 @@ export default function InsurancePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
-      {/* ===== Sticky Header ===== */}
-      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              DoctA
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link href="/staff/login">
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                Staff Login
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar showHome />
 
       {/* ===== Main Content ===== */}
       <main className="flex-1 w-full px-4 py-8">

@@ -15,7 +15,7 @@ import {
   Compass,
   Sparkles,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicNavbar } from "@/components/public-navbar";
 import { PublicFooter } from "@/components/public-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -362,26 +362,16 @@ export default function ClinicsDirectoryPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-7 w-7 text-emerald-600" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Browse Clinics
-              </h1>
-            </div>
-            <ThemeToggle />
-          </div>
-          <p className="text-gray-500 text-sm sm:text-base ml-10">
-            Find the right healthcare provider for you
-          </p>
-        </div>
-      </header>
+      <PublicNavbar showHome />
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Browse Clinics</h1>
+          <p className="text-muted-foreground text-sm sm:text-base mt-1">Find the right healthcare provider for you</p>
+        </div>
+
         {/* Search Bar */}
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

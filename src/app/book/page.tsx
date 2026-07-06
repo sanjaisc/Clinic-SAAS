@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
-  Heart,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -54,7 +53,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import { PATIENT_TYPE, SLOT_MODALITY } from "@/lib/enums";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicNavbar } from "@/components/public-navbar";
 
 // =============================================================================
 // Types
@@ -761,22 +760,7 @@ export default function BookingPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
-        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-          <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                DoctA
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                Staff Login
-              </Button>
-            </div>
-          </div>
-        </header>
+        <PublicNavbar showHome />
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-emerald-600" />
@@ -793,22 +777,7 @@ export default function BookingPage() {
   if (error || !slotData) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
-        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-          <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                DoctA
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                Staff Login
-              </Button>
-            </div>
-          </div>
-        </header>
+        <PublicNavbar showHome />
         <div className="flex-1 flex items-center justify-center py-20 px-4">
           <Card className="max-w-md w-full border-red-200 bg-red-50/30 shadow-sm">
             <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
@@ -854,22 +823,7 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
         <ConfettiStyles />
-        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-          <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                DoctA
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                Staff Login
-              </Button>
-            </div>
-          </div>
-        </header>
+        <PublicNavbar showHome />
 
         <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-10 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Confetti + Success Icon */}
@@ -1122,23 +1076,7 @@ export default function BookingPage() {
   // ===========================================================================
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
-      {/* ===== Sticky Header ===== */}
-      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer">
-            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              DoctA
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="outline" size="sm" className="cursor-pointer">
-              Staff Login
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar showHome />
 
       {/* ===== Slot Summary Card (visible on all steps) ===== */}
       <div className="max-w-2xl mx-auto w-full px-4 pt-4">

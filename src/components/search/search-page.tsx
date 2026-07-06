@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/toggle-group";
 import { ProviderCard } from "@/components/search/provider-card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicNavbar } from "@/components/public-navbar";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -473,25 +474,7 @@ export function SearchPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* ===== Sticky Header ===== */}
-      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer">
-            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              DoctA
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link href="/staff/login">
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                Staff Login
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar />
 
       {/* ===== Hero Section ===== */}
       <section className="relative bg-gradient-to-br from-emerald-50 via-white to-teal-50/30 pb-8 pt-12 md:pt-16 overflow-hidden">
@@ -557,7 +540,7 @@ export function SearchPage() {
                 6 clinics
               </span>
               <span className="text-muted-foreground/30">·</span>
-              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-medium hover:underline transition-colors cursor-pointer">
+              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-medium underline-offset-4 decoration-emerald-300 hover:decoration-emerald-500 decoration-2 hover:underline transition-colors cursor-pointer">
                 <MapPin className="size-3.5" />
                 Browse all clinics
               </Link>

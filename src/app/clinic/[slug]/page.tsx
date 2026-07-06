@@ -10,15 +10,13 @@ import {
   Shield,
   Star,
   Building2,
-  Heart,
   ChevronLeft,
   Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/public-navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { PublicFooter } from "@/components/public-footer";
 import { ClinicProviderRow } from "@/components/clinic/clinic-provider-row";
 import { AboutText } from "@/components/clinic/about-text";
@@ -230,23 +228,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
   // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
-      {/* ===== Sticky Header (matches search page) ===== */}
-      <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Heart className="size-6 text-emerald-600 fill-emerald-600" />
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              DoctA
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="outline" size="sm" className="cursor-pointer">
-              Staff Login
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar showHome />
 
       {/* ===== Main Content ===== */}
       <main className="flex-1 w-full px-4 py-8 animate-in fade-in duration-500">

@@ -2233,3 +2233,23 @@ Stage Summary:
 - **Booking Counts**: Displayed under each specialty name (e.g., "10 bookings")
 - **Admin Extensibility**: New specialties added via backend with icon field will automatically appear in popularity order
 
+
+---
+Task ID: Navbar Unification + Clinics Page Fix
+Agent: Main Orchestrator
+Task: 1) Make "Browse all clinics" link more obviously clickable, 2) Fix clinics page header, 3) Add Home button to all non-home pages
+
+Work Log:
+- Created shared `PublicNavbar` component (`src/components/public-navbar.tsx`) with DoctA branding, ThemeToggle, Staff Login, and optional `showHome` prop
+- Updated "Browse all clinics" link on homepage with `decoration-2 decoration-emerald-300 hover:decoration-emerald-500 underline-offset-4` for visible underline on hover
+- Replaced inline header on clinics page (which had Building2 icon + "Browse Clinics" replacing the DoctA logo) with `<PublicNavbar showHome />`
+- Moved "Browse Clinics" title and subtitle into the main content area of clinics page
+- Updated 7 public pages to use shared PublicNavbar: search-page.tsx (home, no Home button), clinics, about, insurance, clinic/[slug], providers/[slug], book (4 headers replaced)
+- Verified via agent-browser: home page has no Home button, all other pages show DoctA + Home + Staff Login
+
+Stage Summary:
+- **Shared Component**: `src/components/public-navbar.tsx` — single source of truth for public navbar
+- **Clinics Page**: Title moved below header, DoctA branding restored
+- **Home Button**: Visible on all non-home public pages
+- **Browse All Clinics**: Now has visible emerald underline on hover
+
