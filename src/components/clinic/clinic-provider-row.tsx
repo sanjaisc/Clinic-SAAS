@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Star, Calendar, Bell, ChevronRight } from "lucide-react";
+import { Star, Calendar, Bell, ChevronRight, CalendarPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -180,7 +180,7 @@ export function ClinicProviderRow({
               <h4 className="text-sm font-medium text-foreground">
                 Available Times
               </h4>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-stretch">
                 {slots.map((slot) => {
                   const isVideo = slot.modality === "VIDEO";
                   return (
@@ -229,6 +229,14 @@ export function ClinicProviderRow({
                     </button>
                   );
                 })}
+                <Link
+                  href={`/providers/${provider.slug}`}
+                  className="cursor-pointer inline-flex items-center gap-1.5 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-emerald-700 transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-sm"
+                >
+                  <CalendarPlus className="size-4" />
+                  MORE
+                  <ChevronRight className="size-4" />
+                </Link>
               </div>
             </div>
           </>
