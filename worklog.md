@@ -2279,3 +2279,31 @@ Stage Summary:
 - **Fix 3**: Added serverExternalPackages for heavy native deps to reduce memory
 - **Note**: Browser verification blocked by Turbopack OOM during auth route compilation in 4GB container — this is an environment constraint, not a code issue. The fixes are verified correct via direct bcrypt testing and code review.
 
+
+---
+Task ID: 1
+Agent: Main
+Task: Replace DoctA text logo with uploaded PNG across the website
+
+Work Log:
+- Copied uploaded logo (DoctA-Logo-PNG.png, 250x79px RGBA) to /public/logo.png
+- Created reusable `DoctALogo` component at src/components/docta-logo.tsx
+  - Uses next/image with proper aspect ratio preservation (250:79)
+  - Accepts `height` prop for different sizes, `className`, and `priority`
+- Replaced Heart icon + "DoctA" text logo in 6 locations:
+  1. `src/components/public-navbar.tsx` — height 30px (main nav bar)
+  2. `src/components/public-footer.tsx` — height 28px (brand column) + 18px (bottom bar)
+  3. `src/app/staff/login/page.tsx` — height 42px (login hero)
+  4. `src/app/staff/dashboard/layout.tsx` — height 28px (sidebar), now links to /
+  5. `src/components/search/search-page.tsx` — replaced entire inline footer with `<PublicFooter />`
+  6. `src/app/about/page.tsx` — height 48px (hero section)
+- Updated favicon in root layout (src/app/layout.tsx) from external SVG to /logo.png
+- Cleaned up unused Heart imports from modified files
+- Verified all pages with agent-browser + VLM: home, login, about pages all show logo correctly
+
+Stage Summary:
+- All 6 logo instances across the website now use the uploaded DoctA-Logo-PNG.png
+- Sizes are contextually appropriate: 18px (tiny footer) → 48px (about hero)
+- Favicon updated to match
+- Lint passes clean, no runtime errors
+- NOTE: Login issue from previous session still unresolved (Task 0 pending)

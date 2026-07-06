@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Heart,
   Search,
   CalendarCheck,
   ShieldCheck,
@@ -16,8 +15,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PublicNavbar } from "@/components/public-navbar";
+import { DoctALogo } from "@/components/docta-logo";
 import { PublicFooter } from "@/components/public-footer";
+import { PublicNavbar } from "@/components/public-navbar";
 
 // ---------------------------------------------------------------------------
 // Data
@@ -111,9 +111,7 @@ export default function AboutPage() {
           {/* ===== Hero Section ===== */}
           <section className="text-center space-y-4 py-4">
             <div className="flex justify-center">
-              <div className="size-20 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                <Heart className="size-10 text-emerald-600 fill-emerald-600" />
-              </div>
+              <DoctALogo height={48} />
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
               About DoctA

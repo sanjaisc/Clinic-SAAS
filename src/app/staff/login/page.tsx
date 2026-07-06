@@ -4,7 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Heart,
   Mail,
   Lock,
   Loader2,
@@ -18,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { DoctALogo } from "@/components/docta-logo";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -81,13 +81,8 @@ export default function StaffLoginPage() {
               <span>←</span>
               <span>Back to DoctA</span>
             </Link>
-            <div className="flex items-center justify-center gap-2.5 mb-3">
-              <div className="relative">
-                <Heart className="size-8 text-emerald-600 fill-emerald-600" />
-              </div>
-              <span className="text-2xl font-bold tracking-tight text-foreground">
-                DoctA
-              </span>
+            <div className="flex justify-center mb-3">
+              <DoctALogo height={42} />
             </div>
             <p className="text-muted-foreground text-sm">
               Staff Portal — Sign in to manage your clinic

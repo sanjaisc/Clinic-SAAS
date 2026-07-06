@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Search,
   MapPin,
-  Heart,
   Building2,
   User,
   Baby,
@@ -43,6 +42,7 @@ import {
 import { ProviderCard } from "@/components/search/provider-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PublicNavbar } from "@/components/public-navbar";
+import { PublicFooter } from "@/components/public-footer";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -1293,60 +1293,7 @@ export function SearchPage() {
       </main>
 
       {/* ===== Sticky Footer ===== */}
-      <footer className="mt-auto bg-white/80 backdrop-blur-sm">
-        {/* Gradient top border separator */}
-        <div className="h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          {/* 4-Column Layout */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
-            {/* Company */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Home</Link>
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">About</Link>
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Careers</Link>
-              </nav>
-            </div>
-            {/* For Patients */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">For Patients</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="/" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Find Doctors</Link>
-                <Link href="/" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Book Online</Link>
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Patient Portal</Link>
-              </nav>
-            </div>
-            {/* For Clinics */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">For Clinics</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">List Your Clinic</Link>
-                <Link href="/staff/login" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Staff Login</Link>
-              </nav>
-            </div>
-            {/* Legal */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Legal</h4>
-              <nav className="flex flex-col gap-2">
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Privacy Policy</Link>
-                <Link href="#" className="text-sm text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer">Terms of Service</Link>
-              </nav>
-            </div>
-          </div>
-          {/* Bottom line */}
-          <div className="border-t border-border/50 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="text-center sm:text-left">
-              <p className="text-xs text-muted-foreground">Made with ❤️ in Canada</p>
-              <p className="text-xs text-muted-foreground/70 mt-0.5">&copy; 2026 DoctA — Clinic Listing &amp; Appointment Booking Platform. All rights reserved.</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Heart className="size-3.5 text-emerald-600 fill-emerald-600" />
-              <span className="text-sm font-bold tracking-tight text-foreground">DoctA</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

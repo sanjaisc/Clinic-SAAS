@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { DoctALogo } from "@/components/docta-logo";
 
 export function PublicFooter() {
   return (
@@ -13,12 +13,7 @@ export function PublicFooter() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           {/* Column 1: Brand */}
           <div className="col-span-2 md:col-span-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <Heart className="size-5 text-emerald-600 fill-emerald-600" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                DoctA
-              </span>
-            </div>
+            <DoctALogo height={28} />
             <p className="text-sm text-muted-foreground leading-relaxed">
               Your trusted medical appointment platform
             </p>
@@ -154,12 +149,7 @@ export function PublicFooter() {
           <p className="text-xs text-muted-foreground text-center sm:text-left">
             &copy; 2026 DoctA — Clinic Listing &amp; Appointment Booking Platform. All rights reserved.
           </p>
-          <div className="flex items-center gap-1.5">
-            <Heart className="size-3.5 text-emerald-600 fill-emerald-600" />
-            <span className="text-sm font-bold tracking-tight text-foreground">
-              DoctA
-            </span>
-          </div>
+          <DoctALogo height={18} />
         </div>
       </div>
     </footer>

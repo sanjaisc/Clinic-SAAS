@@ -2,8 +2,8 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import {
-  Heart,
   LayoutDashboard,
   CalendarDays,
   CalendarPlus,
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DoctALogo } from "@/components/docta-logo";
 import type { DoctASessionUser } from "@/lib/auth";
 import { hasMinimumRole, STAFF_ROLE } from "@/lib/enums";
 import { NotificationBell } from "@/components/notification-bell";
@@ -170,15 +171,10 @@ export default function StaffDashboardLayout({
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo section */}
-      <div className="p-4 flex items-center gap-2.5 shrink-0">
-        <div className="size-8 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-          <Heart className="size-4 text-white fill-white" />
-        </div>
-        {!collapsed && (
-          <span className="text-base font-bold tracking-tight text-foreground whitespace-nowrap">
-            DoctA
-          </span>
-        )}
+      <div className="p-4 flex items-center shrink-0">
+        <Link href="/" className="hover:opacity-80 transition-opacity">
+          <DoctALogo height={28} />
+        </Link>
       </div>
 
       {/* Clinic badge */}
