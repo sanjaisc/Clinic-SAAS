@@ -1,0 +1,252 @@
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:116:    <Card className="relative overflow-hidden border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:163:    <div className="rounded-xl border border-border/60 bg-white p-3 shadow-lg text-xs space-y-1.5">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:338:      <Card className="border-red-200 bg-red-50/30">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:416:        <Card className="lg:col-span-2 border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:455:                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:517:        <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:558:                        borderRadius: "12px",
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:559:                        border: "1px solid hsl(var(--border))",
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:628:      <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:659:                  <tr className="border-b border-border/60">
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:684:                      className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors"
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:702:                          className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs"
+/home/z/my-project/src/app/staff/dashboard/analytics/page.tsx:711:                          className="bg-red-50 text-red-600 border-red-200 text-xs"
+/home/z/my-project/src/app/staff/dashboard/analytics/loading.tsx:16:          <div key={i} className="rounded-xl border bg-card p-4 space-y-2">
+/home/z/my-project/src/app/staff/dashboard/analytics/loading.tsx:25:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/analytics/loading.tsx:31:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:89:    <Card className="relative overflow-hidden border-border/50 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:130:        compact ? "" : "border border-border/30"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:136:      <div className="w-px h-10 bg-border/50 shrink-0" />
+/home/z/my-project/src/app/staff/dashboard/page.tsx:145:          <span className="text-border">·</span>
+/home/z/my-project/src/app/staff/dashboard/page.tsx:156:              ? "bg-blue-50 text-blue-600 border-blue-200"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:157:              : "bg-emerald-50 text-emerald-600 border-emerald-200"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:171:              ? "bg-amber-50 text-amber-700 border-amber-200"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:172:              : "bg-sky-50 text-sky-700 border-sky-200"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:210:const ACTIVITY_ICON_MAP: Record<string, { icon: React.ElementType; color: string; bg: string; borderColor: string }> = {
+/home/z/my-project/src/app/staff/dashboard/page.tsx:211:  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-emerald-600", bg: "bg-emerald-100", borderColor: "border-l-emerald-500" },
+/home/z/my-project/src/app/staff/dashboard/page.tsx:212:  [AUDIT_ACTIONS.BOOKING_CANCELLED]: { icon: XCircle, color: "text-red-500", bg: "bg-red-100", borderColor: "border-l-red-500" },
+/home/z/my-project/src/app/staff/dashboard/page.tsx:213:  [AUDIT_ACTIONS.BOOKING_CHECKED_IN]: { icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-100", borderColor: "border-l-blue-500" },
+/home/z/my-project/src/app/staff/dashboard/page.tsx:214:  [AUDIT_ACTIONS.BOOKING_COMPLETED]: { icon: CheckCheck, color: "text-green-600", bg: "bg-green-100", borderColor: "border-l-green-500" },
+/home/z/my-project/src/app/staff/dashboard/page.tsx:215:  [AUDIT_ACTIONS.BOOKING_NO_SHOW]: { icon: UserX, color: "text-amber-600", bg: "bg-amber-100", borderColor: "border-l-amber-500" },
+/home/z/my-project/src/app/staff/dashboard/page.tsx:252:    <Card className="border-border/50 shadow-sm overflow-hidden">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:293:                    flex items-center gap-3 p-2.5 rounded-lg border-l-2
+/home/z/my-project/src/app/staff/dashboard/page.tsx:295:                    ${cfg?.borderColor ?? "border-l-muted-foreground/30"}
+/home/z/my-project/src/app/staff/dashboard/page.tsx:382:      <Card className="border-red-200 bg-red-50/30">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:480:        <Card className="lg:col-span-2 border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:539:          <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:551:                className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 transition-all text-left cursor-pointer group"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:565:                className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition-all text-left cursor-pointer group"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:579:                className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/60 transition-all text-left cursor-pointer group"
+/home/z/my-project/src/app/staff/dashboard/page.tsx:594:          <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:626:                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:633:                  <div className="p-3 rounded-xl bg-red-50/60 border border-red-100">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:640:                  <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+/home/z/my-project/src/app/staff/dashboard/page.tsx:647:                  <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-100">
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:125:function getActionBorderColor(action: string): string {
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:128:    return "border-l-red-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:130:    return "border-l-emerald-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:132:    return "border-l-sky-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:134:    return "border-l-purple-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:136:    return "border-l-teal-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:138:    return "border-l-amber-400";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:139:  return "border-l-gray-300";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:151:      return "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:153:      return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:155:      return "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-800";
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:292:        <Card className="border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900">
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:307:              className="shrink-0 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/40"
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:392:              className="relative overflow-hidden border-0 shadow-md stat-gradient-animated"
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:427:                  <tr className="border-b border-border">
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:462:                        className={`border-b border-border/50 transition-all duration-200 ${clinicIndex % 2 === 0 ? 'bg-transparent' : 'bg-muted/20'} hover:bg-muted/50`}
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:508:            <div className="max-h-96 overflow-y-auto divide-y divide-border/50">
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:516:                  const borderColor = getActionBorderColor(entry.action);
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:520:                      className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/40 transition-all duration-200 border-l-4 ${borderColor} animate-[slide-in-right_0.3s_ease-out_both]`}
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:557:                  <tr className="border-b border-border">
+/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:579:                      className={`border-b border-border/50 transition-all duration-200 ${staffIndex % 2 === 0 ? 'bg-transparent' : 'bg-muted/20'} hover:bg-muted/50`}
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:64:    borderColor: string;
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:72:    borderColor: "border-l-emerald-500",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:79:    borderColor: "border-l-red-500",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:86:    borderColor: "border-l-blue-500",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:93:    borderColor: "border-l-green-500",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:100:    borderColor: "border-l-amber-500",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:110:    borderColor: "border-l-muted-foreground/30",
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:180:        flex items-center gap-4 p-4 rounded-xl border-l-[3px] ${cfg.borderColor}
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:181:        hover:bg-muted/50 transition-all duration-200 hover:border-l-[5px]
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:217:                className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground border-border/60"
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:299:        <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:360:      <Card className="border-border/50 shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/admin/loading.tsx:9:          <div key={i} className="rounded-xl border bg-card p-4 space-y-2">
+/home/z/my-project/src/app/staff/dashboard/admin/loading.tsx:20:          <div key={i} className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/admin/loading.tsx:43:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/activity/loading.tsx:14:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/activity/loading.tsx:17:          <div key={i} className="flex items-start gap-3 py-3 border-b last:border-b-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:119:        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:126:        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:133:        <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:139:        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:146:        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:159:      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:166:    <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:195:          "border rounded-lg shadow-sm transition-all duration-150 hover:shadow-md",
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:196:          "border-l-4",
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:198:            ? "border-l-blue-500 bg-blue-50/40"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:200:              ? "border-l-gray-400 bg-gray-50/40"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:202:                ? "border-l-red-400 bg-red-50/30"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:204:                  ? "border-l-amber-400 bg-amber-50/30"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:205:                  : "border-l-emerald-500 bg-white"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:222:                <span className="text-border">|</span>
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:244:        className="border border-emerald-200 bg-emerald-50/60 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-px hover:bg-emerald-50 transition-all duration-150 cursor-pointer border-l-4 border-l-emerald-400"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:265:        className="rounded-lg bg-gray-100 border border-gray-200 p-2.5 flex items-center justify-between"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:271:        <Badge variant="outline" className="bg-gray-100 text-gray-400 border-gray-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:282:        className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 flex items-center justify-between"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:288:        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:300:        className="border border-purple-200 bg-purple-50/40 rounded-lg shadow-sm border-l-4 border-l-purple-400"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:307:          <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] px-1.5 py-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:379:      <div className="rounded-xl border bg-white p-4 space-y-0">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:463:        <Card className="border-red-200 bg-red-50/30">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:496:            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:508:                  "hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:525:                className="rounded-lg border"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:533:            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:544:              className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-emerald-700 border-emerald-200"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:556:              <SelectTrigger className="w-[200px] cursor-pointer hover:border-emerald-300">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:574:        <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:586:        <Card className="border-sky-100 bg-gradient-to-br from-sky-50 to-white shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:598:        <Card className="border-amber-100 bg-gradient-to-br from-amber-50 to-white shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:610:        <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white shadow-sm">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:624:      <Card className="shadow-sm border overflow-hidden">
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:643:                    "border-b border-border/40 last:border-b-0"
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:680:              <div className="flex-1 border-l-2 border-dashed border-emerald-200 ml-1" />
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:689:          <div className="size-3 rounded-sm bg-emerald-200 border border-emerald-300" />
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:701:          <div className="size-3 rounded-sm bg-gray-300 border border-gray-400" />
+/home/z/my-project/src/app/staff/dashboard/calendar/page.tsx:705:          <div className="size-3 rounded-sm bg-purple-300 border border-purple-400" />
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:59:        <Card className="border-amber-200 bg-amber-50/30">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:80:          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:89:                    <Badge variant="outline" className="text-[10px] px-2 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:155:          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:166:                <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 text-center">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:172:                <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-center">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:178:                <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100 text-center">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:197:          <Card className="border-border/50 shadow-sm card-hover-lift section-glow-border">
+/home/z/my-project/src/app/staff/dashboard/settings/page.tsx:218:                  <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/calendar/loading.tsx:13:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/loading.tsx:9:          <div key={i} className="rounded-xl border bg-card p-4 space-y-2">
+/home/z/my-project/src/app/staff/dashboard/loading.tsx:17:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/loading.tsx:32:      <div className="rounded-xl border bg-card p-5 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:108:      return "bg-purple-100 text-purple-700 border-purple-200";
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:110:      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:112:      return "bg-sky-100 text-sky-700 border-sky-200";
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:154:          <div className="size-10 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:183:          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:247:            <Avatar className="size-9 border-2 border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:266:            <Avatar className="size-9 border-2 border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:290:          hidden lg:flex flex-col border-r border-border/60 bg-background
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:299:          className="absolute top-4 -right-3.5 size-7 rounded-full bg-background border border-border shadow-sm flex items-center justify-center hover:bg-muted transition-colors cursor-pointer z-10"
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:319:          fixed inset-y-0 left-0 z-50 w-[260px] bg-background border-r border-border/60
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:330:        <header className="h-14 border-b border-border/60 bg-background flex items-center justify-between px-4 md:px-6 shrink-0">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:351:            <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/60">
+/home/z/my-project/src/app/staff/dashboard/layout.tsx:352:              <Avatar className="size-7 border border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:534:                  "flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:536:                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:537:                    : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:666:                              "flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer",
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:668:                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:669:                                : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:709:                              "flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer",
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:711:                                ? "border-blue-500 bg-blue-50 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:712:                                : "border-border hover:border-blue-200 hover:bg-blue-50/50"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:758:          <Card className="shadow-sm border-l-4 border-l-emerald-500">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:963:                      "flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:965:                        ? "border-emerald-500 bg-emerald-50 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:966:                        : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:997:            <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1049:            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1316:        <Card className="shadow-sm rounded-xl border-emerald-200 bg-emerald-50/30">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1328:            <div className="bg-white rounded-lg border p-3 space-y-2">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1354:                  className="shrink-0 size-8 rounded-lg border flex items-center justify-center hover:bg-muted/50 transition-colors cursor-pointer"
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1426:          <div className="flex items-start gap-3 p-4 rounded-xl border border-red-200 bg-red-50/50">
+/home/z/my-project/src/app/staff/dashboard/book/page.tsx:1452:        <div className="flex items-center justify-between pt-4 border-t mt-6">
+/home/z/my-project/src/app/staff/dashboard/book/loading.tsx:7:      <div className="rounded-xl border bg-card p-6 space-y-4">
+/home/z/my-project/src/app/staff/dashboard/book/loading.tsx:26:      <div className="rounded-xl border bg-card p-6 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/book/loading.tsx:29:          <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:178:  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:179:  CHECKED_IN: "bg-amber-100 text-amber-700 border-amber-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:180:  COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:181:  CANCELLED: "bg-red-100 text-red-700 border-red-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:182:  NO_SHOW: "bg-gray-100 text-gray-600 border-gray-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:183:  ARCHIVED: "bg-muted text-muted-foreground border-muted",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:631:        <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:638:      <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:647:    <Badge className={`${STATUS_STYLES[status] || STATUS_STYLES.ARCHIVED} border`}>
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:665:    WAITING: "bg-amber-100 text-amber-700 border-amber-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:666:    OFFERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:667:    EXPIRED: "bg-gray-100 text-gray-600 border-gray-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:668:    ACCEPTED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:689:      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:708:                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer border ${
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:711:                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:712:                      : "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:713:                    : "bg-white text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:821:        <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:825:                <tr className="border-b border-border/60 bg-muted/30">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:838:                    <tr key={i} className="border-b border-border/30">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:880:                      className={`border-b border-border/30 transition-colors hover:bg-amber-50/30 ${
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:917:                        <Badge className={`${WL_STATUS_STYLES[entry.status] || WL_STATUS_STYLES.WAITING} border`}>
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:987:      <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:991:              <tr className="border-b border-border/60 bg-muted/30">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1005:                  <tr key={i} className="border-b border-border/30">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1049:                    className={`border-b border-border/30 transition-colors hover:bg-emerald-50/30 ${
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1187:          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 bg-muted/20">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1269:              <div className="rounded-lg bg-muted/50 border border-border/50 p-3.5 space-y-1.5">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1274:                  <Badge className={cn("text-[10px] border", STATUS_STYLES[rescheduleApt.status])}>
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1351:                    <div className="rounded-lg border border-dashed border-border/60 p-6 text-center">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1366:                              "flex flex-col items-center justify-center rounded-lg border p-2.5 text-center transition-all cursor-pointer",
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1368:                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1369:                                : "border-border/60 hover:border-emerald-300 hover:bg-emerald-50/50 text-foreground"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1388:                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1498:              <div className="px-6 pt-6 pb-4 border-b border-border/40">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1524:                            ? "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1526:                              ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1528:                                ? "border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1547:                  <div className="rounded-lg border border-border/60 p-4 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1706:                        className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1720:                  <div className="rounded-lg border border-border/60 p-4 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1745:                          <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1758:                <div className="rounded-lg border border-border/60 p-4">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1768:                          <Badge variant="outline" className="mt-1 border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1795:                  <div className="rounded-lg border border-border/60 p-4">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1841:                  <div className="rounded-lg border border-border/60 p-4">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1871:                  <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
+/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1888:                <div className="rounded-lg border border-border/60 p-4">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:73:  AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:74:  LOCKED: "bg-amber-100 text-amber-700 border-amber-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:75:  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:76:  BOOKED_EXTERNALLY: "bg-purple-100 text-purple-700 border-purple-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:77:  BLOCKED: "bg-red-100 text-red-700 border-red-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:78:  CLOSED: "bg-gray-100 text-gray-500 border-gray-200",
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:283:  const sortedDates = Object.keys(slotsByDate).sort();
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:301:      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:358:        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:367:            className="cursor-pointer border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:377:            className="cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:387:            className="cursor-pointer border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:410:        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:421:            <div key={i} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-2">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:432:        <div className="bg-white rounded-xl border border-red-200 bg-red-50/30 p-8 text-center">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:438:      ) : sortedDates.length === 0 ? (
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:439:        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:456:              <span className="font-medium text-foreground">{sortedDates.length}</span> day{sortedDates.length !== 1 ? "s" : ""}
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:469:          {sortedDates.map((dateKey) => {
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:473:            const isExpanded = expandedDates.has(dateKey) || sortedDates.length <= 3;
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:476:              <div key={dateKey} className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:493:                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:527:                  <div className="border-t border-border/30">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:539:                              relative rounded-lg border p-3 transition-all cursor-pointer
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:540:                              ${isSelected ? "ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50" : "border-border/50 hover:border-emerald-200 hover:bg-emerald-50/20"}
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:566:                                <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 text-[10px]">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:571:                                <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:579:                            <Badge className={`${SLOT_STATUS_STYLES[slot.status] || ""} border text-[10px]`}>
+/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:585:                              <div className="mt-1.5 pt-1.5 border-t border-border/30">
+/home/z/my-project/src/app/staff/dashboard/appointments/loading.tsx:15:      <div className="rounded-xl border bg-card overflow-hidden">
+
+[Showing results with pagination = limit: 250]
