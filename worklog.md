@@ -2157,3 +2157,18 @@ Stage Summary:
 - **Verified via agent-browser**: All 6 provider cards show the MORE link after 3 slots; provider detail page now shows: Hero → Stats → About → Services/Languages → **Availability Calendar** → **Reviews** → Contact Info
 - Lint passes cleanly
 ---
+Task ID: 8
+Agent: Main Agent
+Task: Auto-advance availability calendar to first week with slots instead of showing empty current week
+
+Work Log:
+- Modified `/api/providers/[id]/availability` API to query for the first AVAILABLE slot and return `firstAvailableWeekStart` (Monday of that week) in every response
+- Updated `ProviderAvailabilityCalendar` component: added `useRef` to track initial auto-advance, added logic to detect empty current week and jump to `firstAvailableWeekStart`
+- Used `autoAdvanced` flag to keep skeleton loading visible during the jump (no flash of empty state)
+
+Stage Summary:
+- **2 files modified**: `src/app/api/providers/[id]/availability/route.ts`, `src/components/provider/availability-calendar.tsx`
+- **Behavior**: If current week has slots → shows current week. If current week is empty → silently auto-advances to the first week with available slots (skeleton stays during transition)
+- **Verified via agent-browser**: Dr. Aisha Patel's page jumps from empty Jun 29 week directly to populated Jul 6 week with no flash
+- Lint passes, no runtime errors
+---

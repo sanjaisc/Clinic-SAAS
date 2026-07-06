@@ -159,6 +159,30 @@ export async function GET(
       });
     }
 
+    // Find the first available slot to hint the frontend which week has availability
+    const firstSlotWhere: Record<string, unknown> = {
+      providerId: id,
+      clinicId: provider.clinicId,
+      status: SLOT_STATUS.AVAILABLE,
+      startTime: { gte: now },
+    };
+
+    if (modalityParam && (modalityParam === "IN_PERSON" || modalityParam === "VIDEO")) {
+      firstSlotWhere.modality = modalityParam;
+    }
+
+    const firstSlot = await db.slot.findFirst({
+      where: firstSlotWhere,
+      select: { startTime: true },
+      orderBy: { startTime: "asc" },
+    });
+
+    let firstAvailableWeekStart: string | null = null;
+    if (firstSlot) {
+      const firstSlotMonday = startOfWeek(firstSlot.startTime, { weekStartsOn: 1 });
+      firstAvailableWeekStart = firstSlotMonday.toISOString().split("T")[0];
+    }
+
     return NextResponse.json({
       providerId: id,
       weekStart: weekStart.toISOString().split("T")[0],
@@ -170,6 +194,7 @@ export async function GET(
         specialtyId: ps.service.specialtyId,
       })),
       totalSlots: slots.length,
+      firstAvailableWeekStart,
     });
   } catch (error) {
     console.error("[PROVIDER_AVAILABILITY] Error:", error);

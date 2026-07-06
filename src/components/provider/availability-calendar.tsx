@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { format, addDays, subDays, isToday, parseISO } from "date-fns";
 import {
@@ -60,6 +60,7 @@ interface AvailabilityData {
   days: DayColumn[];
   services: Service[];
   totalSlots: number;
+  firstAvailableWeekStart: string | null;
 }
 
 interface ProviderAvailabilityCalendarProps {
@@ -97,11 +98,13 @@ export function ProviderAvailabilityCalendar({
   const [data, setData] = useState<AvailabilityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const initialAutoAdvanceDone = useRef(false);
 
   // ---- Fetch availability ----
   const fetchAvailability = useCallback(async () => {
     setLoading(true);
     setError(null);
+    let autoAdvanced = false;
 
     const params = new URLSearchParams({ weekStart: currentWeekStart });
     if (modalityFilter !== "all") {
@@ -115,11 +118,29 @@ export function ProviderAvailabilityCalendar({
         throw new Error(body.error || `Failed to load availability (${res.status})`);
       }
       const json: AvailabilityData = await res.json();
+
+      // Auto-advance to the first available week on initial load if current week is empty
+      if (
+        !initialAutoAdvanceDone.current &&
+        json.totalSlots === 0 &&
+        json.firstAvailableWeekStart &&
+        json.firstAvailableWeekStart !== currentWeekStart
+      ) {
+        initialAutoAdvanceDone.current = true;
+        autoAdvanced = true;
+        // Don't setData — jump straight to the available week so skeleton stays
+        setCurrentWeekStart(json.firstAvailableWeekStart);
+        return;
+      }
+      initialAutoAdvanceDone.current = true;
       setData(json);
     } catch (err) {
+      initialAutoAdvanceDone.current = true;
       setError(err instanceof Error ? err.message : "Failed to load availability");
     } finally {
-      setLoading(false);
+      if (!autoAdvanced) {
+        setLoading(false);
+      }
     }
   }, [providerId, currentWeekStart, modalityFilter]);
 
