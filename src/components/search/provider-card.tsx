@@ -13,7 +13,6 @@ import {
   Phone,
   ChevronRight,
   ShieldCheck,
-  Navigation,
   Bell,
   Loader2,
 } from "lucide-react";
@@ -247,8 +246,8 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                 {address}
               </span>
               {provider.distance != null && (
-                <span className="inline-flex items-center gap-1 shrink-0 font-medium text-emerald-600">
-                  <Navigation className="size-3" />
+                <span className="shrink-0 font-medium text-emerald-600 whitespace-nowrap">
+                  <span className="mx-1 text-border">·</span>
                   {formatDistance(provider.distance)} away
                 </span>
               )}

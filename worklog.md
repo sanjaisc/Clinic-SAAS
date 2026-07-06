@@ -2187,3 +2187,22 @@ Stage Summary:
 - **Verified via agent-browser**: Each slot shows date/time/modality on 3 lines; MORE button appears inline with the 3 slot buttons
 - Lint passes cleanly
 ---
+Task ID: 10
+Agent: Main Agent
+Task: Add ZIP code input for distance-based search + show distance on provider cards
+
+Work Log:
+- Created `/api/geocode` route using OpenStreetMap Nominatim (free, no API key) to convert ZIP codes to lat/lng
+- Added ZIP code input field to search form with: numeric-only validation (5 digits max), auto-geocode on blur when 5 digits, Enter key support, visual status indicators (spinner while resolving, checkmark when resolved, X on error, click to clear)
+- Added `useEffect` that watches `userLat`/`userLng` and auto re-triggers search when coordinates become available (handles async geocode resolving after search already fired)
+- Refactored provider card distance display: moved from separate element with Navigation icon to inline in the address line using `·` dot separator (e.g. "100 Broadway, Suite 400, New York, NY, 10005 · 2.5 mi away")
+- Fixed `truncate` clipping issue by moving distance span outside the truncated address span
+- Removed unused `Navigation` icon import from provider card
+- "Use my location" button now hidden when ZIP is resolved (only shows when no location is set)
+
+Stage Summary:
+- **3 files modified/created**: `src/app/api/geocode/route.ts` (new), `src/components/search/search-page.tsx`, `src/components/search/provider-card.tsx`
+- **Verified via agent-browser + curl**: ZIP 10001 → geocodes to 40.748°N, 73.994°W → 3 providers within 5mi (2.5, 2.5, 2.6 mi), 6 providers within 50mi
+- Distance displays inline after address with dot separator and emerald accent
+- Lint passes cleanly
+---

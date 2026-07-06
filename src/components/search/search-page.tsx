@@ -24,6 +24,7 @@ import {
   Bone,
   Sparkles,
   LayoutGrid,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -190,6 +191,9 @@ export function SearchPage() {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [geoStatus, setGeoStatus] = useState<"idle" | "requesting" | "granted" | "denied">("idle");
+  const [zipCode, setZipCode] = useState("");
+  const [zipStatus, setZipStatus] = useState<"idle" | "resolving" | "resolved" | "error">("idle");
+  const [zipError, setZipError] = useState("");
 
   // ---- Results State ----
   const [results, setResults] = useState<ProviderResult[]>([]);
@@ -262,6 +266,43 @@ export function SearchPage() {
     );
   }, []);
 
+  // ---- Geocode ZIP code ----
+  const geocodeZip = useCallback(async (zip: string) => {
+    const trimmed = zip.trim();
+    if (!trimmed) {
+      setZipStatus("idle");
+      setZipError("");
+      return;
+    }
+    setZipStatus("resolving");
+    setZipError("");
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setZipStatus("error");
+        setZipError(data.error || "Could not find that ZIP code");
+        return;
+      }
+      setUserLat(data.lat);
+      setUserLng(data.lng);
+      setGeoStatus("granted");
+      setZipStatus("resolved");
+    } catch {
+      setZipStatus("error");
+      setZipError("Failed to look up ZIP code");
+    }
+  }, []);
+
+  const clearZip = useCallback(() => {
+    setZipCode("");
+    setZipStatus("idle");
+    setZipError("");
+    setUserLat(null);
+    setUserLng(null);
+    setGeoStatus("denied");
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Build search params from current state + optional overrides
   // ---------------------------------------------------------------------------
@@ -318,6 +359,19 @@ export function SearchPage() {
     },
     [getSearchParams]
   );
+
+  // ---------------------------------------------------------------------------
+  // Auto re-search when coordinates become available (e.g. ZIP geocode resolves)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (searched && userLat != null && userLng != null && specialtyId) {
+      // Re-search with the new coordinates (small delay to let state settle)
+      const timer = setTimeout(() => {
+        executeSearch();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [userLat, userLng]);
 
   // ---------------------------------------------------------------------------
   // Load More (append results)
@@ -637,14 +691,72 @@ export function SearchPage() {
                 </Select>
               </div>
 
-              {/* Row 3: Radius Slider + Sort */}
+              {/* Row 3: ZIP code + Radius Slider + Sort */}
               <div className="flex items-center gap-4 flex-wrap">
+                {/* ZIP Code Input */}
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="ZIP code"
+                      value={zipCode}
+                      onChange={(e) => {
+                        // Allow only digits and up to 5 chars (US ZIP)
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        setZipCode(val);
+                        if (zipStatus === "resolved" || zipStatus === "error") {
+                          setZipStatus("idle");
+                          setZipError("");
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          geocodeZip(zipCode);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (zipCode.trim().length >= 5 && zipStatus !== "resolved") {
+                          geocodeZip(zipCode);
+                        }
+                      }}
+                      className="h-9 w-[120px] pl-8 pr-8 text-sm"
+                    />
+                    {zipStatus === "resolved" && (
+                      <CheckCircle2
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-emerald-500 cursor-pointer"
+                        onClick={clearZip}
+                        title="Clear location"
+                      />
+                    )}
+                    {zipStatus === "resolving" && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground animate-spin" />
+                    )}
+                    {zipStatus === "error" && (
+                      <X
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-red-400 cursor-pointer"
+                        onClick={() => { setZipStatus("idle"); setZipError(""); }}
+                        title="Clear error"
+                      />
+                    )}
+                  </div>
+                  {zipError && (
+                    <span className="text-[11px] text-red-500 max-w-[140px] leading-tight">
+                      {zipError}
+                    </span>
+                  )}
+                </div>
+
                 {/* Radius Slider */}
                 <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                  {geoStatus === "granted" ? (
+                  {(geoStatus === "granted" && zipStatus !== "idle" && zipStatus !== "error") ? (
+                    <span title="ZIP code location"><MapPin className="size-4 text-emerald-600 shrink-0" /></span>
+                  ) : geoStatus === "granted" ? (
                     <span title="Location detected"><LocateFixed className="size-4 text-emerald-600 shrink-0" /></span>
                   ) : (
-                    <span title="Allow location for distance sorting"><MapPin className="size-4 text-muted-foreground shrink-0" /></span>
+                    <span title="Enter ZIP or allow location for distance sorting"><MapPin className="size-4 text-muted-foreground shrink-0" /></span>
                   )}
                   <span className="text-sm text-muted-foreground whitespace-nowrap min-w-[45px]">
                     {radius} mi
@@ -659,8 +771,8 @@ export function SearchPage() {
                   />
                 </div>
 
-                {/* Use My Location button (when geo not granted) */}
-                {geoStatus !== "granted" && (
+                {/* Use My Location button (when geo not granted and no ZIP) */}
+                {geoStatus !== "granted" && zipStatus !== "resolved" && (
                   <Button
                     type="button"
                     variant="ghost"
