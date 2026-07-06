@@ -2438,3 +2438,27 @@ Stage Summary:
 - Default date range changed from "today only" to "next 30 days"
 - Appointments now visible on first load (shows upcoming bookings)
 - Clear filters resets to the 30-day default
+
+---
+Task ID: 6
+Agent: Main Orchestrator
+Task: Fix reschedule dialog provider dropdown not showing provider names
+
+Work Log:
+- Investigated: Reschedule dialog provider dropdown was empty
+- Root cause: Frontend was fetching providers from `/api/search/providers?specialty=` (public search API)
+- The search API requires `specialtyId` as mandatory param — empty value → 400 error
+- `res.ok` was false, so `setProviders()` was never called → providers stayed as `[]`
+- Fix: Created new `/api/staff/providers/route.ts` endpoint
+  - Returns all active providers for the authenticated user's clinic
+  - Uses proper staff auth (session + clinicId check)
+  - Returns `{ providers: [{ id, firstName, lastName, credentials }] }`
+- Updated frontend `useEffect` in appointments page to call `/api/staff/providers?clinicId=...` instead of the search API
+- Verified via agent-browser:
+  - Provider dropdown now shows "Dr. Sarah Chen, MD" (pre-selected from appointment)
+  - Dropdown opens to show both providers: Dr. Sarah Chen, MD and Dr. Aisha Patel, MD
+
+Stage Summary:
+- New file: src/app/api/staff/providers/route.ts
+- Modified: src/app/staff/dashboard/appointments/page.tsx (provider fetch useEffect)
+- Provider dropdown now correctly displays clinic providers in reschedule dialog

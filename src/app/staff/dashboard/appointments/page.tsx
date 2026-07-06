@@ -356,21 +356,7 @@ export default function AppointmentsPage() {
     if (!clinicId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/staff/dashboard?clinicId=${clinicId}`);
-        if (res.ok) {
-          const data = await res.json();
-          // We need a provider list - let's fetch from appointments
-          // Actually, let's use the taxonomies endpoint or a separate query
-          // For now, we'll extract unique providers from the dashboard data
-        }
-      } catch {
-        // non-critical
-      }
-      // Fallback: fetch providers from the clinic via search/taxonomies
-      try {
-        const res = await fetch(
-          `/api/search/providers?specialty=&patientType=ADULT&lat=40.758&lng=-73.985&radius=50&limit=50`
-        );
+        const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
         if (res.ok) {
           const data = await res.json();
           const allProviders = (data.providers || []).map(
@@ -381,7 +367,6 @@ export default function AppointmentsPage() {
               credentials: (p.credentials as string) || null,
             })
           );
-          // Filter by clinic if possible
           setProviders(allProviders);
         }
       } catch {
