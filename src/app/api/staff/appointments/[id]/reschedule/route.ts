@@ -5,10 +5,12 @@ import { db } from "@/lib/db";
 import { APPOINTMENT_STATUS, SLOT_STATUS } from "@/lib/enums";
 import { createAuditLog } from "@/lib/audit";
 import { AUDIT_ACTIONS } from "@/lib/constants";
+import { sendStaffEmail } from "@/lib/email";
 import { format } from "date-fns";
 
 // =============================================================================
 // POST — Reschedule a BOOKED appointment to a new slot
+// Preserves the old appointment as CANCELLED and creates a new one
 // =============================================================================
 
 interface RescheduleBody {
@@ -59,7 +61,11 @@ export async function POST(
     // ---- 3. Validate appointment ----
     const appointment = await db.appointment.findUnique({
       where: { id: appointmentId },
-      include: { slot: true },
+      include: {
+        slot: true,
+        tokens: true,
+        ledger: true,
+      },
     });
 
     if (!appointment) {
@@ -131,24 +137,53 @@ export async function POST(
     const noteText = `Rescheduled from ${oldStart} to ${newStart} by ${staffName}`;
 
     // ---- 6. Atomic transaction ----
-    const updated = await db.$transaction(async (tx) => {
-      // a. Release old slot back to AVAILABLE
+    const newAppointment = await db.$transaction(async (tx) => {
+      // a. Mark old appointment as CANCELLED with reason RESCHEDULED
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          status: APPOINTMENT_STATUS.CANCELLED,
+          cancellationReason: "RESCHEDULED",
+          cancelledAt: new Date(),
+          cancelledBy: staffId,
+        },
+      });
+
+      // b. Release old slot back to AVAILABLE
       await tx.slot.update({
         where: { id: appointment.slotId },
         data: { status: SLOT_STATUS.AVAILABLE },
       });
 
-      // b. Update the appointment with new slot data
-      const updatedApt = await tx.appointment.update({
-        where: { id: appointmentId },
+      // c. Create a NEW appointment record copying all fields from the old one
+      const created = await tx.appointment.create({
         data: {
           slotId: newSlot.id,
+          clinicId: appointment.clinicId,
           providerId: newSlot.providerId,
-          specialtyId: newSpecialtyId,
+          specialtyId: newSpecialtyId || appointment.specialtyId,
+          serviceId: appointment.serviceId,
+          patientName: appointment.patientName,
+          patientDob: appointment.patientDob,
+          patientPhone: appointment.patientPhone,
+          patientEmail: appointment.patientEmail,
+          patientType: appointment.patientType,
+          guardianName: appointment.guardianName,
+          guardianRelation: appointment.guardianRelation,
+          reasonForVisit: appointment.reasonForVisit,
+          insuranceId: appointment.insuranceId,
           modality: newSlot.modality,
           startTime: newSlot.startTime,
           endTime: newSlot.endTime,
-          cancellationReason: null,
+          isDemoInsurance: appointment.isDemoInsurance,
+          depositCents: appointment.depositCents,
+          selfPayCents: appointment.selfPayCents,
+          paymentStatus: appointment.paymentStatus,
+          paymentMethod: appointment.paymentMethod,
+          status: APPOINTMENT_STATUS.BOOKED,
+          insuranceVerified: appointment.insuranceVerified,
+          ipHash: appointment.ipHash,
+          conversionRanking: appointment.conversionRanking,
         },
         include: {
           provider: {
@@ -160,35 +195,60 @@ export async function POST(
         },
       });
 
-      // c. Book the new slot
+      // d. Book the new slot
       await tx.slot.update({
         where: { id: newSlot.id },
         data: { status: SLOT_STATUS.BOOKED },
       });
 
-      // d. Add internal note
+      // e. Add internal note to the NEW appointment
       await tx.internalNote.create({
         data: {
-          appointmentId,
+          appointmentId: created.id,
           authorId: staffId,
           content: noteText,
         },
       });
 
-      return updatedApt;
+      // f. Invalidate old tokens
+      await tx.token.updateMany({
+        where: { appointmentId, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+
+      return created;
     });
 
-    // ---- 7. Audit log ----
+    // ---- 7. Send email notification ----
+    try {
+      const providerName = `Dr. ${newSlot.provider.firstName} ${newSlot.provider.lastName}`;
+      await sendStaffEmail({
+        to: appointment.patientEmail,
+        subject: "Your Appointment Has Been Rescheduled",
+        html: `
+          <h2>Appointment Rescheduled</h2>
+          <p>Dear ${appointment.patientName},</p>
+          <p>Your appointment has been rescheduled.</p>
+          <p><strong>Previous:</strong> ${oldStart}</p>
+          <p><strong>New:</strong> ${newStart} with <strong>${providerName}</strong></p>
+          <p>If you have any questions, please contact us.</p>
+        `,
+      });
+    } catch (emailErr) {
+      console.error("[RESCHEDULE] Failed to send email:", emailErr);
+    }
+
+    // ---- 8. Audit log ----
     createAuditLog({
       userId: staffId,
       action: AUDIT_ACTIONS.BOOKING_RESCHEDULED,
       targetType: "APPOINTMENT",
-      targetId: appointmentId,
-      appointmentId,
+      targetId: newAppointment.id,
+      appointmentId: newAppointment.id,
       ipAddress: request.headers.get("x-forwarded-for") || undefined,
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(newAppointment);
   } catch (error) {
     console.error("[STAFF_APPOINTMENT_RESCHEDULE]", error);
     return NextResponse.json(

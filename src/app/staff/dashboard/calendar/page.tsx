@@ -1,26 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { format, addDays, subDays, parseISO, isToday, getMinutes, getHours, startOfToday } from "date-fns";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  format,
+  startOfWeek,
+  addWeeks,
+  subWeeks,
+  parseISO,
+  isToday,
+  startOfToday,
+} from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
-  CalendarIcon,
   Users,
   Clock,
   CheckCircle2,
   XCircle,
-  UserX,
-  Building2,
   Video,
   AlertCircle,
+  Ban,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,12 +36,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { SLOT_STATUS, SLOT_MODALITY, APPOINTMENT_STATUS } from "@/lib/enums";
+import { useToast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,17 +78,12 @@ interface SlotInfo {
   appointment: AppointmentInfo | null;
 }
 
-interface SlotsByHour {
-  [hour: number]: SlotInfo[];
-}
-
-interface CalendarData {
+interface DayData {
   date: string;
   formattedDate: string;
   isToday: boolean;
   providers: ProviderInfo[];
   slots: SlotInfo[];
-  slotsByHour: SlotsByHour;
   summary: {
     total: number;
     booked: number;
@@ -85,6 +91,13 @@ interface CalendarData {
     blocked: number;
     checkedIn: number;
   };
+}
+
+interface WeekSummary {
+  booked: number;
+  checkedIn: number;
+  available: number;
+  blocked: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,262 +108,380 @@ function formatTime12(iso: string): string {
   return format(parseISO(iso), "h:mm a");
 }
 
-function getMinuteOffset(iso: string): number {
-  const d = parseISO(iso);
-  return d.getMinutes();
-}
-
-function getHourFromIso(iso: string): number {
-  return getHours(parseISO(iso));
-}
-
 function providerLabel(p: ProviderInfo): string {
   return `Dr. ${p.firstName} ${p.lastName}${p.credentials ? `, ${p.credentials}` : ""}`;
 }
 
+function providerShortLabel(p: ProviderInfo): string {
+  return `Dr. ${p.lastName}`;
+}
+
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 // ---------------------------------------------------------------------------
-// Status badge helpers
+// Status color helpers
 // ---------------------------------------------------------------------------
 
-function SlotStatusBadge({ status }: { status: string }) {
-  switch (status) {
+function getStatusColor(appointmentStatus: string) {
+  switch (appointmentStatus) {
     case APPOINTMENT_STATUS.BOOKED:
-      return (
-        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0">
-          <CheckCircle2 className="size-3 mr-1" />
-          Booked
-        </Badge>
-      );
+      return {
+        bg: "bg-emerald-50",
+        border: "border-emerald-300 border-l-emerald-500",
+        text: "text-emerald-700",
+        dot: "bg-emerald-500",
+      };
     case APPOINTMENT_STATUS.CHECKED_IN:
-      return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
-          <Clock className="size-3 mr-1" />
-          Checked In
-        </Badge>
-      );
+      return {
+        bg: "bg-amber-50",
+        border: "border-amber-300 border-l-amber-500",
+        text: "text-amber-700",
+        dot: "bg-amber-500",
+      };
     case APPOINTMENT_STATUS.COMPLETED:
-      return (
-        <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 text-[10px] px-1.5 py-0">
-          Completed
-        </Badge>
-      );
+      return {
+        bg: "bg-gray-50",
+        border: "border-gray-300 border-l-gray-400",
+        text: "text-gray-500",
+        dot: "bg-gray-400",
+      };
     case APPOINTMENT_STATUS.CANCELLED:
-      return (
-        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-[10px] px-1.5 py-0">
-          <XCircle className="size-3 mr-1" />
-          Cancelled
-        </Badge>
-      );
+      return {
+        bg: "bg-red-50",
+        border: "border-red-300 border-l-red-400",
+        text: "text-red-600",
+        dot: "bg-red-500",
+      };
     case APPOINTMENT_STATUS.NO_SHOW:
-      return (
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">
-          <UserX className="size-3 mr-1" />
-          No Show
-        </Badge>
-      );
+      return {
+        bg: "bg-gray-50",
+        border: "border-gray-300 border-l-gray-400",
+        text: "text-gray-500",
+        dot: "bg-gray-400",
+      };
     default:
-      return null;
+      return {
+        bg: "bg-white",
+        border: "border-border",
+        text: "text-foreground",
+        dot: "bg-gray-300",
+      };
   }
 }
 
-function ModalityBadge({ modality }: { modality: string }) {
-  if (modality === SLOT_MODALITY.VIDEO) {
+// ---------------------------------------------------------------------------
+// Compact Appointment Card (for weekly cells)
+// ---------------------------------------------------------------------------
+
+const MAX_VISIBLE_CARDS = 3;
+
+function AppointmentCard({ slot }: { slot: SlotInfo }) {
+  if (!slot.appointment) return null;
+
+  const appt = slot.appointment;
+  const isBooked = slot.status === SLOT_STATUS.BOOKED || slot.status === SLOT_STATUS.BOOKED_EXTERNALLY;
+  if (!isBooked) return null;
+
+  const colors = getStatusColor(appt.status);
+  const time = formatTime12(slot.startTime);
+  const isVideo = slot.modality === SLOT_MODALITY.VIDEO;
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border-l-3 px-2 py-1.5 text-[11px] leading-tight border border",
+        colors.bg,
+        colors.border,
+        colors.text
+      )}
+    >
+      <div className="flex items-center gap-1 font-semibold">
+        <span className="tabular-nums">{time}</span>
+        {isVideo && <Video className="size-3 shrink-0 text-emerald-600" />}
+      </div>
+      <div className="truncate font-medium">{appt.patientName}</div>
+      <div className="truncate text-[10px] opacity-75">
+        {appt.service?.name || appt.reasonForVisit}
+      </div>
+    </div>
+  );
+}
+
+function SlotCell({
+  slots,
+  providerId,
+  onBlockSlots,
+}: {
+  slots: SlotInfo[];
+  providerId: string;
+  onBlockSlots: (providerId: string, date: string) => void;
+}) {
+  // Only show booked/externally booked slots as appointment cards
+  const bookedSlots = slots.filter(
+    (s) =>
+      s.status === SLOT_STATUS.BOOKED || s.status === SLOT_STATUS.BOOKED_EXTERNALLY
+  );
+
+  if (bookedSlots.length === 0) {
     return (
-      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] px-1.5 py-0">
-        <Video className="size-3 mr-1" />
-        Video
-      </Badge>
+      <div
+        className="min-h-[60px] flex items-center justify-center cursor-pointer rounded-md border border-dashed border-transparent hover:border-muted-foreground/30 hover:bg-muted/20 transition-colors group"
+        onClick={() => {
+          if (slots.length > 0) {
+            const date = format(parseISO(slots[0].startTime), "yyyy-MM-dd");
+            onBlockSlots(providerId, date);
+          }
+        }}
+      >
+        <Plus className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors" />
+      </div>
     );
   }
+
+  const visibleSlots = bookedSlots.slice(0, MAX_VISIBLE_CARDS);
+  const remaining = bookedSlots.length - MAX_VISIBLE_CARDS;
+
+  const dateStr = slots.length > 0 ? format(parseISO(slots[0].startTime), "yyyy-MM-dd") : "";
+
   return (
-    <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] px-1.5 py-0">
-      <Building2 className="size-3 mr-1" />
-      In-Clinic
-    </Badge>
+    <div
+      className="space-y-1.5 cursor-pointer rounded-md hover:ring-2 hover:ring-emerald-200 transition-all p-1 -m-1"
+      onClick={() => onBlockSlots(providerId, dateStr)}
+    >
+      {visibleSlots.map((slot) => (
+        <AppointmentCard key={slot.id} slot={slot} />
+      ))}
+      {remaining > 0 && (
+        <button
+          className="text-[11px] font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          +{remaining} more
+        </button>
+      )}
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Slot Card Component
+// Block Slots Modal
 // ---------------------------------------------------------------------------
 
-function SlotCard({ slot }: { slot: SlotInfo }) {
-  const isBooked =
-    slot.status === SLOT_STATUS.BOOKED ||
-    slot.status === SLOT_STATUS.BOOKED_EXTERNALLY;
-  const isAvailable = slot.status === SLOT_STATUS.AVAILABLE;
-  const isBlocked =
-    slot.status === SLOT_STATUS.BLOCKED || slot.status === SLOT_STATUS.CLOSED;
-  const isLocked = slot.status === SLOT_STATUS.LOCKED;
-
-  const startTime = formatTime12(slot.startTime);
-  const endTime = formatTime12(slot.endTime);
-  const minuteOffset = getMinuteOffset(slot.startTime);
-
-  // Booked slot
-  if (isBooked && slot.appointment) {
-    return (
-      <Card
-        className={cn(
-          "border rounded-lg shadow-sm transition-all duration-150 hover:shadow-md",
-          "border-l-4",
-          slot.appointment.status === APPOINTMENT_STATUS.CHECKED_IN
-            ? "border-l-blue-500 bg-blue-50/40"
-            : slot.appointment.status === APPOINTMENT_STATUS.COMPLETED
-              ? "border-l-gray-400 bg-gray-50/40"
-              : slot.appointment.status === APPOINTMENT_STATUS.CANCELLED
-                ? "border-l-red-400 bg-red-50/30"
-                : slot.appointment.status === APPOINTMENT_STATUS.NO_SHOW
-                  ? "border-l-amber-400 bg-amber-50/30"
-                  : "border-l-emerald-500 bg-white"
-        )}
-        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
-      >
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs font-semibold text-foreground">
-                  {slot.appointment.patientName}
-                </span>
-                <ModalityBadge modality={slot.modality} />
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span>
-                  {startTime} – {endTime}
-                </span>
-                <span className="text-border">|</span>
-                <span className="truncate">
-                  {slot.appointment.service?.name || slot.appointment.reasonForVisit}
-                </span>
-              </div>
-              {slot.appointment.patientPhone && (
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  {slot.appointment.patientPhone}
-                </div>
-              )}
-            </div>
-            <SlotStatusBadge status={slot.appointment.status} />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Available slot
-  if (isAvailable) {
-    return (
-      <Card
-        className="border border-emerald-200 bg-emerald-50/60 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-px hover:bg-emerald-50 transition-all duration-150 cursor-pointer border-l-4 border-l-emerald-400"
-        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
-      >
-        <CardContent className="p-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-emerald-700">
-              {startTime} – {endTime}
-            </span>
-          </div>
-          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-            Available
-          </span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Blocked / Closed slot
-  if (isBlocked) {
-    return (
-      <div
-        className="rounded-lg bg-gray-100 border border-gray-200 p-2.5 flex items-center justify-between"
-        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
-      >
-        <span className="text-xs text-gray-400 line-through">
-          {startTime} – {endTime}
-        </span>
-        <Badge variant="outline" className="bg-gray-100 text-gray-400 border-gray-200 text-[10px] px-1.5 py-0">
-          {slot.status === SLOT_STATUS.CLOSED ? "Closed" : "Blocked"}
-        </Badge>
-      </div>
-    );
-  }
-
-  // Locked slot
-  if (isLocked) {
-    return (
-      <div
-        className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 flex items-center justify-between"
-        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
-      >
-        <span className="text-xs text-amber-600">
-          {startTime} – {endTime}
-        </span>
-        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-1.5 py-0">
-          <Clock className="size-3 mr-1" />
-          Locked
-        </Badge>
-      </div>
-    );
-  }
-
-  // Booked externally (no appointment object)
-  if (slot.status === SLOT_STATUS.BOOKED_EXTERNALLY) {
-    return (
-      <Card
-        className="border border-purple-200 bg-purple-50/40 rounded-lg shadow-sm border-l-4 border-l-purple-400"
-        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
-      >
-        <CardContent className="p-2.5 flex items-center justify-between">
-          <span className="text-xs font-medium text-purple-700">
-            {startTime} – {endTime}
-          </span>
-          <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] px-1.5 py-0">
-            External
-          </Badge>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return null;
+interface BlockModalState {
+  open: boolean;
+  providerId: string;
+  date: string;
 }
 
-// ---------------------------------------------------------------------------
-// Current Time Indicator
-// ---------------------------------------------------------------------------
+const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const h = i;
+  const label = format(new Date(2000, 0, 1, h, 0), "h:mm a");
+  return { value: `${h.toString().padStart(2, "0")}:00`, label };
+});
 
-function CurrentTimeIndicator({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
-  const [position, setPosition] = useState<number | null>(null);
+function BlockSlotsModal({
+  modal,
+  onClose,
+  providers,
+  onSuccess,
+}: {
+  modal: BlockModalState;
+  onClose: () => void;
+  providers: ProviderInfo[];
+  onSuccess: () => void;
+}) {
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("12:00");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
+  // Reset form when modal opens
   useEffect(() => {
-    function updatePosition() {
-      const now = new Date();
-      const hour = getHours(now);
-      const minute = getMinutes(now);
-      if (hour >= 7 && hour < 19) {
-        const totalMinutes = (hour - 7) * 60 + minute;
-        const rowHeight = 72; // Each hour row is 72px (h-18)
-        setPosition(totalMinutes * (rowHeight / 60));
-      } else {
-        setPosition(null);
-      }
+    if (modal.open) {
+      setStartTime("09:00");
+      setEndTime("12:00");
+      setReason("");
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [modal.open]);
+
+  if (!modal.open) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modal.providerId || !modal.date) return;
+    if (startTime >= endTime) {
+      setError("End time must be after start time");
+      return;
     }
 
-    updatePosition();
-    const interval = setInterval(updatePosition, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/staff/slots/block-range", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: modal.providerId,
+          date: modal.date,
+          startTime,
+          endTime,
+          reason: reason.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to block slots");
+      }
+      const json = await res.json();
+      toast({
+        title: "Slots Blocked",
+        description: `${json.blockedCount} slot(s) blocked successfully.`,
+      });
+      onClose();
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  if (position === null) return null;
+  const selectedProvider = providers.find((p) => p.id === modal.providerId);
+  const dateDisplay = modal.date ? format(parseISO(modal.date), "EEE, MMM d, yyyy") : "";
 
   return (
-    <div
-      className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-      style={{ top: `${position}px` }}
-    >
-      <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1 shrink-0 ring-4 ring-red-500/20" />
-      <div className="flex-1 h-[2px] bg-red-500/80" />
-    </div>
+    <Dialog open={modal.open} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Ban className="size-5 text-amber-600" />
+            Block Time Slots
+          </DialogTitle>
+          <DialogDescription>
+            Block all available slots within a time range for a provider.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Provider */}
+          <div className="space-y-2">
+            <Label htmlFor="block-provider">Provider</Label>
+            <Select
+              value={modal.providerId}
+              onValueChange={(val) => {
+                // Update modal provider
+              }}
+            >
+              <SelectTrigger id="block-provider" className="cursor-pointer">
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedProvider ? (
+                  <SelectItem value={selectedProvider.id}>
+                    {providerLabel(selectedProvider)}
+                  </SelectItem>
+                ) : (
+                  providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {providerLabel(p)}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date */}
+          <div className="space-y-2">
+            <Label htmlFor="block-date">Date</Label>
+            <Input
+              id="block-date"
+              value={dateDisplay}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+
+          {/* Start / End Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="block-start">Start Time</Label>
+              <Select value={startTime} onValueChange={setStartTime}>
+                <SelectTrigger id="block-start" className="cursor-pointer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-48">
+                  {TIME_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="block-end">End Time</Label>
+              <Select value={endTime} onValueChange={setEndTime}>
+                <SelectTrigger id="block-end" className="cursor-pointer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-48">
+                  {TIME_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">
+              Reason <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="block-reason"
+              placeholder="e.g., Lunch break, Meeting"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {submitting ? "Blocking…" : "Block Slots"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -360,30 +491,20 @@ function CurrentTimeIndicator({ containerRef }: { containerRef: React.RefObject<
 
 function CalendarSkeleton() {
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Header skeleton */}
+    <div className="space-y-5 animate-in fade-in duration-300">
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-9 rounded-lg" />
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-9 w-[200px] ml-auto" />
       </div>
-
-      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
-
-      {/* Grid skeleton */}
-      <div className="rounded-xl border bg-white p-4 space-y-0">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-4 h-18 py-1">
-            <Skeleton className="h-5 w-14 shrink-0 mt-1" />
-            <Skeleton className="h-14 flex-1 rounded-lg" />
-          </div>
-        ))}
-      </div>
+      <Skeleton className="h-[400px] rounded-xl" />
     </div>
   );
 }
@@ -393,73 +514,133 @@ function CalendarSkeleton() {
 // ---------------------------------------------------------------------------
 
 export default function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
-  const [providerId, setProviderId] = useState<string>("all");
-  const [data, setData] = useState<CalendarData | null>(null);
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(startOfToday(), { weekStartsOn: 1 })
+  );
+  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [weekData, setWeekData] = useState<DayData[] | null>(null);
+  const [allProviders, setAllProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const gridRef = useRef<HTMLDivElement>(null);
 
-  const fetchCalendar = useCallback(async (date: Date, pId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const dateStr = format(date, "yyyy-MM-dd");
-      const params = new URLSearchParams({ date: dateStr });
-      if (pId && pId !== "all") {
-        params.set("providerId", pId);
+  // Block modal state
+  const [blockModal, setBlockModal] = useState<BlockModalState>({
+    open: false,
+    providerId: "",
+    date: "",
+  });
+
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addWeeks(weekStart, 0) && new Date(weekStart.getTime() + i * 86400000)),
+    [weekStart]
+  );
+
+  // Fetch all 7 days in parallel
+  const fetchWeek = useCallback(
+    async (start: Date, pFilter: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = pFilter && pFilter !== "all" ? `&providerId=${pFilter}` : "";
+        const promises = weekDays.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          return fetch(`/api/staff/calendar?date=${dateStr}${params}`).then((res) => {
+            if (!res.ok) throw new Error("Failed to load");
+            return res.json() as Promise<DayData>;
+          });
+        });
+        const results = await Promise.all(promises);
+        setWeekData(results);
+        if (results.length > 0 && results[0].providers.length > 0) {
+          setAllProviders(results[0].providers);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Unknown error");
+      } finally {
+        setLoading(false);
       }
-      const res = await fetch(`/api/staff/calendar?${params}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to load calendar");
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [weekDays]
+  );
 
   useEffect(() => {
-    fetchCalendar(selectedDate, providerId);
-  }, [selectedDate, providerId, fetchCalendar]);
+    fetchWeek(weekStart, providerFilter);
+  }, [weekStart, providerFilter, fetchWeek]);
 
-  const goToPrevDay = () => setSelectedDate((d) => subDays(d, 1));
-  const goToNextDay = () => setSelectedDate((d) => addDays(d, 1));
-  const goToToday = () => setSelectedDate(startOfToday());
+  const goToPrevWeek = () => setWeekStart((d) => subWeeks(d, 1));
+  const goToNextWeek = () => setWeekStart((d) => addWeeks(d, 1));
+  const goToToday = () => setWeekStart(startOfWeek(startOfToday(), { weekStartsOn: 1 }));
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7..18
+  const isCurrentWeek = (() => {
+    const current = startOfWeek(startOfToday(), { weekStartsOn: 1 });
+    return format(weekStart, "yyyy-MM-dd") === format(current, "yyyy-MM-dd");
+  })();
 
-  // Scroll to current time on initial load
-  useEffect(() => {
-    if (data?.isToday && gridRef.current) {
-      const now = new Date();
-      const hour = getHours(now);
-      if (hour >= 7 && hour < 19) {
-        const rowHeight = 72;
-        const scrollTarget = Math.max(0, (hour - 7) * rowHeight - 100);
-        gridRef.current.scrollTo({ top: scrollTarget, behavior: "smooth" });
+  const weekRangeLabel = (() => {
+    const start = weekDays[0];
+    const end = weekDays[6];
+    const sameMonth = start.getMonth() === end.getMonth();
+    if (sameMonth) {
+      return `${format(start, "MMM d")} – ${format(end, "d, yyyy")}`;
+    }
+    return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
+  })();
+
+  // Aggregate week summary
+  const weekSummary: WeekSummary = useMemo(() => {
+    if (!weekData) return { booked: 0, checkedIn: 0, available: 0, blocked: 0 };
+    return weekData.reduce(
+      (acc, day) => ({
+        booked: acc.booked + day.summary.booked,
+        checkedIn: acc.checkedIn + day.summary.checkedIn,
+        available: acc.available + day.summary.available,
+        blocked: acc.blocked + day.summary.blocked,
+      }),
+      { booked: 0, checkedIn: 0, available: 0, blocked: 0 }
+    );
+  }, [weekData]);
+
+  // Build provider×day matrix
+  const matrixData = useMemo(() => {
+    if (!weekData || allProviders.length === 0) return { providers: [], cells: {} as Record<string, SlotInfo[]> };
+
+    const filteredProviders =
+      providerFilter && providerFilter !== "all"
+        ? allProviders.filter((p) => p.id === providerFilter)
+        : allProviders;
+
+    const cells: Record<string, SlotInfo[]> = {};
+    for (const day of weekData) {
+      for (const provider of filteredProviders) {
+        const key = `${provider.id}|${day.date}`;
+        cells[key] = day.slots.filter((s) => s.providerId === provider.id);
       }
     }
-  }, [data?.isToday]);
+
+    return { providers: filteredProviders, cells };
+  }, [weekData, allProviders, providerFilter]);
+
+  const openBlockModal = (providerId: string, date: string) => {
+    setBlockModal({ open: true, providerId, date });
+  };
+
+  const closeBlockModal = () => {
+    setBlockModal({ open: false, providerId: "", date: "" });
+  };
 
   // --- Loading ---
-  if (loading && !data) {
+  if (loading && !weekData) {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <CalendarSkeleton />
       </div>
     );
   }
 
   // --- Error ---
-  if (error && !data) {
+  if (error && !weekData) {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <Card className="border-red-200 bg-red-50/30">
           <CardContent className="p-6 flex flex-col items-center gap-3 text-center">
             <div className="size-12 rounded-full bg-red-100 flex items-center justify-center">
@@ -469,7 +650,7 @@ export default function CalendarPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchCalendar(selectedDate, providerId)}
+              onClick={() => fetchWeek(weekStart, providerFilter)}
               className="cursor-pointer"
             >
               Try Again
@@ -480,63 +661,40 @@ export default function CalendarPage() {
     );
   }
 
-  if (!data) return null;
-
-  const { formattedDate, isToday: _isToday, providers, slotsByHour, summary } = data;
+  if (!weekData) return null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 animate-in fade-in duration-300">
+    <div className="max-w-7xl mx-auto space-y-5 animate-in fade-in duration-300">
       {/* ---- Header ---- */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        {/* Date Navigation */}
+        <h1 className="text-lg font-bold text-foreground">Calendar</h1>
+
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
             className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
-            onClick={goToPrevDay}
+            onClick={goToPrevWeek}
           >
             <ChevronLeft className="size-4" />
           </Button>
 
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-9 gap-2 font-semibold min-w-[220px] justify-start text-left cursor-pointer",
-                  "hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
-                )}
-              >
-                <CalendarIcon className="size-4 text-emerald-600" />
-                {formattedDate}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(d) => {
-                  if (d) {
-                    setSelectedDate(d);
-                    setCalendarOpen(false);
-                  }
-                }}
-                className="rounded-lg border"
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="min-w-[200px] text-center">
+            <span className="text-sm font-semibold text-foreground px-3 py-1.5 rounded-lg border bg-white">
+              {weekRangeLabel}
+            </span>
+          </div>
 
           <Button
             variant="outline"
             size="icon"
             className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
-            onClick={goToNextDay}
+            onClick={goToNextWeek}
           >
             <ChevronRight className="size-4" />
           </Button>
 
-          {!isToday(selectedDate) && (
+          {!isCurrentWeek && (
             <Button
               variant="outline"
               size="sm"
@@ -549,16 +707,16 @@ export default function CalendarPage() {
         </div>
 
         {/* Provider Filter */}
-        {providers.length > 1 && (
+        {allProviders.length > 1 && (
           <div className="flex items-center gap-2 sm:ml-auto">
             <Users className="size-4 text-muted-foreground shrink-0" />
-            <Select value={providerId} onValueChange={setProviderId}>
-              <SelectTrigger className="w-[200px] cursor-pointer hover:border-emerald-300">
+            <Select value={providerFilter} onValueChange={setProviderFilter}>
+              <SelectTrigger className="w-[220px] cursor-pointer hover:border-emerald-300">
                 <SelectValue placeholder="All Providers" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Providers</SelectItem>
-                {providers.map((p) => (
+                {allProviders.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {providerLabel(p)}
                   </SelectItem>
@@ -579,19 +737,8 @@ export default function CalendarPage() {
               </div>
               <span className="text-xs text-muted-foreground font-medium">Booked</span>
             </div>
-            <p className="text-2xl font-bold text-emerald-700">{summary.booked}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sky-100 bg-gradient-to-br from-sky-50 to-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="size-7 rounded-lg bg-sky-100 flex items-center justify-center">
-                <Clock className="size-3.5 text-sky-600" />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">Checked In</span>
-            </div>
-            <p className="text-2xl font-bold text-sky-700">{summary.checkedIn}</p>
+            <p className="text-2xl font-bold text-emerald-700">{weekSummary.booked}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
           </CardContent>
         </Card>
 
@@ -599,11 +746,25 @@ export default function CalendarPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <div className="size-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                <CalendarIcon className="size-3.5 text-amber-600" />
+                <Clock className="size-3.5 text-amber-600" />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Checked In</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{weekSummary.checkedIn}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-teal-100 bg-gradient-to-br from-teal-50 to-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="size-7 rounded-lg bg-teal-100 flex items-center justify-center">
+                <CheckCircle2 className="size-3.5 text-teal-600" />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Available</span>
             </div>
-            <p className="text-2xl font-bold text-amber-700">{summary.available}</p>
+            <p className="text-2xl font-bold text-teal-700">{weekSummary.available}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
           </CardContent>
         </Card>
 
@@ -615,101 +776,145 @@ export default function CalendarPage() {
               </div>
               <span className="text-xs text-muted-foreground font-medium">Blocked</span>
             </div>
-            <p className="text-2xl font-bold text-gray-600">{summary.blocked}</p>
+            <p className="text-2xl font-bold text-gray-600">{weekSummary.blocked}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* ---- Time Grid ---- */}
+      {/* ---- Weekly Grid ---- */}
       <Card className="shadow-sm border overflow-hidden">
         <CardContent className="p-0">
-          <div
-            ref={gridRef}
-            className="relative max-h-[600px] overflow-y-auto custom-scrollbar"
-          >
-            {/* Current time indicator */}
-            {_isToday && <CurrentTimeIndicator containerRef={gridRef} />}
+          <div className="overflow-x-auto custom-scrollbar">
+            <div className="min-w-[800px]">
+              {/* Header Row */}
+              <div className="grid grid-cols-[200px_repeat(7,1fr)] border-b bg-muted/40">
+                {/* Provider header */}
+                <div className="p-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider border-r flex items-center">
+                  <Users className="size-3.5 mr-1.5" />
+                  Provider
+                </div>
+                {/* Day headers */}
+                {weekDays.map((day, idx) => {
+                  const today = isToday(day);
+                  return (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "p-3 text-center border-r last:border-r-0",
+                        today && "bg-emerald-50"
+                      )}
+                    >
+                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        {DAY_NAMES[idx]}
+                      </div>
+                      <div
+                        className={cn(
+                          "text-lg font-bold tabular-nums mt-0.5",
+                          today ? "text-emerald-700" : "text-foreground"
+                        )}
+                      >
+                        {format(day, "d")}
+                      </div>
+                      {today && (
+                        <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 mt-1 hover:bg-emerald-600">
+                          Today
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-            {hours.map((hour, idx) => {
-              const hourSlots = slotsByHour[hour] || [];
-              const timeLabel = format(new Date(2000, 0, 1, hour, 0), "h a");
+              {/* Provider Rows */}
+              {matrixData.providers.length === 0 && (
+                <div className="p-12 text-center text-muted-foreground text-sm">
+                  No providers found for this clinic.
+                </div>
+              )}
 
-              return (
+              {matrixData.providers.map((provider, pIdx) => (
                 <div
-                  key={hour}
+                  key={provider.id}
                   className={cn(
-                    "flex min-h-18",
-                    idx % 2 === 0 ? "bg-white" : "bg-muted/30",
-                    "border-b border-border/40 last:border-b-0"
+                    "grid grid-cols-[200px_repeat(7,1fr)] border-b last:border-b-0",
+                    pIdx % 2 === 1 && "bg-muted/20"
                   )}
                 >
-                  {/* Time label column */}
-                  <div className="w-16 sm:w-20 shrink-0 pt-2.5 pb-1 text-right pr-3">
-                    <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                      {timeLabel}
-                    </span>
+                  {/* Provider name (sticky) */}
+                  <div className="p-3 border-r bg-white z-10 flex items-start sticky left-0">
+                    <div>
+                      <div className="text-sm font-semibold text-foreground leading-tight">
+                        {providerLabel(provider)}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {providerShortLabel(provider)}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Slot cards column */}
-                  <div className="flex-1 py-1.5 pr-2 min-w-0">
-                    {hourSlots.length > 0 ? (
-                      <div className="flex flex-col gap-1.5">
-                        {hourSlots.map((slot) => (
-                          <SlotCard key={slot.id} slot={slot} />
-                        ))}
+                  {/* Day cells */}
+                  {weekDays.map((day, dIdx) => {
+                    const dateStr = format(day, "yyyy-MM-dd");
+                    const key = `${provider.id}|${dateStr}`;
+                    const slots = matrixData.cells[key] || [];
+                    const today = isToday(day);
+
+                    return (
+                      <div
+                        key={dIdx}
+                        className={cn(
+                          "p-2 border-r last:border-r-0 min-h-[80px]",
+                          today && "bg-emerald-50/30"
+                        )}
+                        onClick={() => openBlockModal(provider.id, dateStr)}
+                      >
+                        <SlotCell
+                          slots={slots}
+                          providerId={provider.id}
+                          onBlockSlots={openBlockModal}
+                        />
                       </div>
-                    ) : (
-                      <div className="h-10 flex items-center">
-                        <span className="text-[11px] text-muted-foreground/50 italic">
-                          No slots
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-
-            {/* End of day */}
-            <div className="flex min-h-10">
-              <div className="w-16 sm:w-20 shrink-0 text-right pr-3 pt-2">
-                <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                  7 pm
-                </span>
-              </div>
-              <div className="flex-1 border-l-2 border-dashed border-emerald-200 ml-1" />
+              ))}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* ---- Footer info ---- */}
+      {/* ---- Legend ---- */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground pb-2">
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm bg-emerald-200 border border-emerald-300" />
-          <span>Available</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm bg-emerald-500" />
+          <div className="size-3 rounded-sm border-l-3 border-l-emerald-500 bg-emerald-50 border border-emerald-300" />
           <span>Booked</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm bg-blue-400" />
+          <div className="size-3 rounded-sm border-l-3 border-l-amber-500 bg-amber-50 border border-amber-300" />
           <span>Checked In</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm bg-gray-300 border border-gray-400" />
-          <span>Blocked / Closed</span>
+          <div className="size-3 rounded-sm border-l-3 border-l-gray-400 bg-gray-50 border border-gray-300" />
+          <span>Completed / No Show</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm bg-purple-300 border border-purple-400" />
-          <span>Booked Externally</span>
+          <div className="size-3 rounded-sm border-l-3 border-l-red-400 bg-red-50 border border-red-300" />
+          <span>Cancelled</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-full bg-red-500" />
-          <span>Current Time</span>
+          <Video className="size-3 text-emerald-600" />
+          <span>Video Visit</span>
         </div>
       </div>
+
+      {/* ---- Block Slots Modal ---- */}
+      <BlockSlotsModal
+        modal={blockModal}
+        onClose={closeBlockModal}
+        providers={allProviders}
+        onSuccess={() => fetchWeek(weekStart, providerFilter)}
+      />
     </div>
   );
 }

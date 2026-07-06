@@ -1,0 +1,752 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import {
+     6→  CalendarDays,
+     7→  TrendingUp,
+     8→  XCircle,
+     9→  Clock,
+    10→  BarChart3,
+    11→  AlertTriangle,
+    12→  RefreshCw,
+    13→  Star,
+    14→  Users,
+    15→  Activity,
+    16→  CheckCircle2,
+    17→} from "lucide-react";
+    18→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    19→import { Button } from "@/components/ui/button";
+    20→import { Badge } from "@/components/ui/badge";
+    21→import { Skeleton } from "@/components/ui/skeleton";
+    22→import { format, parseISO } from "date-fns";
+    23→import {
+    24→  AreaChart,
+    25→  Area,
+    26→  XAxis,
+    27→  YAxis,
+    28→  CartesianGrid,
+    29→  Tooltip,
+    30→  ResponsiveContainer,
+    31→  PieChart,
+    32→  Pie,
+    33→  Cell,
+    34→  Legend,
+    35→} from "recharts";
+    36→import type { DoctASessionUser } from "@/lib/auth";
+    37→
+    38→// ---------------------------------------------------------------------------
+    39→// Types
+    40→// ---------------------------------------------------------------------------
+    41→type Period = "7d" | "30d" | "90d";
+    42→
+    43→interface DailyTrend {
+    44→  date: string;
+    45→  booked: number;
+    46→  checkedIn: number;
+    47→  completed: number;
+    48→  cancelled: number;
+    49→  noShow: number;
+    50→}
+    51→
+    52→interface ModalityData {
+    53→  inPerson: number;
+    54→  video: number;
+    55→  total: number;
+    56→}
+    57→
+    58→interface ProviderPerf {
+    59→  name: string;
+    60→  total: number;
+    61→  completed: number;
+    62→  cancelled: number;
+    63→  noShowRate: number;
+    64→  avgRating: number;
+    65→}
+    66→
+    67→interface SummaryStats {
+    68→  totalAppointments: number;
+    69→  completionRate: number;
+    70→  cancellationRate: number;
+    71→  noShowRate: number;
+    72→  avgDaily: number;
+    73→}
+    74→
+    75→interface AnalyticsData {
+    76→  period: { start: string; end: string };
+    77→  dailyTrends: DailyTrend[];
+    78→  modality: ModalityData;
+    79→  providerPerformance: ProviderPerf[];
+    80→  summary: SummaryStats;
+    81→  busiestDay: string;
+    82→  busiestHour: string;
+    83→}
+    84→
+    85→// ---------------------------------------------------------------------------
+    86→// Colors
+    87→// ---------------------------------------------------------------------------
+    88→const COLORS = {
+    89→  completed: "#10b981",
+    90→  checkedIn: "#3b82f6",
+    91→  cancelled: "#f87171",
+    92→  noShow: "#fbbf24",
+    93→  inPerson: "#10b981",
+    94→  video: "#0ea5e9",
+    95→};
+    96→
+    97→// ---------------------------------------------------------------------------
+    98→// Stat Card (same pattern as dashboard)
+    99→// ---------------------------------------------------------------------------
+   100→function StatCard({
+   101→  title,
+   102→  value,
+   103→  subtitle,
+   104→  icon: Icon,
+   105→  gradient,
+   106→  iconBg,
+   107→}: {
+   108→  title: string;
+   109→  value: string | number;
+   110→  subtitle?: string;
+   111→  icon: React.ElementType;
+   112→  gradient: string;
+   113→  iconBg: string;
+   114→}) {
+   115→  return (
+   116→    <Card className="relative overflow-hidden border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300">
+   117→      <div className={`absolute inset-x-0 top-0 h-1 ${gradient}`} />
+   118→      <CardContent className="p-5">
+   119→        <div className="flex items-start justify-between">
+   120→          <div className="space-y-2">
+   121→            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+   122→            <p className="text-3xl font-bold tracking-tight text-foreground">
+   123→              {value}
+   124→            </p>
+   125→            {subtitle && (
+   126→              <p className="text-xs text-muted-foreground">{subtitle}</p>
+   127→            )}
+   128→          </div>
+   129→          <div
+   130→            className={`size-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}
+   131→          >
+   132→            <Icon className="size-5" />
+   133→          </div>
+   134→        </div>
+   135→      </CardContent>
+   136→    </Card>
+   137→  );
+   138→}
+   139→
+   140→// ---------------------------------------------------------------------------
+   141→// Custom Tooltip for Area Chart
+   142→// ---------------------------------------------------------------------------
+   143→function AreaTooltipContent({
+   144→  active,
+   145→  payload,
+   146→  label,
+   147→}: {
+   148→  active?: boolean;
+   149→  payload?: Array<{ value: number; dataKey: string; color: string }>;
+   150→  label?: string;
+   151→}) {
+   152→  if (!active || !payload?.length) return null;
+   153→
+   154→  const labelMap: Record<string, string> = {
+   155→    completed: "Completed",
+   156→    checkedIn: "Checked In",
+   157→    cancelled: "Cancelled",
+   158→    noShow: "No Show",
+   159→    booked: "Booked",
+   160→  };
+   161→
+   162→  return (
+   163→    <div className="rounded-xl border border-border/60 bg-white p-3 shadow-lg text-xs space-y-1.5">
+   164→      <p className="font-semibold text-foreground">
+   165→        {label ? format(parseISO(label), "MMM d, yyyy") : ""}
+   166→      </p>
+   167→      {payload.map((entry) => (
+   168→        <div key={entry.dataKey} className="flex items-center gap-2">
+   169→          <span
+   170→            className="size-2 rounded-full shrink-0"
+   171→            style={{ backgroundColor: entry.color }}
+   172→          />
+   173→          <span className="text-muted-foreground">
+   174→            {labelMap[entry.dataKey] ?? entry.dataKey}
+   175→          </span>
+   176→          <span className="ml-auto font-medium text-foreground">
+   177→            {entry.value}
+   178→          </span>
+   179→        </div>
+   180→      ))}
+   181→    </div>
+   182→  );
+   183→}
+   184→
+   185→// ---------------------------------------------------------------------------
+   186→// Pie chart label renderer for center text
+   187→// ---------------------------------------------------------------------------
+   188→function PieCenterLabel({
+   189→  cx,
+   190→  cy,
+   191→  viewBox,
+   192→  total,
+   193→}: {
+   194→  cx: number;
+   195→  cy: number;
+   196→  viewBox?: { width: number; height: number };
+   197→  total: number;
+   198→}) {
+   199→  if (!viewBox) return null;
+   200→  const centerX = cx;
+   201→  const centerY = cy;
+   202→
+   203→  return (
+   204→    <text x={centerX} y={centerY - 6} textAnchor="middle" dominantBaseline="central">
+   205→      <tspan
+   206→        className="fill-foreground"
+   207→        style={{ fontSize: "20px", fontWeight: 700 }}
+   208→      >
+   209→        {total}
+   210→      </tspan>
+   211→      <tspan
+   212→        className="fill-muted-foreground"
+   213→        x={centerX}
+   214→        y={centerY + 14}
+   215→        style={{ fontSize: "10px" }}
+   216→      >
+   217→        total
+   218→      </tspan>
+   219→    </text>
+   220→  );
+   221→}
+   222→
+   223→// ---------------------------------------------------------------------------
+   224→// Period button group
+   225→// ---------------------------------------------------------------------------
+   226→function PeriodSelector({
+   227→  value,
+   228→  onChange,
+   229→}: {
+   230→  value: Period;
+   231→  onChange: (p: Period) => void;
+   232→}) {
+   233→  const options: { label: string; value: Period }[] = [
+   234→    { label: "7 Days", value: "7d" },
+   235→    { label: "30 Days", value: "30d" },
+   236→    { label: "90 Days", value: "90d" },
+   237→  ];
+   238→
+   239→  return (
+   240→    <div className="inline-flex items-center rounded-xl bg-muted/60 p-1 gap-0.5">
+   241→      {options.map((opt) => (
+   242→        <button
+   243→          key={opt.value}
+   244→          onClick={() => onChange(opt.value)}
+   245→          className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer ${
+   246→            value === opt.value
+   247→              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25"
+   248→              : "text-muted-foreground hover:text-foreground hover:bg-white/60"
+   249→          }`}
+   250→        >
+   251→          {opt.label}
+   252→        </button>
+   253→      ))}
+   254→    </div>
+   255→  );
+   256→}
+   257→
+   258→// ---------------------------------------------------------------------------
+   259→// Main Page
+   260→// ---------------------------------------------------------------------------
+   261→export default function AnalyticsPage() {
+   262→  const { data: session, status } = useSession();
+   263→  const user = session?.user as DoctASessionUser | undefined;
+   264→
+   265→  const [period, setPeriod] = useState<Period>("30d");
+   266→  const [data, setData] = useState<AnalyticsData | null>(null);
+   267→  const [loading, setLoading] = useState(true);
+   268→  const [error, setError] = useState<string | null>(null);
+   269→
+   270→  const fetchAnalytics = useCallback(async (p: Period) => {
+   271→    if (!user?.clinicId) return;
+   272→    setLoading(true);
+   273→    setError(null);
+   274→    try {
+   275→      const params = new URLSearchParams({ period: p });
+   276→      if (user.role === "SYSTEM_MANAGER" && user.clinicId) {
+   277→        params.set("clinicId", user.clinicId);
+   278→      }
+   279→      const res = await fetch(`/api/staff/analytics?${params.toString()}`);
+   280→      if (!res.ok) throw new Error("Failed to fetch analytics");
+   281→      const json = await res.json();
+   282→      setData(json);
+   283→    } catch (err) {
+   284→      setError(err instanceof Error ? err.message : "Unknown error");
+   285→    } finally {
+   286→      setLoading(false);
+   287→    }
+   288→  }, [user?.clinicId, user?.role]);
+   289→
+   290→  useEffect(() => {
+   291→    if (status === "authenticated") fetchAnalytics(period);
+   292→  }, [status, period, fetchAnalytics]);
+   293→
+   294→  // Period range label
+   295→  const dateRange =
+   296→    data?.period.start && data?.period.end
+   297→      ? `${format(parseISO(data.period.start), "MMM d")} – ${format(parseISO(data.period.end), "MMM d, yyyy")}`
+   298→      : "";
+   299→
+   300→  // Modality pie data
+   301→  const modalityPieData = data
+   302→    ? [
+   303→        { name: "In-Person", value: data.modality.inPerson, color: COLORS.inPerson },
+   304→        { name: "Video", value: data.modality.video, color: COLORS.video },
+   305→      ].filter((d) => d.value > 0)
+   306→    : [];
+   307→
+   308→  // -------------------------------------
+   309→  // Loading skeleton
+   310→  // -------------------------------------
+   311→  if (status === "loading" || loading) {
+   312→    return (
+   313→      <div className="space-y-6">
+   314→        <div className="flex items-center justify-between">
+   315→          <Skeleton className="h-8 w-52" />
+   316→          <Skeleton className="h-9 w-64 rounded-xl" />
+   317→        </div>
+   318→        <Skeleton className="h-4 w-48" />
+   319→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   320→          {[1, 2, 3, 4].map((i) => (
+   321→            <Skeleton key={i} className="h-32 rounded-xl" />
+   322→          ))}
+   323→        </div>
+   324→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   325→          <Skeleton className="lg:col-span-2 h-[360px] rounded-xl" />
+   326→          <Skeleton className="h-[360px] rounded-xl" />
+   327→        </div>
+   328→        <Skeleton className="h-[300px] rounded-xl" />
+   329→      </div>
+   330→    );
+   331→  }
+   332→
+   333→  // -------------------------------------
+   334→  // Error state
+   335→  // -------------------------------------
+   336→  if (error) {
+   337→    return (
+   338→      <Card className="border-red-200 bg-red-50/30">
+   339→        <CardContent className="flex flex-col items-center justify-center py-12">
+   340→          <AlertTriangle className="size-8 text-red-400 mb-3" />
+   341→          <p className="text-sm font-medium text-red-800">
+   342→            Failed to load analytics
+   343→          </p>
+   344→          <p className="text-xs text-red-600 mt-1">{error}</p>
+   345→          <Button
+   346→            variant="outline"
+   347→            size="sm"
+   348→            className="mt-4 cursor-pointer"
+   349→            onClick={() => fetchAnalytics(period)}
+   350→          >
+   351→            <RefreshCw className="size-3.5 mr-2" />
+   352→            Retry
+   353→          </Button>
+   354→        </CardContent>
+   355→      </Card>
+   356→    );
+   357→  }
+   358→
+   359→  if (!data) return null;
+   360→
+   361→  return (
+   362→    <div className="space-y-6 animate-in fade-in-0 duration-300">
+   363→      {/* Page header */}
+   364→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   365→        <div>
+   366→          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+   367→            Analytics
+   368→          </h1>
+   369→          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+   370→            <BarChart3 className="size-3.5" />
+   371→            {dateRange}
+   372→          </p>
+   373→        </div>
+   374→        <PeriodSelector value={period} onChange={setPeriod} />
+   375→      </div>
+   376→
+   377→      {/* Summary stat cards */}
+   378→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   379→        <StatCard
+   380→          title="Total Appointments"
+   381→          value={data.summary.totalAppointments}
+   382→          subtitle={`${data.summary.avgDaily} per day average`}
+   383→          icon={CalendarDays}
+   384→          gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
+   385→          iconBg="bg-emerald-100 text-emerald-600"
+   386→        />
+   387→        <StatCard
+   388→          title="Completion Rate"
+   389→          value={`${data.summary.completionRate}%`}
+   390→          subtitle={`${data.dailyTrends.reduce((s, d) => s + d.completed, 0)} completed`}
+   391→          icon={CheckCircle2}
+   392→          gradient="bg-gradient-to-r from-emerald-500 to-green-500"
+   393→          iconBg="bg-emerald-100 text-emerald-600"
+   394→        />
+   395→        <StatCard
+   396→          title="Cancellation Rate"
+   397→          value={`${data.summary.cancellationRate}%`}
+   398→          subtitle={`${data.dailyTrends.reduce((s, d) => s + d.cancelled, 0)} cancelled`}
+   399→          icon={XCircle}
+   400→          gradient="bg-gradient-to-r from-red-400 to-rose-400"
+   401→          iconBg="bg-red-100 text-red-600"
+   402→        />
+   403→        <StatCard
+   404→          title="Avg Daily"
+   405→          value={data.summary.avgDaily}
+   406→          subtitle={`${data.busiestDay} is busiest`}
+   407→          icon={TrendingUp}
+   408→          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+   409→          iconBg="bg-amber-100 text-amber-600"
+   410→        />
+   411→      </div>
+   412→
+   413→      {/* Charts row */}
+   414→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   415→        {/* Area Chart — Daily Trends (2/3) */}
+   416→        <Card className="lg:col-span-2 border-border/50 shadow-sm">
+   417→          <CardHeader className="pb-2">
+   418→            <div className="flex items-center gap-2">
+   419→              <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   420→                <Activity className="size-4 text-emerald-600" />
+   421→              </div>
+   422→              <div>
+   423→                <CardTitle className="text-base">Appointment Trends</CardTitle>
+   424→                <p className="text-xs text-muted-foreground">
+   425→                  Daily breakdown by status
+   426→                </p>
+   427→              </div>
+   428→            </div>
+   429→          </CardHeader>
+   430→          <CardContent className="px-2 pb-2">
+   431→            <div className="h-[300px] w-full">
+   432→              <ResponsiveContainer width="100%" height="100%">
+   433→                <AreaChart
+   434→                  data={data.dailyTrends}
+   435→                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+   436→                >
+   437→                  <defs>
+   438→                    <linearGradient id="gCompleted" x1="0" y1="0" x2="0" y2="1">
+   439→                      <stop offset="5%" stopColor={COLORS.completed} stopOpacity={0.3} />
+   440→                      <stop offset="95%" stopColor={COLORS.completed} stopOpacity={0} />
+   441→                    </linearGradient>
+   442→                    <linearGradient id="gCheckedIn" x1="0" y1="0" x2="0" y2="1">
+   443→                      <stop offset="5%" stopColor={COLORS.checkedIn} stopOpacity={0.3} />
+   444→                      <stop offset="95%" stopColor={COLORS.checkedIn} stopOpacity={0} />
+   445→                    </linearGradient>
+   446→                    <linearGradient id="gCancelled" x1="0" y1="0" x2="0" y2="1">
+   447→                      <stop offset="5%" stopColor={COLORS.cancelled} stopOpacity={0.3} />
+   448→                      <stop offset="95%" stopColor={COLORS.cancelled} stopOpacity={0} />
+   449→                    </linearGradient>
+   450→                    <linearGradient id="gNoShow" x1="0" y1="0" x2="0" y2="1">
+   451→                      <stop offset="5%" stopColor={COLORS.noShow} stopOpacity={0.3} />
+   452→                      <stop offset="95%" stopColor={COLORS.noShow} stopOpacity={0} />
+   453→                    </linearGradient>
+   454→                  </defs>
+   455→                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+   456→                  <XAxis
+   457→                    dataKey="date"
+   458→                    tickFormatter={(v: string) => format(parseISO(v), "MMM dd")}
+   459→                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+   460→                    axisLine={false}
+   461→                    tickLine={false}
+   462→                  />
+   463→                  <YAxis
+   464→                    allowDecimals={false}
+   465→                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+   466→                    axisLine={false}
+   467→                    tickLine={false}
+   468→                  />
+   469→                  <Tooltip content={<AreaTooltipContent />} />
+   470→                  <Area
+   471→                    type="monotone"
+   472→                    dataKey="completed"
+   473→                    stackId="1"
+   474→                    stroke={COLORS.completed}
+   475→                    fill="url(#gCompleted)"
+   476→                    strokeWidth={2}
+   477→                    dot={false}
+   478→                    activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   479→                  />
+   480→                  <Area
+   481→                    type="monotone"
+   482→                    dataKey="checkedIn"
+   483→                    stackId="1"
+   484→                    stroke={COLORS.checkedIn}
+   485→                    fill="url(#gCheckedIn)"
+   486→                    strokeWidth={2}
+   487→                    dot={false}
+   488→                    activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   489→                  />
+   490→                  <Area
+   491→                    type="monotone"
+   492→                    dataKey="cancelled"
+   493→                    stackId="1"
+   494→                    stroke={COLORS.cancelled}
+   495→                    fill="url(#gCancelled)"
+   496→                    strokeWidth={2}
+   497→                    dot={false}
+   498→                    activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   499→                  />
+   500→                  <Area
+   501→                    type="monotone"
+   502→                    dataKey="noShow"
+   503→                    stackId="1"
+   504→                    stroke={COLORS.noShow}
+   505→                    fill="url(#gNoShow)"
+   506→                    strokeWidth={2}
+   507→                    dot={false}
+   508→                    activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   509→                  />
+   510→                </AreaChart>
+   511→              </ResponsiveContainer>
+   512→            </div>
+   513→          </CardContent>
+   514→        </Card>
+   515→
+   516→        {/* Pie Chart — Modality Split (1/3) */}
+   517→        <Card className="border-border/50 shadow-sm">
+   518→          <CardHeader className="pb-2">
+   519→            <div className="flex items-center gap-2">
+   520→              <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   521→                <Users className="size-4 text-emerald-600" />
+   522→              </div>
+   523→              <div>
+   524→                <CardTitle className="text-base">Modality Split</CardTitle>
+   525→                <p className="text-xs text-muted-foreground">
+   526→                  In-Person vs Video
+   527→                </p>
+   528→              </div>
+   529→            </div>
+   530→          </CardHeader>
+   531→          <CardContent className="flex flex-col items-center">
+   532→            {modalityPieData.length > 0 ? (
+   533→              <div className="h-[220px] w-full">
+   534→                <ResponsiveContainer width="100%" height="100%">
+   535→                  <PieChart>
+   536→                    <Pie
+   537→                      data={modalityPieData}
+   538→                      cx="50%"
+   539→                      cy="50%"
+   540→                      innerRadius={60}
+   541→                      outerRadius={90}
+   542→                      paddingAngle={3}
+   543→                      dataKey="value"
+   544→                      stroke="none"
+   545→                    >
+   546→                      {modalityPieData.map((entry, i) => (
+   547→                        <Cell key={`cell-${i}`} fill={entry.color} />
+   548→                      ))}
+   549→                    </Pie>
+   550→                    <PieCenterLabel
+   551→                      cx={0.5}
+   552→                      cy={0.5}
+   553→                      viewBox={{ width: 200, height: 200 }}
+   554→                      total={data.modality.total}
+   555→                    />
+   556→                    <Tooltip
+   557→                      contentStyle={{
+   558→                        borderRadius: "12px",
+   559→                        border: "1px solid hsl(var(--border))",
+   560→                        fontSize: "12px",
+   561→                        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+   562→                      }}
+   563→                      formatter={(value: number) => [`${value}`, "Appointments"]}
+   564→                    />
+   565→                  </PieChart>
+   566→                </ResponsiveContainer>
+   567→              </div>
+   568→            ) : (
+   569→              <div className="h-[220px] flex items-center justify-center">
+   570→                <p className="text-sm text-muted-foreground">
+   571→                  No appointments in this period
+   572→                </p>
+   573→              </div>
+   574→            )}
+   575→
+   576→            {/* Legend */}
+   577→            <div className="flex items-center justify-center gap-6 mt-2 mb-2">
+   578→              <div className="flex items-center gap-2">
+   579→                <span
+   580→                  className="size-3 rounded-full"
+   581→                  style={{ backgroundColor: COLORS.inPerson }}
+   582→                />
+   583→                <span className="text-xs font-medium text-muted-foreground">
+   584→                  In-Person
+   585→                </span>
+   586→                <span className="text-xs font-bold text-foreground">
+   587→                  {data.modality.inPerson}
+   588→                </span>
+   589→              </div>
+   590→              <div className="flex items-center gap-2">
+   591→                <span
+   592→                  className="size-3 rounded-full"
+   593→                  style={{ backgroundColor: COLORS.video }}
+   594→                />
+   595→                <span className="text-xs font-medium text-muted-foreground">
+   596→                  Video
+   597→                </span>
+   598→                <span className="text-xs font-bold text-foreground">
+   599→                  {data.modality.video}
+   600→                </span>
+   601→              </div>
+   602→            </div>
+   603→
+   604→            {/* Busiest info */}
+   605→            <div className="w-full grid grid-cols-2 gap-3 mt-2">
+   606→              <div className="rounded-xl bg-muted/50 p-3 text-center">
+   607→                <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
+   608→                  Busiest Day
+   609→                </p>
+   610→                <p className="text-sm font-bold text-foreground">
+   611→                  {data.busiestDay}
+   612→                </p>
+   613→              </div>
+   614→              <div className="rounded-xl bg-muted/50 p-3 text-center">
+   615→                <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
+   616→                  Busiest Hour
+   617→                </p>
+   618→                <p className="text-sm font-bold text-foreground">
+   619→                  {data.busiestHour}
+   620→                </p>
+   621→              </div>
+   622→            </div>
+   623→          </CardContent>
+   624→        </Card>
+   625→      </div>
+   626→
+   627→      {/* Provider Performance Table */}
+   628→      <Card className="border-border/50 shadow-sm">
+   629→        <CardHeader className="pb-3">
+   630→          <div className="flex items-center gap-2">
+   631→            <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   632→              <Star className="size-4 text-emerald-600" />
+   633→            </div>
+   634→            <div>
+   635→              <CardTitle className="text-base">Provider Performance</CardTitle>
+   636→              <p className="text-xs text-muted-foreground">
+   637→                Individual metrics for the selected period
+   638→              </p>
+   639→            </div>
+   640→          </div>
+   641→        </CardHeader>
+   642→        <CardContent className="px-4 pb-4">
+   643→          {data.providerPerformance.length === 0 ? (
+   644→            <div className="flex flex-col items-center justify-center py-10 text-center">
+   645→              <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+   646→                <Users className="size-5 text-muted-foreground" />
+   647→              </div>
+   648→              <p className="text-sm font-medium text-foreground">
+   649→                No provider data
+   650→              </p>
+   651→              <p className="text-xs text-muted-foreground mt-1">
+   652→                Appointments in this period will appear here.
+   653→              </p>
+   654→            </div>
+   655→          ) : (
+   656→            <div className="overflow-x-auto -mx-4">
+   657→              <table className="w-full text-sm">
+   658→                <thead>
+   659→                  <tr className="border-b border-border/60">
+   660→                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   661→                      Provider
+   662→                    </th>
+   663→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   664→                      Total
+   665→                    </th>
+   666→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   667→                      Completed
+   668→                    </th>
+   669→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   670→                      Cancelled
+   671→                    </th>
+   672→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   673→                      No-Show Rate
+   674→                    </th>
+   675→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   676→                      Rating
+   677→                    </th>
+   678→                  </tr>
+   679→                </thead>
+   680→                <tbody>
+   681→                  {data.providerPerformance.map((provider, idx) => (
+   682→                    <tr
+   683→                      key={idx}
+   684→                      className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors"
+   685→                    >
+   686→                      <td className="py-3 px-4">
+   687→                        <div className="flex items-center gap-2.5">
+   688→                          <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+   689→                            <Users className="size-3.5 text-emerald-700" />
+   690→                          </div>
+   691→                          <span className="font-medium text-foreground text-sm">
+   692→                            {provider.name}
+   693→                          </span>
+   694→                        </div>
+   695→                      </td>
+   696→                      <td className="text-center py-3 px-3 font-semibold text-foreground">
+   697→                        {provider.total}
+   698→                      </td>
+   699→                      <td className="text-center py-3 px-3">
+   700→                        <Badge
+   701→                          variant="outline"
+   702→                          className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs"
+   703→                        >
+   704→                          <CheckCircle2 className="size-3 mr-1" />
+   705→                          {provider.completed}
+   706→                        </Badge>
+   707→                      </td>
+   708→                      <td className="text-center py-3 px-3">
+   709→                        <Badge
+   710→                          variant="outline"
+   711→                          className="bg-red-50 text-red-600 border-red-200 text-xs"
+   712→                        >
+   713→                          <XCircle className="size-3 mr-1" />
+   714→                          {provider.cancelled}
+   715→                        </Badge>
+   716→                      </td>
+   717→                      <td className="text-center py-3 px-3">
+   718→                        <span
+   719→                          className={`text-xs font-semibold ${
+   720→                            provider.noShowRate >= 20
+   721→                              ? "text-red-600"
+   722→                              : provider.noShowRate >= 10
+   723→                                ? "text-amber-600"
+   724→                                : "text-emerald-600"
+   725→                          }`}
+   726→                        >
+   727→                          {provider.noShowRate}%
+   728→                        </span>
+   729→                      </td>
+   730→                      <td className="text-center py-3 px-3">
+   731→                        {provider.avgRating > 0 ? (
+   732→                          <div className="flex items-center justify-center gap-1">
+   733→                            <Star className="size-3.5 fill-amber-400 text-amber-400" />
+   734→                            <span className="text-xs font-semibold text-foreground">
+   735→                              {provider.avgRating}
+   736→                            </span>
+   737→                          </div>
+   738→                        ) : (
+   739→                          <span className="text-xs text-muted-foreground">—</span>
+   740→                        )}
+   741→                      </td>
+   742→                    </tr>
+   743→                  ))}
+   744→                </tbody>
+   745→              </table>
+   746→            </div>
+   747→          )}
+   748→        </CardContent>
+   749→      </Card>
+   750→    </div>
+   751→  );
+   752→}

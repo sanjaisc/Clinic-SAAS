@@ -2462,3 +2462,219 @@ Stage Summary:
 - New file: src/app/api/staff/providers/route.ts
 - Modified: src/app/staff/dashboard/appointments/page.tsx (provider fetch useEffect)
 - Provider dropdown now correctly displays clinic providers in reschedule dialog
+---
+Task ID: Analytics Page Rewrite
+Agent: Main
+Task: Rewrite analytics page with 4 charts, date filtering (Today/7d/30d/90d/Custom), 2-column layout
+
+Work Log:
+- Read existing analytics page (752 lines) and API route (290 lines) to understand current implementation
+- Read worklog.md for project context
+
+API Changes (src/app/api/staff/analytics/route.ts):
+- Added "today" period support (daysMap entry for `today: 1`)
+- Added custom date range support via `dateFrom` and `dateTo` query params (custom range takes precedence over period)
+- Used `parseISO` + `differenceInDays` for custom range calculation
+- Added no-show distribution by day of week (section 6): Groups NO_SHOW appointments by day index (Mon–Sun), returns `noShowByDay: { day: string; count: number }[]`
+- Added deposit capture volume (section 7): Queries AppointmentLedger for DEPOSIT_CAPTURE type, groups by date with sum(amountCents) and count, returns `depositCapture: { date: string; amountCents: number; count: number }[]`
+- Updated cache key to include both start and end dates
+
+Frontend Changes (src/app/staff/dashboard/analytics/page.tsx):
+- Updated Period type: `"today" | "7d" | "30d" | "90d" | "custom"`
+- Updated AnalyticsData interface with `noShowByDay` and `depositCapture` fields
+- Replaced old PeriodSelector with new version supporting Today + Custom date range
+  - Custom button opens Popover with two Calendar pickers (From/To)
+  - Custom range shows amber-styled active button and date label badge (e.g. "Jul 1 – Jul 15, 2026")
+  - Clear button resets to 30d default
+- Changed COLORS: replaced blue `#3b82f6`/`#0ea5e9` with teal `#14b8a6`/`#0d9488` (no blue/indigo)
+- Added BarChart, Bar, LabelList imports from recharts
+- Added CalendarRange, DollarSign, UserX icon imports
+- Added Popover and Calendar imports from shadcn/ui
+
+Charts (4 total):
+1. Appointment Volume (Area Chart) — Full width, kept existing implementation with dark-mode compatible tooltip
+2. Telehealth vs In-Person (Donut Chart) — Left column, kept existing with Busiest Day/Hour info cards
+3. No-Show Distribution (Bar Chart) — NEW, right column, amber bars with count labels, Mon–Sun x-axis
+4. Deposit Capture Volume (Bar Chart) — NEW, full width, emerald bars, Y-axis as dollars, txn count labels
+
+Layout:
+- Row 1: Appointment Volume (full width)
+- Row 2: Telehealth Pie (left) + No-Show Distribution (right) in 2-col grid
+- Row 3: Deposit Capture Volume (full width)
+- Row 4: Summary stat cards (4-col grid)
+- Row 5: Provider Performance table with sticky header and max-h-96 overflow scroll
+
+Style:
+- All tooltips use `bg-background` instead of hardcoded white (dark mode compatible)
+- All stat cards, chart headers, badges use `dark:` variants
+- Provider table has sticky thead and scrollable body
+- Responsive: 1 column on mobile, 2 columns on lg for row 2
+- No blue/indigo colors used anywhere
+- Kept loading skeletons matching new layout structure
+- Kept error handling with retry button
+
+Stage Summary:
+- Modified: src/app/api/staff/analytics/route.ts (added today period, custom range, noShowByDay, depositCapture)
+- Rewritten: src/app/staff/dashboard/analytics/page.tsx (4 charts, date filtering, 2-col layout, dark mode)
+- Lint passes cleanly
+
+---
+Task ID: Calendar Weekly Matrix Rewrite + Block Slots (Feature 4.1)
+Agent: Main
+Task: Convert single-day calendar to weekly multi-provider matrix view with block slots modal
+
+Work Log:
+- Read existing calendar page (715 lines, single-day hourly grid) and calendar API route
+- Read project enums, audit utilities, constants, Prisma schema (Slot, AuditLog models)
+- Rewrote src/app/staff/dashboard/calendar/page.tsx (~920 lines) with:
+  - Weekly view: 7 columns (Mon–Sun) × N provider rows matrix grid
+  - Week navigation: Previous Week / Next Week buttons + Today button
+  - Week range header: "Jul 7 – Jul 13, 2026" format display
+  - Provider filter dropdown (filters which provider rows are shown)
+  - Summary stat cards aggregated for the full week (Booked, Checked In, Available, Blocked)
+  - Compact appointment cards per cell showing time, patient name, service, modality icon (Video)
+  - Color-coded cards by appointment status (BOOKED=emerald, CHECKED_IN=amber, COMPLETED/NO_SHOW=gray, CANCELLED=red)
+  - "+N more" overflow link when > 3 appointments in a cell
+  - Empty state: subtle "+" icon in empty cells, clickable to open block modal
+  - Block Slots modal (Dialog): provider (pre-selected), date (pre-selected), start/end time pickers, optional reason
+  - Sticky provider name column on horizontal scroll
+  - Today column highlighted with emerald tint and "Today" badge
+  - Alternating row backgrounds for readability
+  - Legend footer with color key
+  - Responsive: horizontal scroll on mobile, min-width 800px grid
+  - All shadcn/ui components (Card, Dialog, Button, Select, Input, Label, Badge, Skeleton)
+  - 7 parallel API calls (one per day) to existing /api/staff/calendar endpoint
+- Created src/app/api/staff/slots/block-range/route.ts (POST endpoint):
+  - Auth check (NextAuth session + clinicId)
+  - Validates: providerId, date (YYYY-MM-DD), startTime (HH:mm), endTime (HH:mm)
+  - Finds AVAILABLE slots overlapping the time range using Prisma query
+  - Updates all matching slots to BLOCKED in a transaction
+  - Creates audit log (SLOT_BLOCKED) for each blocked slot
+  - Returns { blockedCount: number }
+- Cleaned unused imports (getHours, UserX, endOfDay)
+- Lint passes cleanly on both new/modified files (0 errors, 0 warnings)
+
+Files Modified:
+- src/app/staff/dashboard/calendar/page.tsx (full rewrite)
+Files Created:
+- src/app/api/staff/slots/block-range/route.ts
+
+Stage Summary:
+- Calendar page transformed from single-day hourly view to weekly multi-provider matrix
+- Block Slots feature 4.1 implemented with modal + API endpoint
+- All existing features preserved (provider filter, summary cards, color badges, modality icons)
+- No blue/indigo colors — uses emerald, amber, teal, gray, red color system
+- Lint passes cleanly on all modified/created files
+---
+Task ID: 8
+Agent: Backend API Agent
+Task: Backend API Changes — Waitlist fix, Email service, Appointment PATCH enhancement, Reschedule preserve, Conflict detection, Payment APIs, Analytics enhancement
+
+Work Log:
+- Added `contactCount` (Int, default 0) and `lastContactAt` (DateTime?) fields to WaitlistEntry model in Prisma schema, pushed to DB
+- Fixed Waitlist PATCH API (`/api/staff/waitlist`) to handle `incrementContact: true` — increments contactCount and sets lastContactAt
+- Added `contactCount` and `lastContactAt` to both GET and PATCH response shapes
+- Created mock email service (`src/lib/email.ts`) with `sendStaffEmail()` that logs to console and returns mock message IDs
+- Enhanced Appointment PATCH API (`/api/staff/appointments/[id]`):
+  - Added `patientDob?: string` and `videoVisitLink?: string` to PatchBody interface
+  - Added DOB validation (YYYY-MM-DD format) and update
+  - Added videoVisitLink logging (field lives on Provider model)
+  - Changed initial fetch to include `ledger: true` and `tokens: true`
+  - On COMPLETED: sends review request email via sendStaffEmail
+  - On CANCELLED: invalidates active tokens, creates REFUND ledger entry if DEPOSIT_AUTH exists with AUTHORIZED paymentStatus, updates appointment paymentStatus to REFUNDED, creates REFUND_COMPLETED audit log
+  - On NO_SHOW: invalidates active tokens, creates DEPOSIT_CAPTURE ledger entry if DEPOSIT_AUTH exists with AUTHORIZED paymentStatus, updates appointment paymentStatus to CAPTURED, creates DEPOSIT_CAPTURED audit log
+- Rewrote Reschedule API (`/api/staff/appointments/[id]/reschedule`) to preserve old record:
+  - Old appointment marked CANCELLED with reason "RESCHEDULED", cancelledAt/By set
+  - Old slot released to AVAILABLE
+  - NEW appointment created copying all fields from old (patientName, patientEmail, patientPhone, patientDob, patientType, guardianName, guardianRelation, reasonForVisit, serviceId, specialtyId, insuranceId, etc.) with new slot's data
+  - New slot booked
+  - Internal note added to NEW appointment
+  - Old tokens invalidated
+  - Email notification sent via sendStaffEmail
+  - Audit log created
+  - Returns the new appointment (with provider, service, slot, insurance includes)
+- Created Conflict Detection API (`/api/staff/appointments/conflicts`):
+  - GET with optional `clinicId` query param
+  - Finds non-cancelled/non-no-show appointments (BOOKED, CHECKED_IN) where same patientEmail or patientPhone appears >1 time
+  - Groups by email (normalized lowercase) and phone (digits only)
+  - Returns `{ conflicts: ConflictGroup[] }` with matchField, matchValue, and appointment details
+- Created Payment Request API (`/api/staff/payments/request`):
+  - POST with `appointmentId` and `amountCents` body
+  - Auth check, clinic verification
+  - Generates mock Stripe payment URL
+  - Sends email to patient with payment link
+  - Creates BALANCE_PAYMENT ledger entry (PENDING)
+  - Creates PAYMENT_REQUEST_SENT audit log
+  - Returns `{ success, paymentUrl }`
+- Created Manual Refund API (`/api/staff/payments/refund`):
+  - POST with `appointmentId` body
+  - Auth check, clinic verification
+  - Finds DEPOSIT_AUTH ledger, checks paymentStatus is AUTHORIZED or CAPTURED
+  - Updates appointment paymentStatus to REFUNDED, creates REFUND ledger entry
+  - Creates REFUND_COMPLETED audit log
+  - Returns `{ success, refundAmountCents }`
+- Added `PAYMENT_REQUEST_SENT: "PAYMENT_REQUEST_SENT"` to AUDIT_ACTIONS in constants.ts
+- Enhanced Analytics API (`/api/staff/analytics`):
+  - Added `period=today` support (daysMap now includes "today": 1)
+  - Added custom date range via `dateFrom` and `dateTo` query params (takes precedence over period)
+  - Added `noShowByDay` section: breakdown of no-shows by day of week (Mon-Sun)
+  - Added `depositCapture` section: daily totals of DEPOSIT_CAPTURE ledger entries (date, amountCents, count)
+  - Both new sections fill in all days in the range for consistent charting
+
+Files Modified:
+- prisma/schema.prisma (added contactCount, lastContactAt to WaitlistEntry)
+- src/lib/constants.ts (added PAYMENT_REQUEST_SENT)
+- src/app/api/staff/waitlist/route.ts (added incrementContact handling)
+- src/app/api/staff/appointments/[id]/route.ts (DOB, videoLink, side effects)
+- src/app/api/staff/appointments/[id]/reschedule/route.ts (full rewrite)
+- src/app/api/staff/analytics/route.ts (today period, custom range, noShowByDay, depositCapture)
+
+Files Created:
+- src/lib/email.ts (mock email service)
+- src/app/api/staff/appointments/conflicts/route.ts
+- src/app/api/staff/payments/request/route.ts
+- src/app/api/staff/payments/refund/route.ts
+
+Stage Summary:
+- 8 sub-tasks completed: waitlist fix, email service, appointment PATCH enhancement, reschedule rewrite, conflict detection, payment request, manual refund, analytics enhancement
+- All new API routes follow existing patterns (auth check, clinic access, audit logging)
+- Mock email service logs to console for demo/sandbox use
+- Lint passes with 0 errors
+
+---
+Task ID: 7
+Agent: Main Orchestrator + 4 Subagents
+Task: Implement ALL missing/partially implemented features for Clinic Staff Dashboard (19 features + 2 bug fixes)
+
+Work Log:
+- Launched 4 parallel full-stack-developer subagents:
+  1. Backend API agent: waitlist fix, email service, appointment PATCH enhancements, reschedule fix, conflict detection, payment endpoints, analytics API
+  2. Analytics page agent: 4 charts (volume, modality, no-show dist, deposit capture), date filtering (Today + Custom range)
+  3. Calendar page agent: weekly multi-provider matrix, slot blocking modal with time range
+  4. Appointments page agent: column sorting, grid view, search enhancement, DOB edit, video link manager, send video link, payment request, manual refund, conflict alerts, waitlist fixes
+- Fixed appointments search API to include booking ID and token search fields
+- Pushed Prisma schema changes (contactCount, lastContactAt on WaitlistEntry)
+- Verified all pages via agent-browser: appointments (table/grid/sort/detail), calendar (weekly/blocking), analytics (4 charts/date filters), waitlist (fixed labels)
+- All API calls return 200, lint passes clean
+
+Stage Summary:
+- All 24 features from the specification now fully implemented
+- 2 bugs fixed (waitlist incrementContact, waitlist status label mismatch)
+- New files created:
+  - src/lib/email.ts (mock email service)
+  - src/app/api/staff/appointments/conflicts/route.ts
+  - src/app/api/staff/appointments/[id]/send-video-link/route.ts
+  - src/app/api/staff/payments/request/route.ts
+  - src/app/api/staff/payments/refund/route.ts
+  - src/app/api/staff/slots/block-range/route.ts
+- Modified files:
+  - src/app/staff/dashboard/appointments/page.tsx (major: +600 lines)
+  - src/app/staff/dashboard/calendar/page.tsx (full rewrite: weekly view)
+  - src/app/staff/dashboard/analytics/page.tsx (full rewrite: 4 charts + date filters)
+  - src/app/api/staff/appointments/route.ts (search expansion)
+  - src/app/api/staff/appointments/[id]/route.ts (email, refund, no-show capture, DOB edit)
+  - src/app/api/staff/appointments/[id]/reschedule/route.ts (preserve old record)
+  - src/app/api/staff/waitlist/route.ts (incrementContact fix)
+  - src/app/api/staff/analytics/route.ts (today, custom range, no-show dist, deposit capture)
+  - src/lib/constants.ts (PAYMENT_REQUEST_SENT)
+  - prisma/schema.prisma (contactCount, lastContactAt)

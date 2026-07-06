@@ -87,12 +87,14 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Search filter (patient name/email/phone)
+    // Search filter (patient name/email/phone/booking ID/token)
     if (search) {
       where.OR = [
         { patientName: { contains: search } },
         { patientEmail: { contains: search } },
         { patientPhone: { contains: search } },
+        { id: { contains: search } },
+        { tokens: { some: { id: { contains: search } } } },
       ];
     }
 

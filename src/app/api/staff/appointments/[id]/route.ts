@@ -12,6 +12,7 @@ import {
 } from "@/lib/enums";
 import { AUDIT_ACTIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
+import { sendStaffEmail } from "@/lib/email";
 
 // =============================================================================
 // GET — Single appointment with full details
@@ -100,6 +101,8 @@ interface PatchBody {
   patientName?: string;
   patientEmail?: string;
   patientPhone?: string;
+  patientDob?: string;
+  videoVisitLink?: string;
   insuranceVerified?: boolean;
 }
 
@@ -127,10 +130,15 @@ export async function PATCH(
       );
     }
 
-    // Fetch current appointment
+    // Fetch current appointment (include ledger + tokens for side effects)
     const appointment = await db.appointment.findUnique({
       where: { id },
-      include: { slot: true },
+      include: {
+        slot: true,
+        ledger: true,
+        tokens: true,
+        provider: { select: { firstName: true, lastName: true } },
+      },
     });
 
     if (!appointment) {
@@ -152,7 +160,8 @@ export async function PATCH(
     const hasContactUpdate =
       body.patientName !== undefined ||
       body.patientEmail !== undefined ||
-      body.patientPhone !== undefined;
+      body.patientPhone !== undefined ||
+      body.patientDob !== undefined;
 
     if (hasContactUpdate) {
       if (body.patientName !== undefined) {
@@ -172,6 +181,30 @@ export async function PATCH(
       if (body.patientPhone !== undefined) {
         updateData.patientPhone = body.patientPhone.trim();
       }
+      if (body.patientDob !== undefined) {
+        const dobStr = body.patientDob.trim();
+        // Validate YYYY-MM-DD format
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dobStr)) {
+          return NextResponse.json(
+            { error: "Invalid date format. Use YYYY-MM-DD" },
+            { status: 400 }
+          );
+        }
+        const parsed = new Date(dobStr + "T00:00:00.000Z");
+        if (isNaN(parsed.getTime())) {
+          return NextResponse.json(
+            { error: "Invalid date. Please provide a valid date." },
+            { status: 400 }
+          );
+        }
+        updateData.patientDob = parsed;
+      }
+    }
+
+    // ---- Video visit link (stored on provider, logged here for reference) ----
+    if (body.videoVisitLink !== undefined) {
+      // videoVisitLink is on the Provider model; log for now if needed
+      console.log(`[VIDEO_LINK_UPDATE] appointment=${id} link=${body.videoVisitLink}`);
     }
 
     // ---- Insurance verified flag ----
@@ -239,12 +272,109 @@ export async function PATCH(
       },
     });
 
+    // ---- Side effects for status transitions ----
+
     // Release slot on cancellation
     if (body.status === APPOINTMENT_STATUS.CANCELLED) {
       await db.slot.update({
         where: { id: appointment.slotId },
         data: { status: SLOT_STATUS.AVAILABLE },
       });
+
+      // Invalidate all active tokens
+      await db.token.updateMany({
+        where: { appointmentId: id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+
+      // Refund deposit if DEPOSIT_AUTH exists and is AUTHORIZED
+      if (appointment.ledger && appointment.ledger.type === "DEPOSIT_AUTH" && appointment.paymentStatus === "AUTHORIZED") {
+        const refundAmount = appointment.ledger.amountCents;
+        // Create REFUND ledger entry
+        await db.appointmentLedger.create({
+          data: {
+            appointmentId: id,
+            type: "REFUND",
+            amountCents: refundAmount,
+            description: `Refund for cancelled appointment`,
+            processedBy: userId,
+          },
+        });
+        // Update appointment payment status to REFUNDED
+        await db.appointment.update({
+          where: { id },
+          data: { paymentStatus: "REFUNDED" },
+        });
+
+        createAuditLog({
+          userId,
+          action: AUDIT_ACTIONS.REFUND_COMPLETED,
+          targetType: "APPOINTMENT",
+          targetId: id,
+          appointmentId: id,
+          ipAddress: request.headers.get("x-forwarded-for") || undefined,
+        });
+      }
+    }
+
+    // COMPLETED — send review email
+    if (body.status === APPOINTMENT_STATUS.COMPLETED) {
+      try {
+        const providerName = `Dr. ${appointment.provider.firstName} ${appointment.provider.lastName}`;
+        const startTimeFormatted = new Date(appointment.startTime).toLocaleString();
+        await sendStaffEmail({
+          to: appointment.patientEmail,
+          subject: "Your Appointment Review",
+          html: `
+            <h2>Thank you for your visit!</h2>
+            <p>Dear ${appointment.patientName},</p>
+            <p>Your appointment with <strong>${providerName}</strong> on <strong>${startTimeFormatted}</strong> has been completed.</p>
+            <p>We'd love to hear about your experience. Please take a moment to leave a review:</p>
+            <p><a href="#" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Leave a Review</a></p>
+            <p>Thank you for choosing us!</p>
+          `,
+        });
+      } catch (emailErr) {
+        console.error("[STAFF_APPOINTMENT_UPDATE] Failed to send review email:", emailErr);
+      }
+    }
+
+    // NO_SHOW — capture deposit and invalidate tokens
+    if (body.status === APPOINTMENT_STATUS.NO_SHOW) {
+      // Invalidate all active tokens
+      await db.token.updateMany({
+        where: { appointmentId: id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+
+      // Capture deposit if DEPOSIT_AUTH exists and is AUTHORIZED
+      if (appointment.ledger && appointment.ledger.type === "DEPOSIT_AUTH" && appointment.paymentStatus === "AUTHORIZED") {
+        const captureAmount = appointment.ledger.amountCents;
+        // Create DEPOSIT_CAPTURE ledger entry
+        await db.appointmentLedger.create({
+          data: {
+            appointmentId: id,
+            type: "DEPOSIT_CAPTURE",
+            amountCents: captureAmount,
+            description: `Deposit captured for no-show appointment`,
+            processedBy: userId,
+          },
+        });
+        // Update appointment payment status to CAPTURED
+        await db.appointment.update({
+          where: { id },
+          data: { paymentStatus: "CAPTURED" },
+        });
+
+        createAuditLog({
+          userId,
+          action: AUDIT_ACTIONS.DEPOSIT_CAPTURED,
+          targetType: "APPOINTMENT",
+          targetId: id,
+          appointmentId: id,
+          ipAddress: request.headers.get("x-forwarded-for") || undefined,
+        });
+      }
     }
 
     // Audit log

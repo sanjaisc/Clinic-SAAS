@@ -70,6 +70,8 @@ export async function GET(request: NextRequest) {
       status: entry.status,
       dateFrom: entry.dateFrom,
       dateTo: entry.dateTo,
+      contactCount: entry.contactCount,
+      lastContactAt: entry.lastContactAt,
       offeredAt: entry.offeredAt,
       offerExpiresAt: entry.offerExpiresAt,
       createdAt: entry.createdAt,
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
 }
 
 // =============================================================================
-// PATCH /api/staff/waitlist — Update a waitlist entry (status)
+// PATCH /api/staff/waitlist — Update a waitlist entry (status or incrementContact)
 // =============================================================================
 export async function PATCH(request: NextRequest) {
   try {
@@ -99,7 +101,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status } = body;
+    const { id, status, incrementContact } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -137,7 +139,48 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Build update data
+    // Handle incrementContact separately
+    if (incrementContact === true) {
+      const updated = await db.waitlistEntry.update({
+        where: { id },
+        data: {
+          contactCount: { increment: 1 },
+          lastContactAt: new Date(),
+        },
+        include: {
+          provider: {
+            select: { firstName: true, lastName: true, credentials: true },
+          },
+          service: {
+            select: { name: true },
+          },
+        },
+      });
+
+      return NextResponse.json({
+        data: {
+          id: updated.id,
+          patientName: updated.patientName,
+          patientEmail: updated.patientEmail,
+          patientPhone: updated.patientPhone,
+          patientType: updated.patientType,
+          modality: updated.modality,
+          status: updated.status,
+          dateFrom: updated.dateFrom,
+          dateTo: updated.dateTo,
+          contactCount: updated.contactCount,
+          lastContactAt: updated.lastContactAt,
+          offeredAt: updated.offeredAt,
+          offerExpiresAt: updated.offerExpiresAt,
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt,
+          providerName: `Dr. ${updated.provider.firstName} ${updated.provider.lastName}${updated.provider.credentials ? `, ${updated.provider.credentials}` : ""}`,
+          serviceName: updated.service.name,
+        },
+      });
+    }
+
+    // Build update data for status changes
     const updateData: Prisma.WaitlistEntryUpdateInput = {};
 
     if (status) {
@@ -168,6 +211,8 @@ export async function PATCH(request: NextRequest) {
         status: updated.status,
         dateFrom: updated.dateFrom,
         dateTo: updated.dateTo,
+        contactCount: updated.contactCount,
+        lastContactAt: updated.lastContactAt,
         offeredAt: updated.offeredAt,
         offerExpiresAt: updated.offerExpiresAt,
         createdAt: updated.createdAt,

@@ -1,0 +1,715 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback, useRef } from "react";
+     4→     4→import { format, addDays, subDays, parseISO, isToday, getMinutes, getHours, startOfToday } from "date-fns";
+     5→     5→import {
+     6→     6→  ChevronLeft,
+     7→     7→  ChevronRight,
+     8→     8→  CalendarIcon,
+     9→     9→  Users,
+    10→    10→  Clock,
+    11→    11→  CheckCircle2,
+    12→    12→  XCircle,
+    13→    13→  UserX,
+    14→    14→  Building2,
+    15→    15→  Video,
+    16→    16→  AlertCircle,
+    17→    17→} from "lucide-react";
+    18→    18→import { Button } from "@/components/ui/button";
+    19→    19→import { Badge } from "@/components/ui/badge";
+    20→    20→import { Card, CardContent } from "@/components/ui/card";
+    21→    21→import { Skeleton } from "@/components/ui/skeleton";
+    22→    22→import { Separator } from "@/components/ui/separator";
+    23→    23→import { Calendar } from "@/components/ui/calendar";
+    24→    24→import {
+    25→    25→  Select,
+    26→    26→  SelectContent,
+    27→    27→  SelectItem,
+    28→    28→  SelectTrigger,
+    29→    29→  SelectValue,
+    30→    30→} from "@/components/ui/select";
+    31→    31→import {
+    32→    32→  Popover,
+    33→    33→  PopoverContent,
+    34→    34→  PopoverTrigger,
+    35→    35→} from "@/components/ui/popover";
+    36→    36→import { cn } from "@/lib/utils";
+    37→    37→import { SLOT_STATUS, SLOT_MODALITY, APPOINTMENT_STATUS } from "@/lib/enums";
+    38→    38→
+    39→    39→// ---------------------------------------------------------------------------
+    40→    40→// Types
+    41→    41→// ---------------------------------------------------------------------------
+    42→    42→
+    43→    43→interface ProviderInfo {
+    44→    44→  id: string;
+    45→    45→  firstName: string;
+    46→    46→  lastName: string;
+    47→    47→  credentials: string | null;
+    48→    48→}
+    49→    49→
+    50→    50→interface AppointmentInfo {
+    51→    51→  id: string;
+    52→    52→  patientName: string;
+    53→    53→  patientPhone: string;
+    54→    54→  patientEmail: string;
+    55→    55→  reasonForVisit: string;
+    56→    56→  status: string;
+    57→    57→  service: { id: string; name: string } | null;
+    58→    58→}
+    59→    59→
+    60→    60→interface SlotInfo {
+    61→    61→  id: string;
+    62→    62→  startTime: string;
+    63→    63→  endTime: string;
+    64→    64→  modality: string;
+    65→    65→  status: string;
+    66→    66→  provider: ProviderInfo;
+    67→    67→  appointment: AppointmentInfo | null;
+    68→    68→}
+    69→    69→
+    70→    70→interface SlotsByHour {
+    71→    71→  [hour: number]: SlotInfo[];
+    72→    72→}
+    73→    73→
+    74→    74→interface CalendarData {
+    75→    75→  date: string;
+    76→    76→  formattedDate: string;
+    77→    77→  isToday: boolean;
+    78→    78→  providers: ProviderInfo[];
+    79→    79→  slots: SlotInfo[];
+    80→    80→  slotsByHour: SlotsByHour;
+    81→    81→  summary: {
+    82→    82→    total: number;
+    83→    83→    booked: number;
+    84→    84→    available: number;
+    85→    85→    blocked: number;
+    86→    86→    checkedIn: number;
+    87→    87→  };
+    88→    88→}
+    89→    89→
+    90→    90→// ---------------------------------------------------------------------------
+    91→    91→// Helpers
+    92→    92→// ---------------------------------------------------------------------------
+    93→    93→
+    94→    94→function formatTime12(iso: string): string {
+    95→    95→  return format(parseISO(iso), "h:mm a");
+    96→    96→}
+    97→    97→
+    98→    98→function getMinuteOffset(iso: string): number {
+    99→    99→  const d = parseISO(iso);
+   100→   100→  return d.getMinutes();
+   101→   101→}
+   102→   102→
+   103→   103→function getHourFromIso(iso: string): number {
+   104→   104→  return getHours(parseISO(iso));
+   105→   105→}
+   106→   106→
+   107→   107→function providerLabel(p: ProviderInfo): string {
+   108→   108→  return `Dr. ${p.firstName} ${p.lastName}${p.credentials ? `, ${p.credentials}` : ""}`;
+   109→   109→}
+   110→   110→
+   111→   111→// ---------------------------------------------------------------------------
+   112→   112→// Status badge helpers
+   113→   113→// ---------------------------------------------------------------------------
+   114→   114→
+   115→   115→function SlotStatusBadge({ status }: { status: string }) {
+   116→   116→  switch (status) {
+   117→   117→    case APPOINTMENT_STATUS.BOOKED:
+   118→   118→      return (
+   119→   119→        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0">
+   120→   120→          <CheckCircle2 className="size-3 mr-1" />
+   121→   121→          Booked
+   122→   122→        </Badge>
+   123→   123→      );
+   124→   124→    case APPOINTMENT_STATUS.CHECKED_IN:
+   125→   125→      return (
+   126→   126→        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
+   127→   127→          <Clock className="size-3 mr-1" />
+   128→   128→          Checked In
+   129→   129→        </Badge>
+   130→   130→      );
+   131→   131→    case APPOINTMENT_STATUS.COMPLETED:
+   132→   132→      return (
+   133→   133→        <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 text-[10px] px-1.5 py-0">
+   134→   134→          Completed
+   135→   135→        </Badge>
+   136→   136→      );
+   137→   137→    case APPOINTMENT_STATUS.CANCELLED:
+   138→   138→      return (
+   139→   139→        <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 text-[10px] px-1.5 py-0">
+   140→   140→          <XCircle className="size-3 mr-1" />
+   141→   141→          Cancelled
+   142→   142→        </Badge>
+   143→   143→      );
+   144→   144→    case APPOINTMENT_STATUS.NO_SHOW:
+   145→   145→      return (
+   146→   146→        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">
+   147→   147→          <UserX className="size-3 mr-1" />
+   148→   148→          No Show
+   149→   149→        </Badge>
+   150→   150→      );
+   151→   151→    default:
+   152→   152→      return null;
+   153→   153→  }
+   154→   154→}
+   155→   155→
+   156→   156→function ModalityBadge({ modality }: { modality: string }) {
+   157→   157→  if (modality === SLOT_MODALITY.VIDEO) {
+   158→   158→    return (
+   159→   159→      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] px-1.5 py-0">
+   160→   160→        <Video className="size-3 mr-1" />
+   161→   161→        Video
+   162→   162→      </Badge>
+   163→   163→    );
+   164→   164→  }
+   165→   165→  return (
+   166→   166→    <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] px-1.5 py-0">
+   167→   167→      <Building2 className="size-3 mr-1" />
+   168→   168→      In-Clinic
+   169→   169→    </Badge>
+   170→   170→  );
+   171→   171→}
+   172→   172→
+   173→   173→// ---------------------------------------------------------------------------
+   174→   174→// Slot Card Component
+   175→   175→// ---------------------------------------------------------------------------
+   176→   176→
+   177→   177→function SlotCard({ slot }: { slot: SlotInfo }) {
+   178→   178→  const isBooked =
+   179→   179→    slot.status === SLOT_STATUS.BOOKED ||
+   180→   180→    slot.status === SLOT_STATUS.BOOKED_EXTERNALLY;
+   181→   181→  const isAvailable = slot.status === SLOT_STATUS.AVAILABLE;
+   182→   182→  const isBlocked =
+   183→   183→    slot.status === SLOT_STATUS.BLOCKED || slot.status === SLOT_STATUS.CLOSED;
+   184→   184→  const isLocked = slot.status === SLOT_STATUS.LOCKED;
+   185→   185→
+   186→   186→  const startTime = formatTime12(slot.startTime);
+   187→   187→  const endTime = formatTime12(slot.endTime);
+   188→   188→  const minuteOffset = getMinuteOffset(slot.startTime);
+   189→   189→
+   190→   190→  // Booked slot
+   191→   191→  if (isBooked && slot.appointment) {
+   192→   192→    return (
+   193→   193→      <Card
+   194→   194→        className={cn(
+   195→   195→          "border rounded-lg shadow-sm transition-all duration-150 hover:shadow-md",
+   196→   196→          "border-l-4",
+   197→   197→          slot.appointment.status === APPOINTMENT_STATUS.CHECKED_IN
+   198→   198→            ? "border-l-blue-500 bg-blue-50/40"
+   199→   199→            : slot.appointment.status === APPOINTMENT_STATUS.COMPLETED
+   200→   200→              ? "border-l-gray-400 bg-gray-50/40"
+   201→   201→              : slot.appointment.status === APPOINTMENT_STATUS.CANCELLED
+   202→   202→                ? "border-l-red-400 bg-red-50/30"
+   203→   203→                : slot.appointment.status === APPOINTMENT_STATUS.NO_SHOW
+   204→   204→                  ? "border-l-amber-400 bg-amber-50/30"
+   205→   205→                  : "border-l-emerald-500 bg-white"
+   206→   206→        )}
+   207→   207→        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
+   208→   208→      >
+   209→   209→        <CardContent className="p-3">
+   210→   210→          <div className="flex items-start justify-between gap-2">
+   211→   211→            <div className="min-w-0 flex-1">
+   212→   212→              <div className="flex items-center gap-1.5 mb-1">
+   213→   213→                <span className="text-xs font-semibold text-foreground">
+   214→   214→                  {slot.appointment.patientName}
+   215→   215→                </span>
+   216→   216→                <ModalityBadge modality={slot.modality} />
+   217→   217→              </div>
+   218→   218→              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+   219→   219→                <span>
+   220→   220→                  {startTime} – {endTime}
+   221→   221→                </span>
+   222→   222→                <span className="text-border">|</span>
+   223→   223→                <span className="truncate">
+   224→   224→                  {slot.appointment.service?.name || slot.appointment.reasonForVisit}
+   225→   225→                </span>
+   226→   226→              </div>
+   227→   227→              {slot.appointment.patientPhone && (
+   228→   228→                <div className="text-[11px] text-muted-foreground mt-0.5">
+   229→   229→                  {slot.appointment.patientPhone}
+   230→   230→                </div>
+   231→   231→              )}
+   232→   232→            </div>
+   233→   233→            <SlotStatusBadge status={slot.appointment.status} />
+   234→   234→          </div>
+   235→   235→        </CardContent>
+   236→   236→      </Card>
+   237→   237→    );
+   238→   238→  }
+   239→   239→
+   240→   240→  // Available slot
+   241→   241→  if (isAvailable) {
+   242→   242→    return (
+   243→   243→      <Card
+   244→   244→        className="border border-emerald-200 bg-emerald-50/60 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-px hover:bg-emerald-50 transition-all duration-150 cursor-pointer border-l-4 border-l-emerald-400"
+   245→   245→        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
+   246→   246→      >
+   247→   247→        <CardContent className="p-2.5 flex items-center justify-between">
+   248→   248→          <div className="flex items-center gap-2">
+   249→   249→            <span className="text-xs font-medium text-emerald-700">
+   250→   250→              {startTime} – {endTime}
+   251→   251→            </span>
+   252→   252→          </div>
+   253→   253→          <span className="text-[10px] font-medium text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+   254→   254→            Available
+   255→   255→          </span>
+   256→   256→        </CardContent>
+   257→   257→      </Card>
+   258→   258→    );
+   259→   259→  }
+   260→   260→
+   261→   261→  // Blocked / Closed slot
+   262→   262→  if (isBlocked) {
+   263→   263→    return (
+   264→   264→      <div
+   265→   265→        className="rounded-lg bg-gray-100 border border-gray-200 p-2.5 flex items-center justify-between"
+   266→   266→        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
+   267→   267→      >
+   268→   268→        <span className="text-xs text-gray-400 line-through">
+   269→   269→          {startTime} – {endTime}
+   270→   270→        </span>
+   271→   271→        <Badge variant="outline" className="bg-gray-100 text-gray-400 border-gray-200 text-[10px] px-1.5 py-0">
+   272→   272→          {slot.status === SLOT_STATUS.CLOSED ? "Closed" : "Blocked"}
+   273→   273→        </Badge>
+   274→   274→      </div>
+   275→   275→    );
+   276→   276→  }
+   277→   277→
+   278→   278→  // Locked slot
+   279→   279→  if (isLocked) {
+   280→   280→    return (
+   281→   281→      <div
+   282→   282→        className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 flex items-center justify-between"
+   283→   283→        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
+   284→   284→      >
+   285→   285→        <span className="text-xs text-amber-600">
+   286→   286→          {startTime} – {endTime}
+   287→   287→        </span>
+   288→   288→        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-1.5 py-0">
+   289→   289→          <Clock className="size-3 mr-1" />
+   290→   290→          Locked
+   291→   291→        </Badge>
+   292→   292→      </div>
+   293→   293→    );
+   294→   294→  }
+   295→   295→
+   296→   296→  // Booked externally (no appointment object)
+   297→   297→  if (slot.status === SLOT_STATUS.BOOKED_EXTERNALLY) {
+   298→   298→    return (
+   299→   299→      <Card
+   300→   300→        className="border border-purple-200 bg-purple-50/40 rounded-lg shadow-sm border-l-4 border-l-purple-400"
+   301→   301→        style={{ marginTop: minuteOffset > 0 ? `${(minuteOffset / 60) * 100}%` : 0 }}
+   302→   302→      >
+   303→   303→        <CardContent className="p-2.5 flex items-center justify-between">
+   304→   304→          <span className="text-xs font-medium text-purple-700">
+   305→   305→            {startTime} – {endTime}
+   306→   306→          </span>
+   307→   307→          <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] px-1.5 py-0">
+   308→   308→            External
+   309→   309→          </Badge>
+   310→   310→        </CardContent>
+   311→   311→      </Card>
+   312→   312→    );
+   313→   313→  }
+   314→   314→
+   315→   315→  return null;
+   316→   316→}
+   317→   317→
+   318→   318→// ---------------------------------------------------------------------------
+   319→   319→// Current Time Indicator
+   320→   320→// ---------------------------------------------------------------------------
+   321→   321→
+   322→   322→function CurrentTimeIndicator({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+   323→   323→  const [position, setPosition] = useState<number | null>(null);
+   324→   324→
+   325→   325→  useEffect(() => {
+   326→   326→    function updatePosition() {
+   327→   327→      const now = new Date();
+   328→   328→      const hour = getHours(now);
+   329→   329→      const minute = getMinutes(now);
+   330→   330→      if (hour >= 7 && hour < 19) {
+   331→   331→        const totalMinutes = (hour - 7) * 60 + minute;
+   332→   332→        const rowHeight = 72; // Each hour row is 72px (h-18)
+   333→   333→        setPosition(totalMinutes * (rowHeight / 60));
+   334→   334→      } else {
+   335→   335→        setPosition(null);
+   336→   336→      }
+   337→   337→    }
+   338→   338→
+   339→   339→    updatePosition();
+   340→   340→    const interval = setInterval(updatePosition, 60000);
+   341→   341→    return () => clearInterval(interval);
+   342→   342→  }, []);
+   343→   343→
+   344→   344→  if (position === null) return null;
+   345→   345→
+   346→   346→  return (
+   347→   347→    <div
+   348→   348→      className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+   349→   349→      style={{ top: `${position}px` }}
+   350→   350→    >
+   351→   351→      <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1 shrink-0 ring-4 ring-red-500/20" />
+   352→   352→      <div className="flex-1 h-[2px] bg-red-500/80" />
+   353→   353→    </div>
+   354→   354→  );
+   355→   355→}
+   356→   356→
+   357→   357→// ---------------------------------------------------------------------------
+   358→   358→// Loading Skeleton
+   359→   359→// ---------------------------------------------------------------------------
+   360→   360→
+   361→   361→function CalendarSkeleton() {
+   362→   362→  return (
+   363→   363→    <div className="space-y-4 animate-in fade-in duration-300">
+   364→   364→      {/* Header skeleton */}
+   365→   365→      <div className="flex items-center gap-3">
+   366→   366→        <Skeleton className="h-9 w-9 rounded-lg" />
+   367→   367→        <Skeleton className="h-8 w-48" />
+   368→   368→        <Skeleton className="h-8 w-24" />
+   369→   369→      </div>
+   370→   370→
+   371→   371→      {/* Summary cards */}
+   372→   372→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   373→   373→        {Array.from({ length: 4 }).map((_, i) => (
+   374→   374→          <Skeleton key={i} className="h-20 rounded-xl" />
+   375→   375→        ))}
+   376→   376→      </div>
+   377→   377→
+   378→   378→      {/* Grid skeleton */}
+   379→   379→      <div className="rounded-xl border bg-white p-4 space-y-0">
+   380→   380→        {Array.from({ length: 12 }).map((_, i) => (
+   381→   381→          <div key={i} className="flex items-start gap-4 h-18 py-1">
+   382→   382→            <Skeleton className="h-5 w-14 shrink-0 mt-1" />
+   383→   383→            <Skeleton className="h-14 flex-1 rounded-lg" />
+   384→   384→          </div>
+   385→   385→        ))}
+   386→   386→      </div>
+   387→   387→    </div>
+   388→   388→  );
+   389→   389→}
+   390→   390→
+   391→   391→// ---------------------------------------------------------------------------
+   392→   392→// Main Calendar Page
+   393→   393→// ---------------------------------------------------------------------------
+   394→   394→
+   395→   395→export default function CalendarPage() {
+   396→   396→  const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
+   397→   397→  const [providerId, setProviderId] = useState<string>("all");
+   398→   398→  const [data, setData] = useState<CalendarData | null>(null);
+   399→   399→  const [loading, setLoading] = useState(true);
+   400→   400→  const [error, setError] = useState<string | null>(null);
+   401→   401→  const [calendarOpen, setCalendarOpen] = useState(false);
+   402→   402→  const gridRef = useRef<HTMLDivElement>(null);
+   403→   403→
+   404→   404→  const fetchCalendar = useCallback(async (date: Date, pId: string) => {
+   405→   405→    setLoading(true);
+   406→   406→    setError(null);
+   407→   407→    try {
+   408→   408→      const dateStr = format(date, "yyyy-MM-dd");
+   409→   409→      const params = new URLSearchParams({ date: dateStr });
+   410→   410→      if (pId && pId !== "all") {
+   411→   411→        params.set("providerId", pId);
+   412→   412→      }
+   413→   413→      const res = await fetch(`/api/staff/calendar?${params}`);
+   414→   414→      if (!res.ok) {
+   415→   415→        const err = await res.json();
+   416→   416→        throw new Error(err.error || "Failed to load calendar");
+   417→   417→      }
+   418→   418→      const json = await res.json();
+   419→   419→      setData(json);
+   420→   420→    } catch (e) {
+   421→   421→      setError(e instanceof Error ? e.message : "Unknown error");
+   422→   422→    } finally {
+   423→   423→      setLoading(false);
+   424→   424→    }
+   425→   425→  }, []);
+   426→   426→
+   427→   427→  useEffect(() => {
+   428→   428→    fetchCalendar(selectedDate, providerId);
+   429→   429→  }, [selectedDate, providerId, fetchCalendar]);
+   430→   430→
+   431→   431→  const goToPrevDay = () => setSelectedDate((d) => subDays(d, 1));
+   432→   432→  const goToNextDay = () => setSelectedDate((d) => addDays(d, 1));
+   433→   433→  const goToToday = () => setSelectedDate(startOfToday());
+   434→   434→
+   435→   435→  const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7..18
+   436→   436→
+   437→   437→  // Scroll to current time on initial load
+   438→   438→  useEffect(() => {
+   439→   439→    if (data?.isToday && gridRef.current) {
+   440→   440→      const now = new Date();
+   441→   441→      const hour = getHours(now);
+   442→   442→      if (hour >= 7 && hour < 19) {
+   443→   443→        const rowHeight = 72;
+   444→   444→        const scrollTarget = Math.max(0, (hour - 7) * rowHeight - 100);
+   445→   445→        gridRef.current.scrollTo({ top: scrollTarget, behavior: "smooth" });
+   446→   446→      }
+   447→   447→    }
+   448→   448→  }, [data?.isToday]);
+   449→   449→
+   450→   450→  // --- Loading ---
+   451→   451→  if (loading && !data) {
+   452→   452→    return (
+   453→   453→      <div className="max-w-5xl mx-auto">
+   454→   454→        <CalendarSkeleton />
+   455→   455→      </div>
+   456→   456→    );
+   457→   457→  }
+   458→   458→
+   459→   459→  // --- Error ---
+   460→   460→  if (error && !data) {
+   461→   461→    return (
+   462→   462→      <div className="max-w-5xl mx-auto">
+   463→   463→        <Card className="border-red-200 bg-red-50/30">
+   464→   464→          <CardContent className="p-6 flex flex-col items-center gap-3 text-center">
+   465→   465→            <div className="size-12 rounded-full bg-red-100 flex items-center justify-center">
+   466→   466→              <AlertCircle className="size-6 text-red-600" />
+   467→   467→            </div>
+   468→   468→            <p className="text-sm font-medium text-red-700">{error}</p>
+   469→   469→            <Button
+   470→   470→              variant="outline"
+   471→   471→              size="sm"
+   472→   472→              onClick={() => fetchCalendar(selectedDate, providerId)}
+   473→   473→              className="cursor-pointer"
+   474→   474→            >
+   475→   475→              Try Again
+   476→   476→            </Button>
+   477→   477→          </CardContent>
+   478→   478→        </Card>
+   479→   479→      </div>
+   480→   480→    );
+   481→   481→  }
+   482→   482→
+   483→   483→  if (!data) return null;
+   484→   484→
+   485→   485→  const { formattedDate, isToday: _isToday, providers, slotsByHour, summary } = data;
+   486→   486→
+   487→   487→  return (
+   488→   488→    <div className="max-w-5xl mx-auto space-y-5 animate-in fade-in duration-300">
+   489→   489→      {/* ---- Header ---- */}
+   490→   490→      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+   491→   491→        {/* Date Navigation */}
+   492→   492→        <div className="flex items-center gap-2">
+   493→   493→          <Button
+   494→   494→            variant="outline"
+   495→   495→            size="icon"
+   496→   496→            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+   497→   497→            onClick={goToPrevDay}
+   498→   498→          >
+   499→   499→            <ChevronLeft className="size-4" />
+   500→   500→          </Button>
+   501→   501→
+   502→   502→          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+   503→   503→            <PopoverTrigger asChild>
+   504→   504→              <Button
+   505→   505→                variant="outline"
+   506→   506→                className={cn(
+   507→   507→                  "h-9 gap-2 font-semibold min-w-[220px] justify-start text-left cursor-pointer",
+   508→   508→                  "hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+   509→   509→                )}
+   510→   510→              >
+   511→   511→                <CalendarIcon className="size-4 text-emerald-600" />
+   512→   512→                {formattedDate}
+   513→   513→              </Button>
+   514→   514→            </PopoverTrigger>
+   515→   515→            <PopoverContent className="w-auto p-0" align="start">
+   516→   516→              <Calendar
+   517→   517→                mode="single"
+   518→   518→                selected={selectedDate}
+   519→   519→                onSelect={(d) => {
+   520→   520→                  if (d) {
+   521→   521→                    setSelectedDate(d);
+   522→   522→                    setCalendarOpen(false);
+   523→   523→                  }
+   524→   524→                }}
+   525→   525→                className="rounded-lg border"
+   526→   526→              />
+   527→   527→            </PopoverContent>
+   528→   528→          </Popover>
+   529→   529→
+   530→   530→          <Button
+   531→   531→            variant="outline"
+   532→   532→            size="icon"
+   533→   533→            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+   534→   534→            onClick={goToNextDay}
+   535→   535→          >
+   536→   536→            <ChevronRight className="size-4" />
+   537→   537→          </Button>
+   538→   538→
+   539→   539→          {!isToday(selectedDate) && (
+   540→   540→            <Button
+   541→   541→              variant="outline"
+   542→   542→              size="sm"
+   543→   543→              onClick={goToToday}
+   544→   544→              className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-emerald-700 border-emerald-200"
+   545→   545→            >
+   546→   546→              Today
+   547→   547→            </Button>
+   548→   548→          )}
+   549→   549→        </div>
+   550→   550→
+   551→   551→        {/* Provider Filter */}
+   552→   552→        {providers.length > 1 && (
+   553→   553→          <div className="flex items-center gap-2 sm:ml-auto">
+   554→   554→            <Users className="size-4 text-muted-foreground shrink-0" />
+   555→   555→            <Select value={providerId} onValueChange={setProviderId}>
+   556→   556→              <SelectTrigger className="w-[200px] cursor-pointer hover:border-emerald-300">
+   557→   557→                <SelectValue placeholder="All Providers" />
+   558→   558→              </SelectTrigger>
+   559→   559→              <SelectContent>
+   560→   560→                <SelectItem value="all">All Providers</SelectItem>
+   561→   561→                {providers.map((p) => (
+   562→   562→                  <SelectItem key={p.id} value={p.id}>
+   563→   563→                    {providerLabel(p)}
+   564→   564→                  </SelectItem>
+   565→   565→                ))}
+   566→   566→              </SelectContent>
+   567→   567→            </Select>
+   568→   568→          </div>
+   569→   569→        )}
+   570→   570→      </div>
+   571→   571→
+   572→   572→      {/* ---- Summary Cards ---- */}
+   573→   573→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   574→   574→        <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+   575→   575→          <CardContent className="p-4">
+   576→   576→            <div className="flex items-center gap-2 mb-1">
+   577→   577→              <div className="size-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+   578→   578→                <CheckCircle2 className="size-3.5 text-emerald-600" />
+   579→   579→              </div>
+   580→   580→              <span className="text-xs text-muted-foreground font-medium">Booked</span>
+   581→   581→            </div>
+   582→   582→            <p className="text-2xl font-bold text-emerald-700">{summary.booked}</p>
+   583→   583→          </CardContent>
+   584→   584→        </Card>
+   585→   585→
+   586→   586→        <Card className="border-sky-100 bg-gradient-to-br from-sky-50 to-white shadow-sm">
+   587→   587→          <CardContent className="p-4">
+   588→   588→            <div className="flex items-center gap-2 mb-1">
+   589→   589→              <div className="size-7 rounded-lg bg-sky-100 flex items-center justify-center">
+   590→   590→                <Clock className="size-3.5 text-sky-600" />
+   591→   591→              </div>
+   592→   592→              <span className="text-xs text-muted-foreground font-medium">Checked In</span>
+   593→   593→            </div>
+   594→   594→            <p className="text-2xl font-bold text-sky-700">{summary.checkedIn}</p>
+   595→   595→          </CardContent>
+   596→   596→        </Card>
+   597→   597→
+   598→   598→        <Card className="border-amber-100 bg-gradient-to-br from-amber-50 to-white shadow-sm">
+   599→   599→          <CardContent className="p-4">
+   600→   600→            <div className="flex items-center gap-2 mb-1">
+   601→   601→              <div className="size-7 rounded-lg bg-amber-100 flex items-center justify-center">
+   602→   602→                <CalendarIcon className="size-3.5 text-amber-600" />
+   603→   603→              </div>
+   604→   604→              <span className="text-xs text-muted-foreground font-medium">Available</span>
+   605→   605→            </div>
+   606→   606→            <p className="text-2xl font-bold text-amber-700">{summary.available}</p>
+   607→   607→          </CardContent>
+   608→   608→        </Card>
+   609→   609→
+   610→   610→        <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white shadow-sm">
+   611→   611→          <CardContent className="p-4">
+   612→   612→            <div className="flex items-center gap-2 mb-1">
+   613→   613→              <div className="size-7 rounded-lg bg-gray-100 flex items-center justify-center">
+   614→   614→                <XCircle className="size-3.5 text-gray-500" />
+   615→   615→              </div>
+   616→   616→              <span className="text-xs text-muted-foreground font-medium">Blocked</span>
+   617→   617→            </div>
+   618→   618→            <p className="text-2xl font-bold text-gray-600">{summary.blocked}</p>
+   619→   619→          </CardContent>
+   620→   620→        </Card>
+   621→   621→      </div>
+   622→   622→
+   623→   623→      {/* ---- Time Grid ---- */}
+   624→   624→      <Card className="shadow-sm border overflow-hidden">
+   625→   625→        <CardContent className="p-0">
+   626→   626→          <div
+   627→   627→            ref={gridRef}
+   628→   628→            className="relative max-h-[600px] overflow-y-auto custom-scrollbar"
+   629→   629→          >
+   630→   630→            {/* Current time indicator */}
+   631→   631→            {_isToday && <CurrentTimeIndicator containerRef={gridRef} />}
+   632→   632→
+   633→   633→            {hours.map((hour, idx) => {
+   634→   634→              const hourSlots = slotsByHour[hour] || [];
+   635→   635→              const timeLabel = format(new Date(2000, 0, 1, hour, 0), "h a");
+   636→   636→
+   637→   637→              return (
+   638→   638→                <div
+   639→   639→                  key={hour}
+   640→   640→                  className={cn(
+   641→   641→                    "flex min-h-18",
+   642→   642→                    idx % 2 === 0 ? "bg-white" : "bg-muted/30",
+   643→   643→                    "border-b border-border/40 last:border-b-0"
+   644→   644→                  )}
+   645→   645→                >
+   646→   646→                  {/* Time label column */}
+   647→   647→                  <div className="w-16 sm:w-20 shrink-0 pt-2.5 pb-1 text-right pr-3">
+   648→   648→                    <span className="text-xs font-medium text-muted-foreground tabular-nums">
+   649→   649→                      {timeLabel}
+   650→   650→                    </span>
+   651→   651→                  </div>
+   652→   652→
+   653→   653→                  {/* Slot cards column */}
+   654→   654→                  <div className="flex-1 py-1.5 pr-2 min-w-0">
+   655→   655→                    {hourSlots.length > 0 ? (
+   656→   656→                      <div className="flex flex-col gap-1.5">
+   657→   657→                        {hourSlots.map((slot) => (
+   658→   658→                          <SlotCard key={slot.id} slot={slot} />
+   659→   659→                        ))}
+   660→   660→                      </div>
+   661→   661→                    ) : (
+   662→   662→                      <div className="h-10 flex items-center">
+   663→   663→                        <span className="text-[11px] text-muted-foreground/50 italic">
+   664→   664→                          No slots
+   665→   665→                        </span>
+   666→   666→                      </div>
+   667→   667→                    )}
+   668→   668→                  </div>
+   669→   669→                </div>
+   670→   670→              );
+   671→   671→            })}
+   672→   672→
+   673→   673→            {/* End of day */}
+   674→   674→            <div className="flex min-h-10">
+   675→   675→              <div className="w-16 sm:w-20 shrink-0 text-right pr-3 pt-2">
+   676→   676→                <span className="text-xs font-medium text-muted-foreground tabular-nums">
+   677→   677→                  7 pm
+   678→   678→                </span>
+   679→   679→              </div>
+   680→   680→              <div className="flex-1 border-l-2 border-dashed border-emerald-200 ml-1" />
+   681→   681→            </div>
+   682→   682→          </div>
+   683→   683→        </CardContent>
+   684→   684→      </Card>
+   685→   685→
+   686→   686→      {/* ---- Footer info ---- */}
+   687→   687→      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground pb-2">
+   688→   688→        <div className="flex items-center gap-1.5">
+   689→   689→          <div className="size-3 rounded-sm bg-emerald-200 border border-emerald-300" />
+   690→   690→          <span>Available</span>
+   691→   691→        </div>
+   692→   692→        <div className="flex items-center gap-1.5">
+   693→   693→          <div className="size-3 rounded-sm bg-emerald-500" />
+   694→   694→          <span>Booked</span>
+   695→   695→        </div>
+   696→   696→        <div className="flex items-center gap-1.5">
+   697→   697→          <div className="size-3 rounded-sm bg-blue-400" />
+   698→   698→          <span>Checked In</span>
+   699→   699→        </div>
+   700→   700→        <div className="flex items-center gap-1.5">
+   701→   701→          <div className="size-3 rounded-sm bg-gray-300 border border-gray-400" />
+   702→   702→          <span>Blocked / Closed</span>
+   703→   703→        </div>
+   704→   704→        <div className="flex items-center gap-1.5">
+   705→   705→          <div className="size-3 rounded-sm bg-purple-300 border border-purple-400" />
+   706→   706→          <span>Booked Externally</span>
+   707→   707→        </div>
+   708→   708→        <div className="flex items-center gap-1.5">
+   709→   709→          <div className="size-3 rounded-full bg-red-500" />
+   710→   710→          <span>Current Time</span>
+   711→   711→        </div>
+   712→   712→      </div>
+   713→   713→    </div>
+   714→   714→  );
+   715→   715→}

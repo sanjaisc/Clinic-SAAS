@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import type { DoctASessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cache } from "@/lib/cache";
-import { subDays, format, startOfDay, endOfDay } from "date-fns";
+import { subDays, format, startOfDay, endOfDay, parseISO } from "date-fns";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,13 +36,27 @@ export async function GET(request: NextRequest) {
     }
 
     const period = request.nextUrl.searchParams.get("period") || "30d";
-    const daysMap: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
-    const days = daysMap[period] ?? 30;
-    const now = new Date();
-    const periodStart = startOfDay(subDays(now, days - 1));
-    const periodEnd = endOfDay(now);
+    const dateFromParam = request.nextUrl.searchParams.get("dateFrom");
+    const dateToParam = request.nextUrl.searchParams.get("dateTo");
 
-    const cacheKey = `analytics:${targetClinicId}:${period}:${format(now, "yyyy-MM-dd")}`;
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date;
+    let days: number;
+
+    // Custom date range takes precedence
+    if (dateFromParam && dateToParam) {
+      periodStart = startOfDay(parseISO(dateFromParam));
+      periodEnd = endOfDay(parseISO(dateToParam));
+      days = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)));
+    } else {
+      const daysMap: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90, "today": 1 };
+      days = daysMap[period] ?? 30;
+      periodStart = startOfDay(subDays(now, days - 1));
+      periodEnd = endOfDay(now);
+    }
+
+    const cacheKey = `analytics:${targetClinicId}:${period}:${dateFromParam || ""}:${dateToParam || ""}:${format(now, "yyyy-MM-dd-HH")}`;
 
     const data = await cache.getOrSet(cacheKey, async () => {
       return buildAnalytics(targetClinicId, periodStart, periodEnd, days);
@@ -275,6 +289,74 @@ async function buildAnalytics(
   const busiestHourLabel =
     busiestHour >= 0 ? `${busiestHour.toString().padStart(2, "0")}:00` : "N/A";
 
+  // ---------------------------------------------------------------
+  // 6. No-Show Distribution by Day of Week
+  // ---------------------------------------------------------------
+  const noShowAppointments = await db.appointment.findMany({
+    where: {
+      clinicId,
+      status: "NO_SHOW",
+      startTime: { gte: periodStart, lte: periodEnd },
+    },
+    select: { startTime: true },
+  });
+
+  const noShowByDayMap = new Map<string, number>();
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  for (const label of dayLabels) {
+    noShowByDayMap.set(label, 0);
+  }
+
+  for (const a of noShowAppointments) {
+    // JS getDay(): Sun=0, Mon=1, ..., Sat=6
+    // Convert to Mon=0, Tue=1, ..., Sun=6
+    const jsDay = new Date(a.startTime).getDay();
+    const dayIndex = jsDay === 0 ? 6 : jsDay - 1; // Mon=0 ... Sun=6
+    const label = dayLabels[dayIndex];
+    noShowByDayMap.set(label, (noShowByDayMap.get(label) || 0) + 1);
+  }
+
+  const noShowByDay = dayLabels.map((day) => ({
+    day,
+    count: noShowByDayMap.get(day) || 0,
+  }));
+
+  // ---------------------------------------------------------------
+  // 7. Deposit Capture Volume (daily totals)
+  // ---------------------------------------------------------------
+  const depositCaptures = await db.appointmentLedger.findMany({
+    where: {
+      type: "DEPOSIT_CAPTURE",
+      createdAt: { gte: periodStart, lte: periodEnd },
+    },
+    select: { amountCents: true, createdAt: true },
+  });
+
+  const depositCaptureMap = new Map<string, { amountCents: number; count: number }>();
+
+  for (const entry of depositCaptures) {
+    const dateStr = format(new Date(entry.createdAt), "yyyy-MM-dd");
+    if (!depositCaptureMap.has(dateStr)) {
+      depositCaptureMap.set(dateStr, { amountCents: 0, count: 0 });
+    }
+    const bucket = depositCaptureMap.get(dateStr)!;
+    bucket.amountCents += entry.amountCents;
+    bucket.count += 1;
+  }
+
+  // Fill in all days in the range
+  const depositCapture: Array<{ date: string; amountCents: number; count: number }> = [];
+  for (let i = 0; i < days; i++) {
+    const d = subDays(periodEnd, days - 1 - i);
+    const dateStr = format(d, "yyyy-MM-dd");
+    const bucket = depositCaptureMap.get(dateStr);
+    depositCapture.push({
+      date: dateStr,
+      amountCents: bucket?.amountCents ?? 0,
+      count: bucket?.count ?? 0,
+    });
+  }
+
   return {
     period: {
       start: format(periodStart, "yyyy-MM-dd"),
@@ -286,5 +368,7 @@ async function buildAnalytics(
     summary,
     busiestDay,
     busiestHour: busiestHourLabel,
+    noShowByDay,
+    depositCapture,
   };
 }

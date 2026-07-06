@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
@@ -36,6 +36,14 @@ import {
   Check,
   ArrowRight,
   RefreshCw,
+  LayoutGrid,
+  List,
+  Video,
+  Link2,
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { QrCodeDisplay } from "@/components/qr-code-display";
@@ -66,6 +74,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   Popover,
@@ -104,7 +122,7 @@ interface AppointmentRow {
   intakeCompleted: boolean;
   insuranceVerified: boolean;
   createdAt: string;
-  provider: { id: string; firstName: string; lastName: string; credentials: string | null };
+  provider: { id: string; firstName: string; lastName: string; credentials: string | null; videoVisitLink?: string | null };
   service: { id: string; name: string };
   slot: { id: string; modality: string; status: string };
   insurance: { id: string; name: string; isDemo: boolean } | null;
@@ -167,7 +185,7 @@ interface WaitlistRow {
   expiresAt: string | null;
   createdAt: string;
   providerName: string;
-  specialtyName: string;
+  serviceName: string;
 }
 
 // =============================================================================
@@ -248,6 +266,7 @@ export default function AppointmentsPage() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editDob, setEditDob] = useState("");
   const [editInsuranceVerified, setEditInsuranceVerified] = useState(false);
   const [patientSaving, setPatientSaving] = useState(false);
 
@@ -275,6 +294,29 @@ export default function AppointmentsPage() {
   const [rescheduleSlotsLoading, setRescheduleSlotsLoading] = useState(false);
   const [rescheduleSelectedSlotId, setRescheduleSelectedSlotId] = useState("");
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+
+  // Feature 1.1: Column sorting
+  const [sortField, setSortField] = useState<string>("startTime");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // Feature 1.2: Grid/table view toggle
+  const [listView, setListView] = useState<"table" | "grid">("table");
+
+  // Feature 5.1: Video link manager
+  const [editVideoLink, setEditVideoLink] = useState("");
+  const [videoLinkSaving, setVideoLinkSaving] = useState(false);
+  const [videoLinkSending, setVideoLinkSending] = useState(false);
+
+  // Feature 6.1: Payment request
+  const [paymentRequestSending, setPaymentRequestSending] = useState(false);
+  const [paymentRequestAmount, setPaymentRequestAmount] = useState("");
+
+  // Feature 6.2: Refund confirmation
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+
+  // Feature 7.1: Conflict alert
+  const [conflictIds, setConflictIds] = useState<Set<string>>(new Set());
 
   // Build query params
   const buildQuery = useCallback(
@@ -375,6 +417,78 @@ export default function AppointmentsPage() {
     })();
   }, [clinicId]);
 
+  // Fetch conflict IDs on mount
+  useEffect(() => {
+    if (!clinicId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/staff/appointments/conflicts?clinicId=${clinicId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const ids = new Set<string>();
+          for (const group of (data.conflicts || []) as Array<{ appointments: Array<{ id: string }> }>) {
+            for (const apt of group.appointments) {
+              ids.add(apt.id);
+            }
+          }
+          setConflictIds(ids);
+        }
+      } catch {
+        // non-critical
+      }
+    })();
+  }, [clinicId]);
+
+  // Feature 1.1: Client-side sorting
+  const sortedAppointments = useMemo(() => {
+    const sorted = [...appointments];
+    const dir = sortDir === "asc" ? 1 : -1;
+    sorted.sort((a, b) => {
+      let valA: string;
+      let valB: string;
+      switch (sortField) {
+        case "startTime":
+          valA = a.startTime;
+          valB = b.startTime;
+          break;
+        case "patientName":
+          valA = a.patientName.toLowerCase();
+          valB = b.patientName.toLowerCase();
+          break;
+        case "provider": {
+          valA = `${a.provider.lastName} ${a.provider.firstName}`.toLowerCase();
+          valB = `${b.provider.lastName} ${b.provider.firstName}`.toLowerCase();
+          break;
+        }
+        case "status":
+          valA = a.status;
+          valB = b.status;
+          break;
+        default:
+          valA = a.startTime;
+          valB = b.startTime;
+      }
+      if (valA < valB) return -1 * dir;
+      if (valA > valB) return 1 * dir;
+      return 0;
+    });
+    return sorted;
+  }, [appointments, sortField, sortDir]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-emerald-600" /> : <ArrowDown className="size-3 ml-1 text-emerald-600" />;
+  };
+
   // Open detail dialog
   const openDetail = async (id: string) => {
     setSelectedId(id);
@@ -382,6 +496,7 @@ export default function AppointmentsPage() {
     setDetail(null);
     setNoteContent("");
     setEditingPatient(false);
+    setPaymentRequestAmount("");
     try {
       const res = await fetch(`/api/staff/appointments/${id}`);
       if (!res.ok) throw new Error("Failed to load appointment");
@@ -391,7 +506,10 @@ export default function AppointmentsPage() {
       setEditName(data.patientName);
       setEditEmail(data.patientEmail);
       setEditPhone(data.patientPhone);
+      setEditDob(data.patientDob ? format(parseISO(data.patientDob), "yyyy-MM-dd") : "");
       setEditInsuranceVerified(data.insuranceVerified ?? false);
+      // Populate video link
+      setEditVideoLink(data.provider?.videoVisitLink || "");
     } catch {
       setDetail(null);
     } finally {
@@ -454,7 +572,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Save patient contact details + insurance verified
+  // Save patient contact details + insurance verified + DOB
   const handleSavePatient = async () => {
     if (!selectedId || !detail) return;
     setPatientSaving(true);
@@ -463,6 +581,7 @@ export default function AppointmentsPage() {
         patientName: editName,
         patientEmail: editEmail,
         patientPhone: editPhone,
+        patientDob: editDob,
         insuranceVerified: editInsuranceVerified,
       };
       const res = await fetch(`/api/staff/appointments/${selectedId}`, {
@@ -608,6 +727,7 @@ export default function AppointmentsPage() {
       const actionLabels: Record<string, string> = {
         OFFERED: "marked as offered",
         EXPIRED: "marked as expired",
+        REMOVED: "removed",
         contact: "contact recorded",
       };
       toast.success(`Entry ${actionLabels[action] || "updated"}`);
@@ -615,6 +735,104 @@ export default function AppointmentsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to update entry");
     } finally {
       setWaitlistActionId(null);
+    }
+  };
+
+  // Feature 5.1: Save video link (on the provider)
+  const handleSaveVideoLink = async () => {
+    if (!selectedId || !detail) return;
+    setVideoLinkSaving(true);
+    try {
+      const res = await fetch(`/api/staff/appointments/${selectedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoVisitLink: editVideoLink }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save video link");
+      }
+      toast.success("Video link saved");
+      // Refresh detail to pick up updated provider data
+      openDetail(selectedId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save video link");
+    } finally {
+      setVideoLinkSaving(false);
+    }
+  };
+
+  // Feature 5.2: Send video link to patient
+  const handleSendVideoLink = async () => {
+    if (!selectedId) return;
+    setVideoLinkSending(true);
+    try {
+      const res = await fetch(`/api/staff/appointments/${selectedId}/send-video-link`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send video link");
+      }
+      toast.success("Video link sent to patient");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send video link");
+    } finally {
+      setVideoLinkSending(false);
+    }
+  };
+
+  // Feature 6.1: Send payment request
+  const handleSendPaymentRequest = async () => {
+    if (!selectedId || !detail) return;
+    const amountCents = Math.round(parseFloat(paymentRequestAmount) * 100);
+    if (!amountCents || amountCents <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    setPaymentRequestSending(true);
+    try {
+      const res = await fetch("/api/staff/payments/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: selectedId, amountCents }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send payment request");
+      }
+      const data = await res.json();
+      toast.success(`Payment request sent — ${data.paymentUrl}`);
+      setPaymentRequestAmount("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send payment request");
+    } finally {
+      setPaymentRequestSending(false);
+    }
+  };
+
+  // Feature 6.2: Manual refund
+  const handleConfirmRefund = async () => {
+    if (!selectedId || !detail) return;
+    setRefundSubmitting(true);
+    try {
+      const res = await fetch("/api/staff/payments/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: selectedId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to process refund");
+      }
+      toast.success("Refund processed successfully");
+      setRefundDialogOpen(false);
+      // Refresh detail
+      openDetail(selectedId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to process refund");
+    } finally {
+      setRefundSubmitting(false);
     }
   };
 
@@ -629,7 +847,7 @@ export default function AppointmentsPage() {
     if (modality === "VIDEO") {
       return (
         <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50">
-          <Calendar className="size-3 mr-1" />
+          <Video className="size-3 mr-1" />
           Video
         </Badge>
       );
@@ -660,20 +878,156 @@ export default function AppointmentsPage() {
     { key: "__WAITLIST__", label: "Waitlist", isWaitlist: true },
   ];
 
-  // Waitlist status styles
+  // Waitlist status styles (Feature 10: fixed labels)
   const WL_STATUS_STYLES: Record<string, string> = {
-    WAITING: "bg-amber-100 text-amber-700 border-amber-200",
+    ACTIVE: "bg-amber-100 text-amber-700 border-amber-200",
     OFFERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
     EXPIRED: "bg-gray-100 text-gray-600 border-gray-200",
-    ACCEPTED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    FULFILLED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    REMOVED: "bg-gray-100 text-gray-600 border-gray-200",
   };
 
   const WL_STATUS_LABELS: Record<string, string> = {
-    WAITING: "Waiting",
+    ACTIVE: "Waiting",
     OFFERED: "Offered",
     EXPIRED: "Expired",
-    ACCEPTED: "Accepted",
+    FULFILLED: "Fulfilled",
+    REMOVED: "Removed",
   };
+
+  // Appointment row actions dropdown (shared between table and grid)
+  const AppointmentActions = ({ apt }: { apt: AppointmentRow }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 cursor-pointer"
+          disabled={transitioningId === apt.id}
+        >
+          {transitioningId === apt.id ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <MoreHorizontal className="size-4" />
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
+          <Eye className="size-3.5 mr-2" />
+          View Details
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {apt.status === "BOOKED" && (
+          <DropdownMenuItem
+            onClick={() => handleTransition(apt.id, "CHECKED_IN")}
+            className="cursor-pointer"
+          >
+            <UserCheck className="size-3.5 mr-2 text-amber-600" />
+            Check In
+          </DropdownMenuItem>
+        )}
+        {apt.status === "BOOKED" && (
+          <DropdownMenuItem
+            onClick={() => openReschedule(apt)}
+            className="cursor-pointer"
+          >
+            <RefreshCw className="size-3.5 mr-2 text-blue-600" />
+            Reschedule
+          </DropdownMenuItem>
+        )}
+        {apt.status === "CHECKED_IN" && (
+          <DropdownMenuItem
+            onClick={() => handleTransition(apt.id, "COMPLETED")}
+            className="cursor-pointer"
+          >
+            <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+            Complete
+          </DropdownMenuItem>
+        )}
+        {(apt.status === "BOOKED" || apt.status === "CHECKED_IN") && (
+          <DropdownMenuItem
+            onClick={() => handleTransition(apt.id, "CANCELLED")}
+            className="cursor-pointer text-red-600 focus:text-red-600"
+          >
+            <XCircle className="size-3.5 mr-2" />
+            Cancel
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+          <DropdownMenuItem
+            onClick={() => {
+              setQrAppointmentId(apt.id);
+              setQrPatientName(apt.patientName);
+            }}
+            className="cursor-pointer"
+          >
+            <QrCode className="size-3.5 mr-2 text-emerald-600" />
+            QR Code
+          </DropdownMenuItem>
+        )}
+        {apt.status === "BOOKED" && (
+          <DropdownMenuItem
+            onClick={() => handleTransition(apt.id, "NO_SHOW")}
+            className="cursor-pointer"
+          >
+            <UserX className="size-3.5 mr-2" />
+            Mark No Show
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // Grid card for an appointment
+  const AppointmentGridCard = ({ apt }: { apt: AppointmentRow }) => (
+    <div
+      className={cn(
+        "rounded-xl border border-border/60 bg-white p-4 shadow-sm hover:shadow-md transition-all",
+        conflictIds.has(apt.id) && "ring-2 ring-orange-300"
+      )}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+            <User className="size-4 text-emerald-600" />
+          </div>
+          <button
+            type="button"
+            onClick={() => openDetail(apt.id)}
+            className="text-left cursor-pointer hover:text-emerald-700 transition-colors min-w-0"
+          >
+            <p className={cn("font-medium truncate text-sm", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+              {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+              {apt.patientName}
+            </p>
+          </button>
+        </div>
+        <AppointmentActions apt={apt} />
+      </div>
+      <div className="space-y-1.5 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <UserCheck className="size-3.5 shrink-0" />
+          <span className="truncate">Dr. {apt.provider.firstName} {apt.provider.lastName}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <FileText className="size-3.5 shrink-0" />
+          <span className="truncate">{apt.service.name}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Clock className="size-3.5 shrink-0" />
+          <span>{format(parseISO(apt.startTime), "h:mm a")}</span>
+          <span className="text-xs">·</span>
+          <span className="text-xs">{format(parseISO(apt.startTime), "MMM d, yyyy")}</span>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <StatusBadge status={apt.status} />
+          <ModalityBadge modality={apt.modality} />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -729,7 +1083,7 @@ export default function AppointmentsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/70" />
             <Input
-              placeholder="Search patient name, email, or phone..."
+              placeholder="Search by name, email, phone, booking ID, or token..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9"
@@ -784,18 +1138,47 @@ export default function AppointmentsPage() {
         )}
       </div>
 
-      {/* Results Count — only show for appointments view */}
+      {/* Results Count + View Toggle — only show for appointments view */}
       {viewMode === "appointments" && (
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {loading ? (
-            "Loading..."
-          ) : (
-            <>
-              <span className="font-medium text-foreground">{total}</span> appointment{total !== 1 ? "s" : ""} found
-            </>
-          )}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {loading ? (
+              "Loading..."
+            ) : (
+              <>
+                <span className="font-medium text-foreground">{total}</span> appointment{total !== 1 ? "s" : ""} found
+              </>
+            )}
+          </p>
+          {/* Grid/Table toggle */}
+          <div className="flex items-center border border-border/60 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setListView("table")}
+              className={cn(
+                "p-1.5 transition-colors cursor-pointer",
+                listView === "table"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white text-muted-foreground hover:bg-muted/60"
+              )}
+              title="Table view"
+            >
+              <List className="size-3.5" />
+            </button>
+            <button
+              onClick={() => setListView("grid")}
+              className={cn(
+                "p-1.5 transition-colors cursor-pointer",
+                listView === "grid"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white text-muted-foreground hover:bg-muted/60"
+              )}
+              title="Grid view"
+            >
+              <LayoutGrid className="size-3.5" />
+            </button>
+          </div>
+        </div>
         {(statusFilter || search || providerFilter || dateFrom !== format(new Date(), "yyyy-MM-dd") || dateTo !== format(addDays(new Date(), 30), "yyyy-MM-dd")) && (
           <button
             onClick={() => {
@@ -826,7 +1209,7 @@ export default function AppointmentsPage() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Joined</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Patient</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Provider</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Specialty</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Contacts</th>
                   <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
@@ -911,10 +1294,10 @@ export default function AppointmentsPage() {
                         <span className="text-sm">{entry.providerName}</span>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell whitespace-nowrap text-muted-foreground">
-                        {entry.specialtyName}
+                        {entry.serviceName}
                       </td>
                       <td className="py-3 px-4">
-                        <Badge className={`${WL_STATUS_STYLES[entry.status] || WL_STATUS_STYLES.WAITING} border`}>
+                        <Badge className={`${WL_STATUS_STYLES[entry.status] || WL_STATUS_STYLES.ACTIVE} border`}>
                           {WL_STATUS_LABELS[entry.status] || entry.status}
                         </Badge>
                       </td>
@@ -945,7 +1328,7 @@ export default function AppointmentsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-                            {entry.status === "WAITING" && (
+                            {entry.status === "ACTIVE" && (
                               <DropdownMenuItem
                                 onClick={() => handleWaitlistAction(entry.id, "OFFERED")}
                                 className="cursor-pointer"
@@ -961,17 +1344,24 @@ export default function AppointmentsPage() {
                               <Phone className="size-3.5 mr-2 text-amber-600" />
                               Record Contact
                             </DropdownMenuItem>
-                            {(entry.status === "WAITING" || entry.status === "OFFERED") && (
-                              <DropdownMenuSeparator />
-                            )}
-                            {(entry.status === "WAITING" || entry.status === "OFFERED") && (
-                              <DropdownMenuItem
-                                onClick={() => handleWaitlistAction(entry.id, "EXPIRED")}
-                                className="cursor-pointer text-red-600 focus:text-red-600"
-                              >
-                                <XCircle className="size-3.5 mr-2" />
-                                Mark as Expired
-                              </DropdownMenuItem>
+                            {(entry.status === "ACTIVE" || entry.status === "OFFERED") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleWaitlistAction(entry.id, "EXPIRED")}
+                                  className="cursor-pointer text-red-600 focus:text-red-600"
+                                >
+                                  <XCircle className="size-3.5 mr-2" />
+                                  Mark as Expired
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleWaitlistAction(entry.id, "REMOVED")}
+                                  className="cursor-pointer text-red-600 focus:text-red-600"
+                                >
+                                  <UserX className="size-3.5 mr-2" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -985,16 +1375,59 @@ export default function AppointmentsPage() {
         </div>
       ) : (
       <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+        {/* Feature 7.1: Conflict banner */}
+        {conflictIds.size > 0 && (
+          <div className="bg-orange-50 border-b border-orange-200 px-4 py-2.5 flex items-center gap-2">
+            <AlertTriangle className="size-4 text-orange-600 shrink-0" />
+            <p className="text-sm text-orange-700 font-medium">
+              ⚠️ {conflictIds.size} potential double-booking{conflictIds.size !== 1 ? "s" : ""} detected
+            </p>
+          </div>
+        )}
+
+        {listView === "table" ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/60 bg-muted/30">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Time</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Patient</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Provider</th>
+                <th
+                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+                  onClick={() => handleSort("startTime")}
+                >
+                  <span className="inline-flex items-center">
+                    Time
+                    <SortIcon field="startTime" />
+                  </span>
+                </th>
+                <th
+                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+                  onClick={() => handleSort("patientName")}
+                >
+                  <span className="inline-flex items-center">
+                    Patient
+                    <SortIcon field="patientName" />
+                  </span>
+                </th>
+                <th
+                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell cursor-pointer hover:text-foreground transition-colors select-none"
+                  onClick={() => handleSort("provider")}
+                >
+                  <span className="inline-flex items-center">
+                    Provider
+                    <SortIcon field="provider" />
+                  </span>
+                </th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Modality</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                <th
+                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+                  onClick={() => handleSort("status")}
+                >
+                  <span className="inline-flex items-center">
+                    Status
+                    <SortIcon field="status" />
+                  </span>
+                </th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
               </tr>
             </thead>
@@ -1026,7 +1459,7 @@ export default function AppointmentsPage() {
                     </Button>
                   </td>
                 </tr>
-              ) : appointments.length === 0 ? (
+              ) : sortedAppointments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
@@ -1043,12 +1476,12 @@ export default function AppointmentsPage() {
                   </td>
                 </tr>
               ) : (
-                appointments.map((apt, index) => (
+                sortedAppointments.map((apt, index) => (
                   <tr
                     key={apt.id}
                     className={`border-b border-border/30 transition-colors hover:bg-emerald-50/30 ${
                       index % 2 === 0 ? "bg-white" : "bg-muted/15"
-                    }`}
+                    } ${conflictIds.has(apt.id) ? "bg-orange-50/40" : ""}`}
                   >
                     <td className="py-3 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
@@ -1071,7 +1504,10 @@ export default function AppointmentsPage() {
                           <User className="size-3.5 text-emerald-600" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{apt.patientName}</p>
+                          <p className={cn("font-medium truncate", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+                            {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+                            {apt.patientName}
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {apt.patientEmail}
                           </p>
@@ -1093,87 +1529,7 @@ export default function AppointmentsPage() {
                       <StatusBadge status={apt.status} />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 cursor-pointer"
-                            disabled={transitioningId === apt.id}
-                          >
-                            {transitioningId === apt.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="size-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
-                            <Eye className="size-3.5 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {apt.status === "BOOKED" && (
-                            <DropdownMenuItem
-                              onClick={() => handleTransition(apt.id, "CHECKED_IN")}
-                              className="cursor-pointer"
-                            >
-                              <UserCheck className="size-3.5 mr-2 text-amber-600" />
-                              Check In
-                            </DropdownMenuItem>
-                          )}
-                          {apt.status === "BOOKED" && (
-                            <DropdownMenuItem
-                              onClick={() => openReschedule(apt)}
-                              className="cursor-pointer"
-                            >
-                              <RefreshCw className="size-3.5 mr-2 text-blue-600" />
-                              Reschedule
-                            </DropdownMenuItem>
-                          )}
-                          {apt.status === "CHECKED_IN" && (
-                            <DropdownMenuItem
-                              onClick={() => handleTransition(apt.id, "COMPLETED")}
-                              className="cursor-pointer"
-                            >
-                              <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
-                              Complete
-                            </DropdownMenuItem>
-                          )}
-                          {(apt.status === "BOOKED" || apt.status === "CHECKED_IN") && (
-                            <DropdownMenuItem
-                              onClick={() => handleTransition(apt.id, "CANCELLED")}
-                              className="cursor-pointer text-red-600 focus:text-red-600"
-                            >
-                              <XCircle className="size-3.5 mr-2" />
-                              Cancel
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setQrAppointmentId(apt.id);
-                                setQrPatientName(apt.patientName);
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <QrCode className="size-3.5 mr-2 text-emerald-600" />
-                              QR Code
-                            </DropdownMenuItem>
-                          )}
-                          {apt.status === "BOOKED" && (
-                            <DropdownMenuItem
-                              onClick={() => handleTransition(apt.id, "NO_SHOW")}
-                              className="cursor-pointer"
-                            >
-                              <UserX className="size-3.5 mr-2" />
-                              Mark No Show
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <AppointmentActions apt={apt} />
                     </td>
                   </tr>
                 ))
@@ -1181,9 +1537,61 @@ export default function AppointmentsPage() {
             </tbody>
           </table>
         </div>
+        ) : (
+        <div className="p-4">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border/60 p-4 space-y-3">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-20" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center">
+              <p className="text-sm text-red-500">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchAppointments}
+                className="mt-2"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : sortedAppointments.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Calendar className="size-5 text-muted-foreground/60" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+                <p className="text-xs text-muted-foreground/70">
+                  {statusFilter || search || providerFilter
+                    ? "Try adjusting your filters"
+                    : "No upcoming appointments in this date range."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sortedAppointments.map((apt) => (
+                <AppointmentGridCard key={apt.id} apt={apt} />
+              ))}
+            </div>
+          )}
+        </div>
+        )}
 
         {/* Pagination */}
-        {!loading && totalPages > 1 && (
+        {!loading && totalPages > 1 && listView === "table" && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 bg-muted/20">
             <p className="text-xs text-muted-foreground">
               Page {page} of {totalPages}
@@ -1469,6 +1877,35 @@ export default function AppointmentsPage() {
       </Dialog>
 
       {/* ================================================================== */}
+      {/* REFUND CONFIRMATION DIALOG (Feature 6.2)                           */}
+      {/* ================================================================== */}
+      <AlertDialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Refund</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to refund{" "}
+              <span className="font-semibold text-foreground">
+                {detail?.ledger ? formatCents(detail.ledger.amountCents) : ""}
+              </span>
+              ? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={refundSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRefund}
+              disabled={refundSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {refundSubmitting && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+              Confirm Refund
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ================================================================== */}
       {/* DETAIL DIALOG                                                      */}
       {/* ================================================================== */}
       <Dialog
@@ -1583,6 +2020,7 @@ export default function AppointmentsPage() {
                             setEditName(detail.patientName);
                             setEditEmail(detail.patientEmail);
                             setEditPhone(detail.patientPhone);
+                            setEditDob(detail.patientDob ? format(parseISO(detail.patientDob), "yyyy-MM-dd") : "");
                             setEditInsuranceVerified(detail.insuranceVerified ?? false);
                           }}
                         >
@@ -1627,6 +2065,20 @@ export default function AppointmentsPage() {
                             type="email"
                             value={editEmail}
                             onChange={(e) => setEditEmail(e.target.value)}
+                            className="h-9 text-sm"
+                            disabled={patientSaving}
+                          />
+                        </div>
+                        {/* Feature 3.1: DOB Edit */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor="edit-patient-dob" className="text-xs font-medium text-muted-foreground">
+                            Date of Birth
+                          </Label>
+                          <Input
+                            id="edit-patient-dob"
+                            type="date"
+                            value={editDob}
+                            onChange={(e) => setEditDob(e.target.value)}
                             className="h-9 text-sm"
                             disabled={patientSaving}
                           />
@@ -1754,6 +2206,61 @@ export default function AppointmentsPage() {
                   </div>
                 </div>
 
+                {/* Feature 5.1 & 5.2: Telehealth / Video Link Section */}
+                {detail.modality === "VIDEO" && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                    <h4 className="text-sm font-semibold flex items-center gap-2 text-blue-700">
+                      <Video className="size-4" />
+                      Telehealth
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="edit-video-link" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                          Video Link
+                        </Label>
+                        <Input
+                          id="edit-video-link"
+                          value={editVideoLink}
+                          onChange={(e) => setEditVideoLink(e.target.value)}
+                          placeholder="https://meet.example.com/..."
+                          className="h-9 text-sm flex-1"
+                          disabled={videoLinkSaving}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs cursor-pointer border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
+                          disabled={videoLinkSaving || !editVideoLink.trim()}
+                          onClick={handleSaveVideoLink}
+                        >
+                          {videoLinkSaving ? (
+                            <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Link2 className="size-3.5 mr-1.5" />
+                          )}
+                          Save Link
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700"
+                          disabled={videoLinkSending || !editVideoLink.trim()}
+                          onClick={handleSendVideoLink}
+                        >
+                          {videoLinkSending ? (
+                            <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Send className="size-3.5 mr-1.5" />
+                          )}
+                          Send Video Link
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Insurance Info */}
                 <div className="rounded-lg border border-border/60 p-4">
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
@@ -1833,6 +2340,61 @@ export default function AppointmentsPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Feature 6.1: Send Payment Request */}
+                    <Separator className="my-3" />
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        Send Payment Request
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder={detail.selfPayCents > 0 ? formatCents(detail.selfPayCents) : "0.00"}
+                            value={paymentRequestAmount}
+                            onChange={(e) => setPaymentRequestAmount(e.target.value)}
+                            className="pl-8 h-8 text-sm"
+                            disabled={paymentRequestSending}
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                          disabled={paymentRequestSending || !paymentRequestAmount || parseFloat(paymentRequestAmount) <= 0}
+                          onClick={handleSendPaymentRequest}
+                        >
+                          {paymentRequestSending ? (
+                            <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Send className="size-3.5 mr-1.5" />
+                          )}
+                          Send Request
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Feature 6.2: Manual Refund Override */}
+                    {detail.paymentStatus === "AUTHORIZED" || detail.paymentStatus === "CAPTURED" ? (
+                      <>
+                        <Separator className="my-3" />
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">Manual Actions</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs cursor-pointer border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => setRefundDialogOpen(true)}
+                          >
+                            <DollarSign className="size-3.5 mr-1.5" />
+                            Refund Deposit ({formatCents(detail.ledger.amountCents)})
+                          </Button>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 )}
 

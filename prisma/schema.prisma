@@ -532,6 +532,8 @@ model WaitlistEntry {
   dateTo          DateTime                        // End of patient's date range
   modality        String?                        // Preference: IN_PERSON, VIDEO, or null = any
   status          String   @default("ACTIVE")    // ACTIVE|OFFERED|FULFILLED|EXPIRED|REMOVED
+  contactCount    Int       @default(0)            // Number of times staff contacted this patient
+  lastContactAt   DateTime?                       // Most recent staff contact attempt
   offeredAt       DateTime?                       // When a waitlist offer email was sent
   offerExpiresAt  DateTime?                       // Short-lived hold link expiry
   createdAt       DateTime @default(now())
