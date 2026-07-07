@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
         email: normalizedEmail,
         tokenHash,
         role: role || "CLINIC_RECEPTION",
+        createdBy: session.user.id,
         expiresAt,
       },
     });

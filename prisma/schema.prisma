@@ -28,6 +28,7 @@ model SystemConfig {
   slotGenerationWindowDays    Int      @default(90)
   waitlistProcessingDelayMin  Int      @default(3)
   zeroDepositRequireCard      Boolean  @default(false)
+  reviewEmailTriggerHours     Int      @default(24)      // Hours post-appointment to trigger review email (C4)
   platformFeeCents            Int      @default(0)
   updatedAt                   DateTime @updatedAt
 }
@@ -62,6 +63,7 @@ model Service {
   durationMinutes      Int     @default(30)
   selfPayPriceCents    Int     @default(0)       // $0 = not set
   selfPayPaymentType   String  @default("STANDARD_DEPOSIT") // FULL_UPFRONT | STANDARD_DEPOSIT
+  isBookable           Boolean @default(true)         // Global bookable flag (A2)
   isActive             Boolean @default(true)
   sortOrder            Int     @default(0)
   createdAt            DateTime @default(now())
@@ -586,7 +588,8 @@ model StaffInvitation {
   clinicId    String
   email       String                        // invited email
   tokenHash   String   @unique               // SHA-256 of secure token
-  role        String   @default("CLINIC_RECEPTION") // CLINIC_RECEPTION only for scoped invites
+  role        String   @default("CLINIC_RECEPTION") // CLINIC_RECEPTION | CLINIC_ADMIN | SYSTEM_MANAGER
+  createdBy   String?                                 // User ID who created the invitation (D3)
   expiresAt   DateTime
   acceptedAt  DateTime?                      // null = pending
   acceptedBy  String?                        // User ID of who accepted
@@ -666,4 +669,39 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([appointmentId])
   @@index([createdAt])                            // For date-range queries
+}
+
+/// System error logs for platform operations (F3).
+/// Stores API errors, failed JWT authentications, cron job failures.
+model SystemErrorLog {
+  id          String   @id @default(cuid())
+  level       String   @default("ERROR")           // ERROR | WARN | INFO
+  source      String                           // e.g., "API", "AUTH", "CRON", "SLOT_GEN", "LOCK_SWEEP", "WAITLIST"
+  message     String                           // Error message
+  path        String?                          // API route or module path
+  stack       String?                          // Stack trace (truncated)
+ resolved    Boolean  @default(false)
+  resolvedBy  String?                          // userId of who resolved
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([level, createdAt])
+  @@index([source, createdAt])
+  @@index([resolved])
+}
+
+/// Conversion tracking events for analytics (G2).
+model ConversionEvent {
+  id          String   @id @default(cuid())
+  sessionId   String                           // Anonymous session ID (from cookie)
+  eventType   String                           // SEARCH | CLINIC_VIEW | BOOKING_START | BOOKING_COMPLETE | RECOMMENDATION_ACCEPT
+  clinicId    String?
+  providerId  String?
+  metadata    String?                          // JSON string for extra data
+  ipHash      String?                          // Hashed IP for fraud detection
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, eventType, createdAt])
+  @@index([eventType, createdAt])
+  @@index([clinicId, eventType, createdAt])
 }
