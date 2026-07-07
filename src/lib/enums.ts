@@ -252,3 +252,57 @@ export const PAYMENT_METHOD = {
 } as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHOD)[keyof typeof PAYMENT_METHOD];
+
+// ---- Reschedule Policy ----
+export const RESCHEDULE_POLICY = {
+  FORFEIT_ON_LATE: "FORFEIT_ON_LATE",
+  TRANSFER_ON_LATE: "TRANSFER_ON_LATE",
+  ALLOW_1_GRACE_TRANSFER: "ALLOW_1_GRACE_TRANSFER",
+} as const;
+
+export type ReschedulePolicy =
+  (typeof RESCHEDULE_POLICY)[keyof typeof RESCHEDULE_POLICY];
+
+export const RESCHEDULE_POLICIES: readonly ReschedulePolicy[] =
+  Object.values(RESCHEDULE_POLICY);
+
+export function isValidReschedulePolicy(value: string): value is ReschedulePolicy {
+  return RESCHEDULE_POLICIES.includes(value as ReschedulePolicy);
+}
+
+// ---- Email Template Types ----
+export const EMAIL_TEMPLATE_TYPE = {
+  BOOKING_CONFIRMATION: "BOOKING_CONFIRMATION",
+  CANCELLATION: "CANCELLATION",
+  RESCHEDULE: "RESCHEDULE",
+  REMINDER: "REMINDER",
+  INTAKE: "INTAKE",
+  REVIEW_REQUEST: "REVIEW_REQUEST",
+  PAYMENT_REQUEST: "PAYMENT_REQUEST",
+} as const;
+
+export type EmailTemplateType =
+  (typeof EMAIL_TEMPLATE_TYPE)[keyof typeof EMAIL_TEMPLATE_TYPE];
+
+export const EMAIL_TEMPLATE_TYPES: readonly EmailTemplateType[] =
+  Object.values(EMAIL_TEMPLATE_TYPE);
+
+// ---- Days of Week ----
+export const DAYS_OF_WEEK = [
+  { value: 0, label: "Sunday", short: "Sun" },
+  { value: 1, label: "Monday", short: "Mon" },
+  { value: 2, label: "Tuesday", short: "Tue" },
+  { value: 3, label: "Wednesday", short: "Wed" },
+  { value: 4, label: "Thursday", short: "Thu" },
+  { value: 5, label: "Friday", short: "Fri" },
+  { value: 6, label: "Saturday", short: "Sat" },
+] as const;
+
+// ---- Intake Reminder Cadence ----
+export const INTAKE_CADENCE = {
+  DO_NOT_SEND: "DO_NOT_SEND",
+  THREE_AND_ONE_DAY: "3,1",
+  ONE_DAY: "1",
+  THREE_DAY: "3",
+  SEVEN_AND_ONE_DAY: "7,1",
+} as const;

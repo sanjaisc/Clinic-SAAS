@@ -142,16 +142,23 @@ model Clinic {
   status                  String   @default("DRAFT") // DRAFT|PENDING|PUBLISHED|SUSPENDED|ARCHIVED
 
   // Financial configuration
-  inPersonDepositCents    Int      @default(2500)    // $25.00
-  videoDepositCents       Int      @default(0)       // $0.00
-  selfPayFlatRateCents    Int      @default(0)       // per-visit flat rate
-  cancellationLeadTimeMin Int      @default(1440)    // 24 hours in minutes
+  inPersonDepositCents       Int      @default(2500)    // $25.00
+  videoDepositCents          Int      @default(0)       // $0.00
+  selfPayFlatRateCents       Int      @default(0)       // per-visit flat rate
+  cancellationLeadTimeMin    Int      @default(1440)    // 24 hours in minutes
+  videoCancellationLeadTimeMin Int  @default(120)     // 2 hours in minutes
+  reschedulePolicy           String   @default("FORFEIT_ON_LATE") // FORFEIT_ON_LATE|TRANSFER_ON_LATE|ALLOW_1_GRACE_TRANSFER
+
+  // Patient experience
+  parkingInstructions       String?              // parking info (WYSIWYG)
+  visitInstructions         String?              // visit/arrival info (WYSIWYG)
 
   // Email / communication
-  emailFromName           String?
-  customEmailHeader       String?
-  commonInstructions      String?              // parking, arrival info (WYSIWYG)
-  intakeReminderDays      String   @default("3,1") // comma-separated days before appt
+  emailFromName             String?
+  customEmailHeader         String?
+  commonInstructions        String?              // parking, arrival info (WYSIWYG)
+  intakeReminderDays        String   @default("3,1") // comma-separated days before appt
+  intakeFormIds             String?              // JSON: {serviceId: "formId", ...}
 
   // Visibility
   isFeatured              Boolean  @default(false)
@@ -174,6 +181,8 @@ model Clinic {
   staff                   User[]
   reviews                 Review[]
   waitlistEntries         WaitlistEntry[]
+  emailTemplates          EmailTemplate[]
+  staffInvitations        StaffInvitation[]
 
   @@index([status])
   @@index([latitude, longitude])
@@ -552,6 +561,44 @@ model WaitlistEntry {
 // =============================================================================
 // SECTION 12: Clinic Closures / Holidays
 // =============================================================================
+
+/// Email templates for automated communications.
+/// Safe-Mode WYSIWYG: stores HTML, source code editing is disabled.
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  clinicId    String
+  type        String                        // e.g., BOOKING_CONFIRMATION, CANCELLATION, RESCHEDULE, REMINDER, INTAKE, REVIEW_REQUEST, PAYMENT_REQUEST
+  subject     String                        // email subject line
+  bodyHtml    String                        // HTML body (safe-mode edited)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, type])
+  @@index([clinicId])
+}
+
+/// One-time-use staff invitation links.
+model StaffInvitation {
+  id          String   @id @default(cuid())
+  clinicId    String
+  email       String                        // invited email
+  tokenHash   String   @unique               // SHA-256 of secure token
+  role        String   @default("CLINIC_RECEPTION") // CLINIC_RECEPTION only for scoped invites
+  expiresAt   DateTime
+  acceptedAt  DateTime?                      // null = pending
+  acceptedBy  String?                        // User ID of who accepted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, email])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
 
 /// Clinic closures suppress all generated available slots in the timeframe.
 model ClinicClosure {
