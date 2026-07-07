@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Building2,
@@ -30,7 +30,6 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
 
@@ -46,12 +45,6 @@ export default function SettingsLayout({
         </div>
       </div>
     );
-  }
-
-  // Redirect /staff/dashboard/settings to /staff/dashboard/settings/profile
-  if (pathname === "/staff/dashboard/settings") {
-    router.replace("/staff/dashboard/settings/profile");
-    return null;
   }
 
   return (
