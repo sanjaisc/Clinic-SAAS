@@ -21,6 +21,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import { AUDIT_ACTIONS } from "@/lib/constants";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
 
 // ---- Types ----
 
@@ -240,6 +242,13 @@ function NotificationCard({ notification, index }: { notification: ActivityNotif
 export default function ActivityPage() {
   const { data: session, status } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const {
+    clinicId: effectiveClinicId,
+    isSystemManager,
+    clinics,
+    setClinicId,
+    clinicsLoading,
+  } = useClinicContext();
 
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,10 +258,10 @@ export default function ActivityPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user?.clinicId) return;
+    if (!effectiveClinicId) return;
     try {
       const res = await fetch(
-        `/api/staff/notifications?clinicId=${user.clinicId}`
+        `/api/staff/notifications?clinicId=${effectiveClinicId}`
       );
       if (!res.ok) return;
       const json: NotificationsResponse = await res.json();
@@ -263,7 +272,7 @@ export default function ActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [effectiveClinicId]);
 
   // Initial fetch + 30-second polling
   useEffect(() => {
@@ -312,6 +321,16 @@ export default function ActivityPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
+      {/* Clinic selector for SYSTEM_MANAGER */}
+      {isSystemManager && (
+        <ClinicSelectorBar
+          clinics={clinics}
+          selectedId={effectiveClinicId}
+          onSelect={setClinicId}
+          loading={clinicsLoading}
+        />
+      )}
+
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

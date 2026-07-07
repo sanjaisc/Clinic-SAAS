@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 import { DAYS_OF_WEEK, PROVIDER_STATUS, SLOT_MODALITY } from "@/lib/enums";
 
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,7 @@ function statusColor(status: string): string {
 export default function ProvidersPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   // ── Data State ──
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
@@ -215,10 +217,10 @@ export default function ProvidersPage() {
   // ─── Fetch Providers ─────────────────────────────────────────────────────────
 
   const fetchProviders = useCallback(async () => {
-    if (!user?.clinicId) return;
+    if (!clinicId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/staff/providers?clinicId=${user.clinicId}`);
+      const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to fetch providers");
       const data = await res.json();
       setProviders(data.providers || []);
@@ -227,15 +229,15 @@ export default function ProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   // ─── Fetch Services (for mapping) ───────────────────────────────────────────
 
   const fetchServices = useCallback(async () => {
-    if (!user?.clinicId) return;
+    if (!clinicId) return;
     setServicesLoading(true);
     try {
-      const res = await fetch(`/api/staff/services?clinicId=${user.clinicId}`);
+      const res = await fetch(`/api/staff/services?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to fetch services");
       const data = await res.json();
       setSpecialties(data.specialties || []);
@@ -244,15 +246,15 @@ export default function ProvidersPage() {
     } finally {
       setServicesLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   // ─── Fetch Provider Detail ──────────────────────────────────────────────────
 
   const fetchProviderDetail = useCallback(async (providerId: string) => {
-    if (!user?.clinicId) return;
+    if (!clinicId) return;
     setLoadingDetail(true);
     try {
-      const res = await fetch(`/api/staff/providers/${providerId}?clinicId=${user.clinicId}`);
+      const res = await fetch(`/api/staff/providers/${providerId}?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to fetch provider details");
       const data = await res.json();
       setExpandedProvider(data.provider);
@@ -263,7 +265,7 @@ export default function ProvidersPage() {
     } finally {
       setLoadingDetail(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   useEffect(() => {
     fetchProviders();

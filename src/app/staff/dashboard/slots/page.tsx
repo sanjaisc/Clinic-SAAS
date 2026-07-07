@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
 import {
   Clock,
   CalendarDays,
@@ -103,7 +105,15 @@ const STATUS_FILTER_OPTIONS = [
 
 export default function SlotManagementPage() {
   const { data: session } = useSession();
-  const clinicId = session?.user?.clinicId as string | undefined;
+  const {
+    clinicId: effectiveClinicId,
+    isSystemManager,
+    clinics,
+    setClinicId,
+    clinicsLoading,
+    ready,
+  } = useClinicContext();
+  const clinicId = effectiveClinicId ?? undefined;
 
   // Filters
   const [providerId, setProviderId] = useState<string>("");
@@ -171,6 +181,8 @@ export default function SlotManagementPage() {
   // Fetch providers for this clinic
   useEffect(() => {
     if (!clinicId) return;
+    setProviders([]);
+    setProviderId("");
     (async () => {
       try {
         const params = new URLSearchParams();
@@ -188,7 +200,7 @@ export default function SlotManagementPage() {
           );
           setProviders(allProviders);
           // Auto-select first provider
-          if (allProviders.length > 0 && !providerId) {
+          if (allProviders.length > 0) {
             setProviderId(allProviders[0].id);
           }
         }
@@ -196,7 +208,7 @@ export default function SlotManagementPage() {
         // non-critical
       }
     })();
-    }, [clinicId]);
+  }, [clinicId]);
 
   // Fetch slots when filters change
   useEffect(() => {
@@ -290,6 +302,16 @@ export default function SlotManagementPage() {
 
   return (
     <div className="space-y-4">
+      {/* Clinic selector for SYSTEM_MANAGER */}
+      {isSystemManager && (
+        <ClinicSelectorBar
+          clinics={clinics}
+          selectedId={effectiveClinicId}
+          onSelect={setClinicId}
+          loading={clinicsLoading}
+        />
+      )}
+
       {/* Page Header */}
       <div>
         <h1 className="text-xl font-semibold text-foreground">Slot Management</h1>

@@ -17,6 +17,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 import { RESCHEDULE_POLICY } from "@/lib/enums";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,7 +121,7 @@ export default function FinancialSettingsPage() {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const clinicId = user?.clinicId;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   const fetchData = useCallback(async () => {
     if (!clinicId) return;

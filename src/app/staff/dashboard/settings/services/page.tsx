@@ -15,6 +15,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ export default function ServicesSettingsPage() {
   const [flatRateSaving, setFlatRateSaving] = useState(false);
   const [paymentTypeLoading, setPaymentTypeLoading] = useState<string | null>(null);
 
-  const clinicId = user?.clinicId;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   const fetchData = useCallback(async () => {
     if (!clinicId) return;

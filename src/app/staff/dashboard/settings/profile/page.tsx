@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,10 +105,8 @@ interface CropData {
 
 // ---- Helper: build query string for SYSTEM_MANAGER ----
 
-function getClinicParam(user: DoctASessionUser | undefined): string {
-  if (!user) return "";
-  if (user.role === "SYSTEM_MANAGER" && user.clinicId) return `?clinicId=${user.clinicId}`;
-  return "";
+function getClinicParam(clinicId: string | null | undefined): string {
+  return clinicId ? `?clinicId=${clinicId}` : "";
 }
 
 // ---- Image Cropper Component ----
@@ -129,6 +128,7 @@ function ImageCropUploader({
 }) {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const clinicId = useActiveClinicId(user?.clinicId);
   const [preview, setPreview] = useState<string | null>(currentUrl);
   const [rawFile, setRawFile] = useState<File | null>(null);
   const [crop, setCrop] = useState<CropData | null>(null);
@@ -189,7 +189,7 @@ function ImageCropUploader({
       formData.append("type", type);
       formData.append("crop", JSON.stringify(crop));
 
-      const clinicParam = getClinicParam(user);
+      const clinicParam = getClinicParam(clinicId);
       const res = await fetch(`/api/staff/clinic-profile/upload${clinicParam}`, {
         method: "POST",
         body: formData,
@@ -216,7 +216,7 @@ function ImageCropUploader({
     if (!preview && !currentUrl) return;
     try {
       const urlToRemove = currentUrl || preview;
-      const clinicParam = getClinicParam(user);
+      const clinicParam = getClinicParam(clinicId);
       await fetch(`/api/staff/clinic-profile/media${clinicParam}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -421,7 +421,8 @@ function MapPlaceholder({ lat, long, address }: { lat: number; long: number; add
 export default function ProfileSettingsPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicParam = getClinicParam(user);
+  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicParam = getClinicParam(clinicId);
 
   // ---- Data States ----
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
@@ -635,7 +636,7 @@ export default function ProfileSettingsPage() {
 
   const handleGalleryRemove = (url: string) => {
     if (!user) return;
-    const clinicParamStr = getClinicParam(user);
+    const clinicParamStr = getClinicParam(clinicId);
     fetch(`/api/staff/clinic-profile/media${clinicParamStr}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },

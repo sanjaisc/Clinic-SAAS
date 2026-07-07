@@ -44,6 +44,8 @@ import {
   LabelList,
 } from "recharts";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -446,6 +448,14 @@ function PeriodSelector({
 export default function AnalyticsPage() {
   const { data: session, status } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const {
+    clinicId: effectiveClinicId,
+    isSystemManager,
+    clinics,
+    setClinicId,
+    clinicsLoading,
+    ready: clinicReady,
+  } = useClinicContext();
 
   const [period, setPeriod] = useState<Period>("30d");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
@@ -456,7 +466,7 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = useCallback(
     async (p: Period, from?: Date, to?: Date) => {
-      if (!user?.clinicId) return;
+      if (!effectiveClinicId) return;
       setLoading(true);
       setError(null);
       try {
@@ -467,9 +477,7 @@ export default function AnalyticsPage() {
         } else {
           params.set("period", p);
         }
-        if (user.role === "SYSTEM_MANAGER" && user.clinicId) {
-          params.set("clinicId", user.clinicId);
-        }
+        params.set("clinicId", effectiveClinicId);
         const res = await fetch(`/api/staff/analytics?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to fetch analytics");
         const json = await res.json();
@@ -480,7 +488,7 @@ export default function AnalyticsPage() {
         setLoading(false);
       }
     },
-    [user?.clinicId, user?.role]
+    [effectiveClinicId]
   );
 
   useEffect(() => {
@@ -582,10 +590,20 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (!data) return null;
+  if (!data && !loading) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
+      {/* Clinic selector for SYSTEM_MANAGER */}
+      {isSystemManager && (
+        <ClinicSelectorBar
+          clinics={clinics}
+          selectedId={effectiveClinicId}
+          onSelect={setClinicId}
+          loading={clinicsLoading}
+        />
+      )}
+
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

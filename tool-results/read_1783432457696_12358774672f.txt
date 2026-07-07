@@ -1,0 +1,693 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from "react";
+     4→     4→import { useSession } from "next-auth/react";
+     5→     5→import { toast } from "sonner";
+     6→     6→import {
+     7→     7→  Clock,
+     8→     8→  CalendarDays,
+     9→     9→  Calendar,
+    10→    10→  Lock,
+    11→    11→  Unlock,
+    12→    12→  ExternalLink,
+    13→    13→  CheckSquare,
+    14→    14→  Square,
+    15→    15→  Loader2,
+    16→    16→  AlertTriangle,
+    17→    17→  ChevronDown,
+    18→    18→  ChevronRight,
+    19→    19→  User,
+    20→    20→  Filter,
+    21→    21→  X,
+    22→    22→} from "lucide-react";
+    23→    23→import { Button } from "@/components/ui/button";
+    24→    24→import { Input } from "@/components/ui/input";
+    25→    25→import { Badge } from "@/components/ui/badge";
+    26→    26→import { Skeleton } from "@/components/ui/skeleton";
+    27→    27→import { Checkbox } from "@/components/ui/checkbox";
+    28→    28→import {
+    29→    29→  Select,
+    30→    30→  SelectContent,
+    31→    31→  SelectItem,
+    32→    32→  SelectTrigger,
+    33→    33→  SelectValue,
+    34→    34→} from "@/components/ui/select";
+    35→    35→import {
+    36→    36→  Dialog,
+    37→    37→  DialogContent,
+    38→    38→  DialogHeader,
+    39→    39→  DialogTitle,
+    40→    40→  DialogDescription,
+    41→    41→  DialogFooter,
+    42→    42→} from "@/components/ui/dialog";
+    43→    43→import { Separator } from "@/components/ui/separator";
+    44→    44→import { format, parseISO, isSameDay } from "date-fns";
+    45→    45→
+    46→    46→// =============================================================================
+    47→    47→// Types
+    48→    48→// =============================================================================
+    49→    49→
+    50→    50→interface SlotItem {
+    51→    51→  id: string;
+    52→    52→  startTime: string;
+    53→    53→  endTime: string;
+    54→    54→  modality: string;
+    55→    55→  status: string;
+    56→    56→  provider: { id: string; firstName: string; lastName: string; credentials: string | null };
+    57→    57→  appointment: { id: string; patientName: string; status: string } | null;
+    58→    58→  templateId: string | null;
+    59→    59→}
+    60→    60→
+    61→    61→interface ProviderOption {
+    62→    62→  id: string;
+    63→    63→  firstName: string;
+    64→    64→  lastName: string;
+    65→    65→  credentials: string | null;
+    66→    66→}
+    67→    67→
+    68→    68→// =============================================================================
+    69→    69→// Constants
+    70→    70→// =============================================================================
+    71→    71→
+    72→    72→const SLOT_STATUS_STYLES: Record<string, string> = {
+    73→    73→  AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    74→    74→  LOCKED: "bg-amber-100 text-amber-700 border-amber-200",
+    75→    75→  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+    76→    76→  BOOKED_EXTERNALLY: "bg-purple-100 text-purple-700 border-purple-200",
+    77→    77→  BLOCKED: "bg-red-100 text-red-700 border-red-200",
+    78→    78→  CLOSED: "bg-gray-100 text-gray-500 border-gray-200",
+    79→    79→};
+    80→    80→
+    81→    81→const SLOT_STATUS_LABELS: Record<string, string> = {
+    82→    82→  AVAILABLE: "Available",
+    83→    83→  LOCKED: "Locked",
+    84→    84→  BOOKED: "Booked",
+    85→    85→  BOOKED_EXTERNALLY: "Ext. Booked",
+    86→    86→  BLOCKED: "Blocked",
+    87→    87→  CLOSED: "Closed",
+    88→    88→};
+    89→    89→
+    90→    90→const STATUS_FILTER_OPTIONS = [
+    91→    91→  { value: "", label: "All Statuses" },
+    92→    92→  { value: "AVAILABLE", label: "Available" },
+    93→    93→  { value: "BOOKED", label: "Booked" },
+    94→    94→  { value: "BOOKED_EXTERNALLY", label: "Externally Booked" },
+    95→    95→  { value: "BLOCKED", label: "Blocked" },
+    96→    96→  { value: "LOCKED", label: "Locked" },
+    97→    97→  { value: "CLOSED", label: "Closed" },
+    98→    98→];
+    99→    99→
+   100→   100→// =============================================================================
+   101→   101→// Component
+   102→   102→// =============================================================================
+   103→   103→
+   104→   104→export default function SlotManagementPage() {
+   105→   105→  const { data: session } = useSession();
+   106→   106→  const clinicId = session?.user?.clinicId as string | undefined;
+   107→   107→
+   108→   108→  // Filters
+   109→   109→  const [providerId, setProviderId] = useState<string>("");
+   110→   110→  const [dateFrom, setDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
+   111→   111→  const [dateTo, setDateTo] = useState(() => format(new Date().setDate(new Date().getDate() + 6), "yyyy-MM-dd"));
+   112→   112→  const [statusFilter, setStatusFilter] = useState<string>("");
+   113→   113→
+   114→   114→  // Data
+   115→   115→  const [slots, setSlots] = useState<SlotItem[]>([]);
+   116→   116→  const [providers, setProviders] = useState<ProviderOption[]>([]);
+   117→   117→  const [loading, setLoading] = useState(false);
+   118→   118→  const [error, setError] = useState<string | null>(null);
+   119→   119→
+   120→   120→  // Selection
+   121→   121→  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+   122→   122→
+   123→   123→  // Confirmation dialog
+   124→   124→  const [confirmAction, setConfirmAction] = useState<"BLOCK" | "UNBLOCK" | "BOOKED_EXTERNALLY" | null>(null);
+   125→   125→  const [actionLoading, setActionLoading] = useState(false);
+   126→   126→
+   127→   127→  // Expanded dates
+   128→   128→  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+   129→   129→
+   130→   130→  // Toggle date expansion
+   131→   131→  const toggleDate = (dateStr: string) => {
+   132→   132→    setExpandedDates((prev) => {
+   133→   133→      const next = new Set(prev);
+   134→   134→      if (next.has(dateStr)) {
+   135→   135→        next.delete(dateStr);
+   136→   136→      } else {
+   137→   137→        next.add(dateStr);
+   138→   138→      }
+   139→   139→      return next;
+   140→   140→    });
+   141→   141→  };
+   142→   142→
+   143→   143→  // Fetch slots
+   144→   144→  const fetchSlots = useCallback(async () => {
+   145→   145→    if (!providerId || !dateFrom || !dateTo) return;
+   146→   146→    setLoading(true);
+   147→   147→    setError(null);
+   148→   148→    try {
+   149→   149→      const params = new URLSearchParams({
+   150→   150→        providerId,
+   151→   151→        dateFrom,
+   152→   152→        dateTo,
+   153→   153→      });
+   154→   154→      if (statusFilter) params.set("status", statusFilter);
+   155→   155→      if (clinicId) params.set("clinicId", clinicId);
+   156→   156→
+   157→   157→      const res = await fetch(`/api/staff/slots?${params.toString()}`);
+   158→   158→      if (!res.ok) {
+   159→   159→        const data = await res.json().catch(() => ({}));
+   160→   160→        throw new Error(data.error || "Failed to fetch slots");
+   161→   161→      }
+   162→   162→      const data = await res.json();
+   163→   163→      setSlots(data || []);
+   164→   164→    } catch (err) {
+   165→   165→      setError(err instanceof Error ? err.message : "Unknown error");
+   166→   166→    } finally {
+   167→   167→      setLoading(false);
+   168→   168→    }
+   169→   169→  }, [providerId, dateFrom, dateTo, statusFilter, clinicId]);
+   170→   170→
+   171→   171→  // Fetch providers for this clinic
+   172→   172→  useEffect(() => {
+   173→   173→    if (!clinicId) return;
+   174→   174→    (async () => {
+   175→   175→      try {
+   176→   176→        const params = new URLSearchParams();
+   177→   177→        params.set("clinicId", clinicId);
+   178→   178→        const res = await fetch(`/api/staff/providers?${params.toString()}`);
+   179→   179→        if (res.ok) {
+   180→   180→          const data = await res.json();
+   181→   181→          const allProviders = (data.providers || []).map(
+   182→   182→            (p: Record<string, unknown>) => ({
+   183→   183→              id: p.id as string,
+   184→   184→              firstName: (p.firstName as string) || "",
+   185→   185→              lastName: (p.lastName as string) || "",
+   186→   186→              credentials: (p.credentials as string) || null,
+   187→   187→            })
+   188→   188→          );
+   189→   189→          setProviders(allProviders);
+   190→   190→          // Auto-select first provider
+   191→   191→          if (allProviders.length > 0 && !providerId) {
+   192→   192→            setProviderId(allProviders[0].id);
+   193→   193→          }
+   194→   194→        }
+   195→   195→      } catch {
+   196→   196→        // non-critical
+   197→   197→      }
+   198→   198→    })();
+   199→   199→    }, [clinicId]);
+   200→   200→
+   201→   201→  // Fetch slots when filters change
+   202→   202→  useEffect(() => {
+   203→   203→    fetchSlots();
+   204→   204→  }, [fetchSlots]);
+   205→   205→
+   206→   206→  // Reset selection on filter change
+   207→   207→  useEffect(() => {
+   208→   208→    setSelectedIds(new Set());
+   209→   209→  }, [providerId, dateFrom, dateTo, statusFilter]);
+   210→   210→
+   211→   211→  // Toggle slot selection
+   212→   212→  const toggleSlot = (id: string) => {
+   213→   213→    setSelectedIds((prev) => {
+   214→   214→      const next = new Set(prev);
+   215→   215→      if (next.has(id)) {
+   216→   216→        next.delete(id);
+   217→   217→      } else {
+   218→   218→        next.add(id);
+   219→   219→      }
+   220→   220→      return next;
+   221→   221→    });
+   222→   222→  };
+   223→   223→
+   224→   224→  // Select/deselect all visible
+   225→   225→  const toggleAll = () => {
+   226→   226→    const actionableSlots = slots.filter((s) =>
+   227→   227→      s.status === "AVAILABLE" || s.status === "BLOCKED"
+   228→   228→    );
+   229→   229→    if (selectedIds.size === actionableSlots.length) {
+   230→   230→      setSelectedIds(new Set());
+   231→   231→    } else {
+   232→   232→      setSelectedIds(new Set(actionableSlots.map((s) => s.id)));
+   233→   233→    }
+   234→   234→  };
+   235→   235→
+   236→   236→  // Execute slot action
+   237→   237→  const executeAction = async () => {
+   238→   238→    if (!confirmAction || selectedIds.size === 0) return;
+   239→   239→    setActionLoading(true);
+   240→   240→    try {
+   241→   241→      const params = new URLSearchParams();
+   242→   242→      if (clinicId) params.set("clinicId", clinicId);
+   243→   243→
+   244→   244→      const res = await fetch(`/api/staff/slots?${params.toString()}`, {
+   245→   245→        method: "PATCH",
+   246→   246→        headers: { "Content-Type": "application/json" },
+   247→   247→        body: JSON.stringify({
+   248→   248→          slotIds: Array.from(selectedIds),
+   249→   249→          action: confirmAction,
+   250→   250→        }),
+   251→   251→      });
+   252→   252→
+   253→   253→      if (!res.ok) {
+   254→   254→        const data = await res.json().catch(() => ({}));
+   255→   255→        throw new Error(data.error || "Failed to update slots");
+   256→   256→      }
+   257→   257→
+   258→   258→      const result = await res.json();
+   259→   259→      setSelectedIds(new Set());
+   260→   260→      setConfirmAction(null);
+   261→   261→      fetchSlots();
+   262→   262→
+   263→   263→      const actionLabel = confirmAction === 'BLOCK' ? 'blocked' : confirmAction === 'UNBLOCK' ? 'unblocked' : 'marked as externally booked';
+   264→   264→      toast.success(`${result.updatedCount} slot(s) ${actionLabel}`, {
+   265→   265→        description: result.skipped?.length
+   266→   266→          ? `${result.skipped.length} slot(s) skipped (invalid transitions)`
+   267→   267→          : undefined,
+   268→   268→      });
+   269→   269→    } catch (err) {
+   270→   270→      toast.error(err instanceof Error ? err.message : "Failed to update slots");
+   271→   271→    } finally {
+   272→   272→      setActionLoading(false);
+   273→   273→    }
+   274→   274→  };
+   275→   275→
+   276→   276→  // Group slots by date
+   277→   277→  const slotsByDate = slots.reduce<Record<string, SlotItem[]>>((acc, slot) => {
+   278→   278→    const dateKey = format(parseISO(slot.startTime), "yyyy-MM-dd");
+   279→   279→    if (!acc[dateKey]) acc[dateKey] = [];
+   280→   280→    acc[dateKey].push(slot);
+   281→   281→    return acc;
+   282→   282→  }, {});
+   283→   283→
+   284→   284→  const sortedDates = Object.keys(slotsByDate).sort();
+   285→   285→
+   286→   286→  // Check which actions are possible for selected
+   287→   287→  const selectedSlots = slots.filter((s) => selectedIds.has(s.id));
+   288→   288→  const hasAvailable = selectedSlots.some((s) => s.status === "AVAILABLE");
+   289→   289→  const hasBlocked = selectedSlots.some((s) => s.status === "BLOCKED");
+   290→   290→
+   291→   291→  return (
+   292→   292→    <div className="space-y-4">
+   293→   293→      {/* Page Header */}
+   294→   294→      <div>
+   295→   295→        <h1 className="text-xl font-semibold text-foreground">Slot Management</h1>
+   296→   296→        <p className="text-sm text-muted-foreground mt-0.5">
+   297→   297→          View, block, and manage provider time slots
+   298→   298→        </p>
+   299→   299→      </div>
+   300→   300→
+   301→   301→      {/* Filter Bar */}
+   302→   302→      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+   303→   303→        <div className="flex flex-col sm:flex-row gap-2.5">
+   304→   304→          {/* Provider Select */}
+   305→   305→          <Select value={providerId} onValueChange={setProviderId}>
+   306→   306→            <SelectTrigger className="w-full sm:w-64 h-9">
+   307→   307→              <SelectValue placeholder="Select provider..." />
+   308→   308→            </SelectTrigger>
+   309→   309→            <SelectContent>
+   310→   310→              {providers.map((p) => (
+   311→   311→                <SelectItem key={p.id} value={p.id}>
+   312→   312→                  Dr. {p.firstName} {p.lastName}
+   313→   313→                  {p.credentials ? `, ${p.credentials}` : ""}
+   314→   314→                </SelectItem>
+   315→   315→              ))}
+   316→   316→            </SelectContent>
+   317→   317→          </Select>
+   318→   318→
+   319→   319→          {/* Status Filter */}
+   320→   320→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   321→   321→            <SelectTrigger className="w-full sm:w-44 h-9">
+   322→   322→              <SelectValue placeholder="All Statuses" />
+   323→   323→            </SelectTrigger>
+   324→   324→            <SelectContent>
+   325→   325→              {STATUS_FILTER_OPTIONS.map((opt) => (
+   326→   326→                <SelectItem key={opt.value || "__all"} value={opt.value || "__all"}>
+   327→   327→                  {opt.label}
+   328→   328→                </SelectItem>
+   329→   329→              ))}
+   330→   330→            </SelectContent>
+   331→   331→          </Select>
+   332→   332→
+   333→   333→          {/* Date From */}
+   334→   334→          <div className="flex items-center gap-1.5">
+   335→   335→            <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+   336→   336→            <Input
+   337→   337→              type="date"
+   338→   338→              value={dateFrom}
+   339→   339→              onChange={(e) => setDateFrom(e.target.value)}
+   340→   340→              className="h-9 w-36"
+   341→   341→            />
+   342→   342→          </div>
+   343→   343→
+   344→   344→          {/* Date To */}
+   345→   345→          <div className="flex items-center gap-1.5">
+   346→   346→            <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+   347→   347→            <Input
+   348→   348→              type="date"
+   349→   349→              value={dateTo}
+   350→   350→              onChange={(e) => setDateTo(e.target.value)}
+   351→   351→              className="h-9 w-36"
+   352→   352→            />
+   353→   353→          </div>
+   354→   354→        </div>
+   355→   355→      </div>
+   356→   356→
+   357→   357→      {/* Action Bar */}
+   358→   358→      {selectedIds.size > 0 && (
+   359→   359→        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+   360→   360→          <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+   361→   361→            <CheckSquare className="size-4" />
+   362→   362→            {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""} selected
+   363→   363→          </div>
+   364→   364→          <div className="h-5 w-px bg-emerald-200" />
+   365→   365→          <Button
+   366→   366→            variant="outline"
+   367→   367→            size="sm"
+   368→   368→            className="cursor-pointer border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+   369→   369→            disabled={!hasAvailable}
+   370→   370→            onClick={() => setConfirmAction("BLOCK")}
+   371→   371→          >
+   372→   372→            <Lock className="size-3.5 mr-1.5" />
+   373→   373→            Block Selected
+   374→   374→          </Button>
+   375→   375→          <Button
+   376→   376→            variant="outline"
+   377→   377→            size="sm"
+   378→   378→            className="cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+   379→   379→            disabled={!hasBlocked}
+   380→   380→            onClick={() => setConfirmAction("UNBLOCK")}
+   381→   381→          >
+   382→   382→            <Unlock className="size-3.5 mr-1.5" />
+   383→   383→            Unblock Selected
+   384→   384→          </Button>
+   385→   385→          <Button
+   386→   386→            variant="outline"
+   387→   387→            size="sm"
+   388→   388→            className="cursor-pointer border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+   389→   389→            disabled={!hasAvailable}
+   390→   390→            onClick={() => setConfirmAction("BOOKED_EXTERNALLY")}
+   391→   391→          >
+   392→   392→            <ExternalLink className="size-3.5 mr-1.5" />
+   393→   393→            Mark Ext. Booked
+   394→   394→          </Button>
+   395→   395→          <div className="ml-auto">
+   396→   396→            <Button
+   397→   397→              variant="ghost"
+   398→   398→              size="sm"
+   399→   399→              className="cursor-pointer text-muted-foreground"
+   400→   400→              onClick={() => setSelectedIds(new Set())}
+   401→   401→            >
+   402→   402→              <X className="size-3.5 mr-1" />
+   403→   403→              Clear
+   404→   404→            </Button>
+   405→   405→          </div>
+   406→   406→        </div>
+   407→   407→      )}
+   408→   408→
+   409→   409→      {/* Results */}
+   410→   410→      {!providerId ? (
+   411→   411→        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+   412→   412→          <div className="flex flex-col items-center gap-3">
+   413→   413→            <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+   414→   414→              <CalendarDays className="size-5 text-muted-foreground/60" />
+   415→   415→            </div>
+   416→   416→            <p className="text-sm font-medium text-muted-foreground">Select a provider to view slots</p>
+   417→   417→          </div>
+   418→   418→        </div>
+   419→   419→      ) : loading ? (
+   420→   420→        <div className="space-y-3">
+   421→   421→          {Array.from({ length: 3 }).map((_, i) => (
+   422→   422→            <div key={i} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-2">
+   423→   423→              <Skeleton className="h-5 w-36" />
+   424→   424→              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+   425→   425→                {Array.from({ length: 6 }).map((_, j) => (
+   426→   426→                  <Skeleton key={j} className="h-20 rounded-lg" />
+   427→   427→                ))}
+   428→   428→              </div>
+   429→   429→            </div>
+   430→   430→          ))}
+   431→   431→        </div>
+   432→   432→      ) : error ? (
+   433→   433→        <div className="bg-white rounded-xl border border-red-200 bg-red-50/30 p-8 text-center">
+   434→   434→          <p className="text-sm text-red-600">{error}</p>
+   435→   435→          <Button variant="outline" size="sm" onClick={fetchSlots} className="mt-2">
+   436→   436→            Retry
+   437→   437→          </Button>
+   438→   438→        </div>
+   439→   439→      ) : sortedDates.length === 0 ? (
+   440→   440→        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+   441→   441→          <div className="flex flex-col items-center gap-3">
+   442→   442→            <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+   443→   443→              <Clock className="size-5 text-muted-foreground/60" />
+   444→   444→            </div>
+   445→   445→            <p className="text-sm font-medium text-muted-foreground">No slots found</p>
+   446→   446→            <p className="text-xs text-muted-foreground/70">
+   447→   447→              Try adjusting the date range or status filter
+   448→   448→            </p>
+   449→   449→          </div>
+   450→   450→        </div>
+   451→   451→      ) : (
+   452→   452→        <div className="space-y-3">
+   453→   453→          {/* Select All Toggle */}
+   454→   454→          <div className="flex items-center justify-between">
+   455→   455→            <p className="text-sm text-muted-foreground">
+   456→   456→              <span className="font-medium text-foreground">{slots.length}</span> slot{slots.length !== 1 ? "s" : ""} across{" "}
+   457→   457→              <span className="font-medium text-foreground">{sortedDates.length}</span> day{sortedDates.length !== 1 ? "s" : ""}
+   458→   458→            </p>
+   459→   459→            <Button
+   460→   460→              variant="ghost"
+   461→   461→              size="sm"
+   462→   462→              className="cursor-pointer text-xs h-7"
+   463→   463→              onClick={toggleAll}
+   464→   464→            >
+   465→   465→              {selectedIds.size > 0 ? "Deselect All" : "Select All Available"}
+   466→   466→            </Button>
+   467→   467→          </div>
+   468→   468→
+   469→   469→          {/* Date Groups */}
+   470→   470→          {sortedDates.map((dateKey) => {
+   471→   471→            const dateSlots = slotsByDate[dateKey];
+   472→   472→            const dateObj = parseISO(dateKey);
+   473→   473→            const isToday = isSameDay(dateObj, new Date());
+   474→   474→            const isExpanded = expandedDates.has(dateKey) || sortedDates.length <= 3;
+   475→   475→
+   476→   476→            return (
+   477→   477→              <div key={dateKey} className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+   478→   478→                {/* Date Header */}
+   479→   479→                <button
+   480→   480→                  onClick={() => toggleDate(dateKey)}
+   481→   481→                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+   482→   482→                >
+   483→   483→                  <div className="flex items-center gap-2.5">
+   484→   484→                    {isExpanded ? (
+   485→   485→                      <ChevronDown className="size-4 text-muted-foreground" />
+   486→   486→                    ) : (
+   487→   487→                      <ChevronRight className="size-4 text-muted-foreground" />
+   488→   488→                    )}
+   489→   489→                    <Calendar className="size-4 text-emerald-600" />
+   490→   490→                    <span className="text-sm font-semibold">
+   491→   491→                      {format(dateObj, "EEEE, MMMM d, yyyy")}
+   492→   492→                    </span>
+   493→   493→                    {isToday && (
+   494→   494→                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+   495→   495→                        Today
+   496→   496→                      </Badge>
+   497→   497→                    )}
+   498→   498→                  </div>
+   499→   499→                  <div className="flex items-center gap-2">
+   500→   500→                    <span className="text-xs text-muted-foreground">
+   501→   501→                      {dateSlots.length} slot{dateSlots.length !== 1 ? "s" : ""}
+   502→   502→                    </span>
+   503→   503→                    {/* Status summary */}
+   504→   504→                    <div className="hidden sm:flex items-center gap-1">
+   505→   505→                      {(() => {
+   506→   506→                        const counts: Record<string, number> = {};
+   507→   507→                        dateSlots.forEach((s) => {
+   508→   508→                          counts[s.status] = (counts[s.status] || 0) + 1;
+   509→   509→                        });
+   510→   510→                        return Object.entries(counts)
+   511→   511→                          .filter(([, count]) => count > 0)
+   512→   512→                          .map(([status, count]) => (
+   513→   513→                            <Badge
+   514→   514→                              key={status}
+   515→   515→                              variant="outline"
+   516→   516→                              className={`text-[10px] ${SLOT_STATUS_STYLES[status] || ""}`}
+   517→   517→                            >
+   518→   518→                              {count} {SLOT_STATUS_LABELS[status]}
+   519→   519→                            </Badge>
+   520→   520→                          ));
+   521→   521→                      })()}
+   522→   522→                    </div>
+   523→   523→                  </div>
+   524→   524→                </button>
+   525→   525→
+   526→   526→                {/* Slots Grid */}
+   527→   527→                {isExpanded && (
+   528→   528→                  <div className="border-t border-border/30">
+   529→   529→                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 p-3">
+   530→   530→                      {dateSlots.map((slot) => {
+   531→   531→                        const isSelected = selectedIds.has(slot.id);
+   532→   532→                        const isSelectable =
+   533→   533→                          slot.status === "AVAILABLE" || slot.status === "BLOCKED";
+   534→   534→
+   535→   535→                        return (
+   536→   536→                          <div
+   537→   537→                            key={slot.id}
+   538→   538→                            onClick={() => isSelectable && toggleSlot(slot.id)}
+   539→   539→                            className={`
+   540→   540→                              relative rounded-lg border p-3 transition-all cursor-pointer
+   541→   541→                              ${isSelected ? "ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50" : "border-border/50 hover:border-emerald-200 hover:bg-emerald-50/20"}
+   542→   542→                              ${!isSelectable ? "opacity-70 cursor-default" : ""}
+   543→   543→                            `}
+   544→   544→                          >
+   545→   545→                            {/* Checkbox for selectable */}
+   546→   546→                            {isSelectable && (
+   547→   547→                              <div className="absolute top-2 right-2">
+   548→   548→                                {isSelected ? (
+   549→   549→                                  <CheckSquare className="size-4 text-emerald-600" />
+   550→   550→                                ) : (
+   551→   551→                                  <Square className="size-4 text-muted-foreground/40" />
+   552→   552→                                )}
+   553→   553→                              </div>
+   554→   554→                            )}
+   555→   555→
+   556→   556→                            {/* Time */}
+   557→   557→                            <div className="flex items-center gap-1.5 mb-1.5">
+   558→   558→                              <Clock className="size-3.5 text-muted-foreground" />
+   559→   559→                              <span className="text-sm font-medium">
+   560→   560→                                {format(parseISO(slot.startTime), "h:mm a")}
+   561→   561→                              </span>
+   562→   562→                            </div>
+   563→   563→
+   564→   564→                            {/* Modality */}
+   565→   565→                            <div className="mb-2">
+   566→   566→                              {slot.modality === "VIDEO" ? (
+   567→   567→                                <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 text-[10px]">
+   568→   568→                                  <Calendar className="size-2.5 mr-0.5" />
+   569→   569→                                  Video
+   570→   570→                                </Badge>
+   571→   571→                              ) : (
+   572→   572→                                <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+   573→   573→                                  <CalendarDays className="size-2.5 mr-0.5" />
+   574→   574→                                  In-Clinic
+   575→   575→                                </Badge>
+   576→   576→                              )}
+   577→   577→                            </div>
+   578→   578→
+   579→   579→                            {/* Status Badge */}
+   580→   580→                            <Badge className={`${SLOT_STATUS_STYLES[slot.status] || ""} border text-[10px]`}>
+   581→   581→                              {SLOT_STATUS_LABELS[slot.status] || slot.status}
+   582→   582→                            </Badge>
+   583→   583→
+   584→   584→                            {/* Appointment info */}
+   585→   585→                            {slot.appointment && (
+   586→   586→                              <div className="mt-1.5 pt-1.5 border-t border-border/30">
+   587→   587→                                <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+   588→   588→                                  <User className="size-2.5" />
+   589→   589→                                  {slot.appointment.patientName}
+   590→   590→                                </p>
+   591→   591→                              </div>
+   592→   592→                            )}
+   593→   593→                          </div>
+   594→   594→                        );
+   595→   595→                      })}
+   596→   596→                    </div>
+   597→   597→                  </div>
+   598→   598→                )}
+   599→   599→              </div>
+   600→   600→            );
+   601→   601→          })}
+   602→   602→        </div>
+   603→   603→      )}
+   604→   604→
+   605→   605→      {/* ================================================================== */}
+   606→   606→      {/* CONFIRMATION DIALOG                                                */}
+   607→   607→      {/* ================================================================== */}
+   608→   608→      <Dialog
+   609→   609→        open={!!confirmAction}
+   610→   610→        onOpenChange={(open) => {
+   611→   611→          if (!open) setConfirmAction(null);
+   612→   612→        }}
+   613→   613→      >
+   614→   614→        <DialogContent className="sm:max-w-md">
+   615→   615→          <DialogHeader>
+   616→   616→            <DialogTitle className="flex items-center gap-2">
+   617→   617→              <AlertTriangle className="size-5 text-amber-500" />
+   618→   618→              Confirm Slot Action
+   619→   619→            </DialogTitle>
+   620→   620→            <DialogDescription>
+   621→   621→              {confirmAction === "BLOCK" && (
+   622→   622→                <>
+   623→   623→                  You are about to <span className="font-semibold text-red-600">block</span>{" "}
+   624→   624→                  {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""}. Blocked slots will not
+   625→   625→                  be available for patient booking.
+   626→   626→                </>
+   627→   627→              )}
+   628→   628→              {confirmAction === "UNBLOCK" && (
+   629→   629→                <>
+   630→   630→                  You are about to <span className="font-semibold text-emerald-600">unblock</span>{" "}
+   631→   631→                  {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""}. These slots will become
+   632→   632→                  available for patient booking.
+   633→   633→                </>
+   634→   634→              )}
+   635→   635→              {confirmAction === "BOOKED_EXTERNALLY" && (
+   636→   636→                <>
+   637→   637→                  You are about to mark {selectedIds.size} slot
+   638→   638→                  {selectedIds.size !== 1 ? "s" : ""} as{" "}
+   639→   639→                  <span className="font-semibold text-purple-600">externally booked</span>. These
+   640→   640→                  slots will be shown as booked but will not have a DoctA appointment
+   641→   641→                  associated.
+   642→   642→                </>
+   643→   643→              )}
+   644→   644→            </DialogDescription>
+   645→   645→          </DialogHeader>
+   646→   646→          <DialogFooter className="gap-2">
+   647→   647→            <Button
+   648→   648→              variant="outline"
+   649→   649→              onClick={() => setConfirmAction(null)}
+   650→   650→              className="cursor-pointer"
+   651→   651→              disabled={actionLoading}
+   652→   652→            >
+   653→   653→              Cancel
+   654→   654→            </Button>
+   655→   655→            <Button
+   656→   656→              onClick={executeAction}
+   657→   657→              disabled={actionLoading}
+   658→   658→              className={`cursor-pointer ${
+   659→   659→                confirmAction === "BLOCK"
+   660→   660→                  ? "bg-red-600 hover:bg-red-700"
+   661→   661→                  : confirmAction === "UNBLOCK"
+   662→   662→                    ? "bg-emerald-600 hover:bg-emerald-700"
+   663→   663→                    : "bg-purple-600 hover:bg-purple-700"
+   664→   664→              } text-white`}
+   665→   665→            >
+   666→   666→              {actionLoading ? (
+   667→   667→                <>
+   668→   668→                  <Loader2 className="size-4 mr-1.5 animate-spin" />
+   669→   669→                  Updating...
+   670→   670→                </>
+   671→   671→              ) : confirmAction === "BLOCK" ? (
+   672→   672→                <>
+   673→   673→                  <Lock className="size-4 mr-1.5" />
+   674→   674→                  Block {selectedIds.size} Slot{selectedIds.size !== 1 ? "s" : ""}
+   675→   675→                </>
+   676→   676→              ) : confirmAction === "UNBLOCK" ? (
+   677→   677→                <>
+   678→   678→                  <Unlock className="size-4 mr-1.5" />
+   679→   679→                  Unblock {selectedIds.size} Slot{selectedIds.size !== 1 ? "s" : ""}
+   680→   680→                </>
+   681→   681→              ) : (
+   682→   682→                <>
+   683→   683→                  <ExternalLink className="size-4 mr-1.5" />
+   684→   684→                  Mark {selectedIds.size} as Ext. Booked
+   685→   685→                </>
+   686→   686→              )}
+   687→   687→            </Button>
+   688→   688→          </DialogFooter>
+   689→   689→        </DialogContent>
+   690→   690→      </Dialog>
+   691→   691→    </div>
+   692→   692→  );
+   693→   693→}

@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 import { DAYS_OF_WEEK } from "@/lib/enums";
 
 // ---- Types ----
@@ -97,6 +98,7 @@ function isUpcoming(dateStr: string): boolean {
 export default function HoursPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   // Hours state
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(getDefaultWeeklyHours());
@@ -121,7 +123,7 @@ export default function HoursPage() {
   const fetchHours = useCallback(async () => {
     try {
       setHoursLoading(true);
-      const res = await fetch(`/api/staff/hours?clinicId=${user?.clinicId}`);
+      const res = await fetch(`/api/staff/hours?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to load hours");
       const data = await res.json();
       const parsed: WeeklyHours = data.hoursOfOperation || {};
@@ -148,12 +150,12 @@ export default function HoursPage() {
     } finally {
       setHoursLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   const fetchClosures = useCallback(async () => {
     try {
       setClosuresLoading(true);
-      const res = await fetch(`/api/staff/closures?clinicId=${user?.clinicId}`);
+      const res = await fetch(`/api/staff/closures?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to load closures");
       const data = await res.json();
       setClosures(data.closures || []);
@@ -163,14 +165,14 @@ export default function HoursPage() {
     } finally {
       setClosuresLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   useEffect(() => {
-    if (user?.clinicId) {
+    if (clinicId) {
       fetchHours();
       fetchClosures();
     }
-  }, [user?.clinicId, fetchHours, fetchClosures]);
+  }, [clinicId, fetchHours, fetchClosures]);
 
   // Hours handlers
   const toggleDay = (day: string) => {
@@ -212,7 +214,7 @@ export default function HoursPage() {
   const saveHours = async () => {
     try {
       setHoursSaving(true);
-      const res = await fetch(`/api/staff/hours?clinicId=${user?.clinicId}`, {
+      const res = await fetch(`/api/staff/hours?clinicId=${clinicId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hoursOfOperation: weeklyHours }),
@@ -265,7 +267,7 @@ export default function HoursPage() {
 
       if (editingClosure) {
         const res = await fetch(
-          `/api/staff/closures/${editingClosure.id}?clinicId=${user?.clinicId}`,
+          `/api/staff/closures/${editingClosure.id}?clinicId=${clinicId}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -275,7 +277,7 @@ export default function HoursPage() {
         if (!res.ok) throw new Error("Failed to update");
         toast.success("Closure updated");
       } else {
-        const res = await fetch(`/api/staff/closures?clinicId=${user?.clinicId}`, {
+        const res = await fetch(`/api/staff/closures?clinicId=${clinicId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -296,7 +298,7 @@ export default function HoursPage() {
   const deleteClosure = async (id: string) => {
     try {
       const res = await fetch(
-        `/api/staff/closures/${id}?clinicId=${user?.clinicId}`,
+        `/api/staff/closures/${id}?clinicId=${clinicId}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed to delete");

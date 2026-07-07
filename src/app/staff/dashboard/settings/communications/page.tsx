@@ -43,6 +43,7 @@ import {
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 import { EMAIL_TEMPLATE_TYPE, INTAKE_CADENCE } from "@/lib/enums";
 
 // ---- Types ----
@@ -135,6 +136,7 @@ function SafeMarkdownEditor({
 export default function CommunicationsPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   // Data state
   const [data, setData] = useState<CommsData | null>(null);
@@ -162,7 +164,7 @@ export default function CommunicationsPage() {
   const fetchComms = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/staff/communications?clinicId=${user?.clinicId}`);
+      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed to load");
       const result: CommsData = await res.json();
       setData(result);
@@ -185,17 +187,17 @@ export default function CommunicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   useEffect(() => {
-    if (user?.clinicId) fetchComms();
-  }, [user?.clinicId, fetchComms]);
+    if (clinicId) fetchComms();
+  }, [clinicId, fetchComms]);
 
   // Save common instructions
   const saveCommonInstructions = async () => {
     try {
       setSavingInstructions(true);
-      const res = await fetch(`/api/staff/communications?clinicId=${user?.clinicId}`, {
+      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ commonInstructions }),
@@ -213,7 +215,7 @@ export default function CommunicationsPage() {
   const saveSenderSettings = async () => {
     try {
       setSavingSender(true);
-      const res = await fetch(`/api/staff/communications?clinicId=${user?.clinicId}`, {
+      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailFromName, customEmailHeader }),
@@ -231,7 +233,7 @@ export default function CommunicationsPage() {
   const saveIntakeConfig = async () => {
     try {
       setSavingIntake(true);
-      const res = await fetch(`/api/staff/communications?clinicId=${user?.clinicId}`, {
+      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ intakeReminderDays, intakeFormIds }),
@@ -262,7 +264,7 @@ export default function CommunicationsPage() {
     try {
       setTemplateSaving(true);
       const res = await fetch(
-        `/api/staff/email-templates/${selectedTemplateId}?clinicId=${user?.clinicId}`,
+        `/api/staff/email-templates/${selectedTemplateId}?clinicId=${clinicId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -284,7 +286,7 @@ export default function CommunicationsPage() {
     if (!selectedTemplateId) return;
     try {
       const res = await fetch(
-        `/api/staff/email-templates/reset/${selectedTemplateId}?clinicId=${user?.clinicId}`,
+        `/api/staff/email-templates/reset/${selectedTemplateId}?clinicId=${clinicId}`,
         { method: "POST" }
       );
       if (!res.ok) throw new Error("Failed to reset");
@@ -299,7 +301,7 @@ export default function CommunicationsPage() {
   const toggleTemplateActive = async (templateId: string, isActive: boolean) => {
     try {
       const res = await fetch(
-        `/api/staff/email-templates/${templateId}?clinicId=${user?.clinicId}`,
+        `/api/staff/email-templates/${templateId}?clinicId=${clinicId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

@@ -13,6 +13,9 @@ import {
   Users,
 } from "lucide-react";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
+import { ActiveClinicProvider } from "@/components/active-clinic-context";
 
 const SETTINGS_TABS = [
   { href: "/staff/dashboard/settings/profile", label: "Clinic Profile", icon: Building2 },
@@ -32,16 +35,44 @@ export default function SettingsLayout({
   const pathname = usePathname();
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const {
+    clinicId: effectiveClinicId,
+    isSystemManager,
+    clinics,
+    setClinicId,
+    clinicsLoading,
+    ready,
+  } = useClinicContext();
 
-  // If no clinicId, show message for SYSTEM_MANAGER
-  if (!user?.clinicId) {
+  // SYSTEM_MANAGER needs to select a clinic first
+  if (isSystemManager && !ready) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-3 max-w-md">
-          <Building2 className="size-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm font-medium text-muted-foreground">
-            Clinic-specific settings require a clinic context.
+      <div className="space-y-6 animate-in fade-in-0 duration-200">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Clinic Settings
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Select a clinic to manage its settings
           </p>
+        </div>
+        <ClinicSelectorBar
+          clinics={clinics}
+          selectedId={effectiveClinicId}
+          onSelect={setClinicId}
+          loading={clinicsLoading}
+        />
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <div className="text-center space-y-3 max-w-md">
+            <Building2 className="size-10 text-muted-foreground/40 mx-auto" />
+            <p className="text-sm font-medium text-muted-foreground">
+              {clinicsLoading
+                ? "Loading clinics…"
+                : clinics.length === 0
+                  ? "No clinics available. Please create a clinic first."
+                  : "Please select a clinic above to access its settings."}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -49,6 +80,16 @@ export default function SettingsLayout({
 
   return (
     <div className="space-y-0">
+      {/* Clinic selector for SYSTEM_MANAGER */}
+      {isSystemManager && (
+        <ClinicSelectorBar
+          clinics={clinics}
+          selectedId={effectiveClinicId}
+          onSelect={setClinicId}
+          loading={clinicsLoading}
+        />
+      )}
+
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -87,9 +128,11 @@ export default function SettingsLayout({
       </div>
 
       {/* Tab Content */}
-      <div className="animate-in fade-in-0 duration-200">
-        {children}
-      </div>
+      <ActiveClinicProvider clinicId={effectiveClinicId}>
+        <div className="animate-in fade-in-0 duration-200">
+          {children}
+        </div>
+      </ActiveClinicProvider>
     </div>
   );
 }

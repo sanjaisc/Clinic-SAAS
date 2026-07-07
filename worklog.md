@@ -407,3 +407,26 @@ Stage Summary:
 - Modified files: prisma/schema.prisma, src/lib/constants.ts, src/app/api/staff/invitations/route.ts
 - New models: SystemErrorLog, ConversionEvent
 - New schema fields: Service.isBookable, SystemConfig.reviewEmailTriggerHours, StaffInvitation.createdBy
+
+---
+Task ID: 11
+Agent: Main Orchestrator
+Task: Fix stem admin login failure after update
+
+Work Log:
+- Diagnosed login failure: `.env` file was missing `NEXTAUTH_SECRET`, causing NextAuth JWT signing/verification to fail silently
+- Dev log confirmed: `[next-auth][warn][NO_SECRET]` and `[next-auth][warn][NEXTAUTH_URL]`
+- Verified sysadmin user exists in DB: `sysadmin@clinicbook.com`, role `SYSTEM_MANAGER`, isActive=true, password hash verified with bcrypt
+- Added `NEXTAUTH_SECRET` and `NEXTAUTH_URL` to `.env`
+- Fixed dev script in package.json: removed `| tee dev.log` pipe that was causing process instability when parent shell exits
+- Cleared corrupted `.next` Turbopack cache (was causing panics: "Failed to restore task data")
+- Verified login via curl: CSRF token obtained, credentials POST returned 302 to `/` (success redirect), session cookie set
+- Verified session data: `{"user":{"name":"System Manager","email":"sysadmin@clinicbook.com","role":"SYSTEM_MANAGER","clinicId":null}}`
+- Also verified admin@downtownmedicalgroup.clinicbook.com password hash is valid
+
+Stage Summary:
+- **Root cause**: Missing `NEXTAUTH_SECRET` in `.env` — NextAuth cannot sign/verify JWT tokens without it
+- **Fix**: Added `NEXTAUTH_SECRET=docta-dev-secret-key-for-jwt-signing-2026` and `NEXTAUTH_URL=http://localhost:3000` to `.env`
+- **Additional fix**: Removed `| tee dev.log` from dev script to prevent Turbopack cache corruption
+- Login verified working for SYSTEM_MANAGER role
+- All three demo accounts (sysadmin, admin, reception) have valid password hashes in the database

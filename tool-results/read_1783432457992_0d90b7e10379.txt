@@ -1,0 +1,2002 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+     4→     4→import { useSession } from "next-auth/react";
+     5→     5→import { toast } from "sonner";
+     6→     6→import {
+     7→     7→  Search,
+     8→     8→  Calendar,
+     9→     9→  MoreHorizontal,
+    10→    10→  Eye,
+    11→    11→  UserCheck,
+    12→    12→  CheckCircle2,
+    13→    13→  XCircle,
+    14→    14→  UserX,
+    15→    15→  Clock,
+    16→    16→  Phone,
+    17→    17→  Mail,
+    18→    18→  User,
+    19→    19→  FileText,
+    20→    20→  CreditCard,
+    21→    21→  Shield,
+    22→    22→  Baby,
+    23→    23→  Send,
+    24→    24→  ChevronLeft,
+    25→    25→  ChevronRight,
+    26→    26→  Filter,
+    27→    27→  X,
+    28→    28→  Loader2,
+    29→    29→  CalendarDays,
+    30→    30→  StickyNote,
+    31→    31→  DollarSign,
+    32→    32→  Hash,
+    33→    33→  Bell,
+    34→    34→  QrCode,
+    35→    35→  Pencil,
+    36→    36→  Check,
+    37→    37→  ArrowRight,
+    38→    38→  RefreshCw,
+    39→    39→  LayoutGrid,
+    40→    40→  List,
+    41→    41→  Video,
+    42→    42→  Link2,
+    43→    43→  AlertTriangle,
+    44→    44→  ArrowUp,
+    45→    45→  ArrowDown,
+    46→    46→  ArrowUpDown,
+    47→    47→} from "lucide-react";
+    48→    48→import { Label } from "@/components/ui/label";
+    49→    49→import { QrCodeDisplay } from "@/components/qr-code-display";
+    50→    50→import { Button } from "@/components/ui/button";
+    51→    51→import { Input } from "@/components/ui/input";
+    52→    52→import { Checkbox } from "@/components/ui/checkbox";
+    53→    53→import { Badge } from "@/components/ui/badge";
+    54→    54→import { Skeleton } from "@/components/ui/skeleton";
+    55→    55→import { Textarea } from "@/components/ui/textarea";
+    56→    56→import {
+    57→    57→  Select,
+    58→    58→  SelectContent,
+    59→    59→  SelectItem,
+    60→    60→  SelectTrigger,
+    61→    61→  SelectValue,
+    62→    62→} from "@/components/ui/select";
+    63→    63→import {
+    64→    64→  DropdownMenu,
+    65→    65→  DropdownMenuContent,
+    66→    66→  DropdownMenuItem,
+    67→    67→  DropdownMenuSeparator,
+    68→    68→  DropdownMenuTrigger,
+    69→    69→} from "@/components/ui/dropdown-menu";
+    70→    70→import {
+    71→    71→  Dialog,
+    72→    72→  DialogContent,
+    73→    73→  DialogHeader,
+    74→    74→  DialogTitle,
+    75→    75→  DialogDescription,
+    76→    76→} from "@/components/ui/dialog";
+    77→    77→import {
+    78→    78→  AlertDialog,
+    79→    79→  AlertDialogAction,
+    80→    80→  AlertDialogCancel,
+    81→    81→  AlertDialogContent,
+    82→    82→  AlertDialogDescription,
+    83→    83→  AlertDialogFooter,
+    84→    84→  AlertDialogHeader,
+    85→    85→  AlertDialogTitle,
+    86→    86→} from "@/components/ui/alert-dialog";
+    87→    87→import { Separator } from "@/components/ui/separator";
+    88→    88→import {
+    89→    89→  Popover,
+    90→    90→  PopoverContent,
+    91→    91→  PopoverTrigger,
+    92→    92→} from "@/components/ui/popover";
+    93→    93→import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+    94→    94→import { format, parseISO, addDays } from "date-fns";
+    95→    95→import { cn } from "@/lib/utils";
+    96→    96→
+    97→    97→// =============================================================================
+    98→    98→// Types
+    99→    99→// =============================================================================
+   100→   100→
+   101→   101→interface AppointmentRow {
+   102→   102→  id: string;
+   103→   103→  patientName: string;
+   104→   104→  patientDob: string;
+   105→   105→  patientPhone: string;
+   106→   106→  patientEmail: string;
+   107→   107→  patientType: string;
+   108→   108→  guardianName: string | null;
+   109→   109→  guardianRelation: string | null;
+   110→   110→  reasonForVisit: string;
+   111→   111→  modality: string;
+   112→   112→  startTime: string;
+   113→   113→  endTime: string;
+   114→   114→  status: string;
+   115→   115→  isDemoInsurance: boolean;
+   116→   116→  depositCents: number;
+   117→   117→  selfPayCents: number;
+   118→   118→  paymentStatus: string;
+   119→   119→  paymentMethod: string | null;
+   120→   120→  cancellationReason: string | null;
+   121→   121→  cancelledAt: string | null;
+   122→   122→  intakeCompleted: boolean;
+   123→   123→  insuranceVerified: boolean;
+   124→   124→  createdAt: string;
+   125→   125→  provider: { id: string; firstName: string; lastName: string; credentials: string | null; videoVisitLink?: string | null };
+   126→   126→  service: { id: string; name: string };
+   127→   127→  slot: { id: string; modality: string; status: string };
+   128→   128→  insurance: { id: string; name: string; isDemo: boolean } | null;
+   129→   129→}
+   130→   130→
+   131→   131→interface AppointmentDetail extends AppointmentRow {
+   132→   132→  specialty: { id: string; name: string };
+   133→   133→  clinic: { id: string; name: string; phoneNumber: string };
+   134→   134→  ledger: {
+   135→   135→    id: string;
+   136→   136→    type: string;
+   137→   137→    amountCents: number;
+   138→   138→    description: string | null;
+   139→   139→    paymentStatus: string | null;
+   140→   140→    processedBy: string | null;
+   141→   141→    createdAt: string;
+   142→   142→  } | null;
+   143→   143→  tokens: {
+   144→   144→    id: string;
+   145→   145→    purpose: string;
+   146→   146→    createdAt: string;
+   147→   147→    expiresAt: string;
+   148→   148→    consumedAt: string | null;
+   149→   149→  }[];
+   150→   150→  notes: NoteItem[];
+   151→   151→  validTransitions: string[];
+   152→   152→}
+   153→   153→
+   154→   154→interface NoteItem {
+   155→   155→  id: string;
+   156→   156→  content: string;
+   157→   157→  createdAt: string;
+   158→   158→  author: { id: string; name: string; role: string } | null;
+   159→   159→}
+   160→   160→
+   161→   161→interface ProviderOption {
+   162→   162→  id: string;
+   163→   163→  firstName: string;
+   164→   164→  lastName: string;
+   165→   165→  credentials: string | null;
+   166→   166→}
+   167→   167→
+   168→   168→interface RescheduleSlot {
+   169→   169→  id: string;
+   170→   170→  startTime: string;
+   171→   171→  endTime: string;
+   172→   172→  modality: string;
+   173→   173→}
+   174→   174→
+   175→   175→interface WaitlistRow {
+   176→   176→  id: string;
+   177→   177→  patientName: string;
+   178→   178→  patientEmail: string;
+   179→   179→  patientPhone: string;
+   180→   180→  patientType: string;
+   181→   181→  preferredModality: string | null;
+   182→   182→  status: string;
+   183→   183→  contactCount: number;
+   184→   184→  lastContactAt: string | null;
+   185→   185→  expiresAt: string | null;
+   186→   186→  createdAt: string;
+   187→   187→  providerName: string;
+   188→   188→  serviceName: string;
+   189→   189→}
+   190→   190→
+   191→   191→// =============================================================================
+   192→   192→// Status Helpers
+   193→   193→// =============================================================================
+   194→   194→
+   195→   195→const STATUS_STYLES: Record<string, string> = {
+   196→   196→  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+   197→   197→  CHECKED_IN: "bg-amber-100 text-amber-700 border-amber-200",
+   198→   198→  COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+   199→   199→  CANCELLED: "bg-red-100 text-red-700 border-red-200",
+   200→   200→  NO_SHOW: "bg-gray-100 text-gray-600 border-gray-200",
+   201→   201→  ARCHIVED: "bg-muted text-muted-foreground border-muted",
+   202→   202→};
+   203→   203→
+   204→   204→const STATUS_LABELS: Record<string, string> = {
+   205→   205→  BOOKED: "Booked",
+   206→   206→  CHECKED_IN: "Checked In",
+   207→   207→  COMPLETED: "Completed",
+   208→   208→  CANCELLED: "Cancelled",
+   209→   209→  NO_SHOW: "No Show",
+   210→   210→  ARCHIVED: "Archived",
+   211→   211→};
+   212→   212→
+   213→   213→const TRANSITION_LABELS: Record<string, string> = {
+   214→   214→  CHECKED_IN: "Check In",
+   215→   215→  COMPLETED: "Complete",
+   216→   216→  CANCELLED: "Cancel",
+   217→   217→  NO_SHOW: "No Show",
+   218→   218→  ARCHIVED: "Archive",
+   219→   219→};
+   220→   220→
+   221→   221→const TRANSITION_ICONS: Record<string, React.ReactNode> = {
+   222→   222→  CHECKED_IN: <UserCheck className="size-3.5" />,
+   223→   223→  COMPLETED: <CheckCircle2 className="size-3.5" />,
+   224→   224→  CANCELLED: <XCircle className="size-3.5" />,
+   225→   225→  NO_SHOW: <UserX className="size-3.5" />,
+   226→   226→  ARCHIVED: <FileText className="size-3.5" />,
+   227→   227→};
+   228→   228→
+   229→   229→// =============================================================================
+   230→   230→// Component
+   231→   231→// =============================================================================
+   232→   232→
+   233→   233→export default function AppointmentsPage() {
+   234→   234→  const { data: session } = useSession();
+   235→   235→  const clinicId = session?.user?.clinicId as string | undefined;
+   236→   236→
+   237→   237→  // Filters
+   238→   238→  const [statusFilter, setStatusFilter] = useState<string>("");
+   239→   239→  const [dateFrom, setDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
+   240→   240→  const [dateTo, setDateTo] = useState(() => format(addDays(new Date(), 30), "yyyy-MM-dd"));
+   241→   241→  const [search, setSearch] = useState("");
+   242→   242→  const [providerFilter, setProviderFilter] = useState<string>("");
+   243→   243→  const [page, setPage] = useState(1);
+   244→   244→
+   245→   245→  // Data
+   246→   246→  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+   247→   247→  const [totalPages, setTotalPages] = useState(1);
+   248→   248→  const [total, setTotal] = useState(0);
+   249→   249→  const [loading, setLoading] = useState(true);
+   250→   250→  const [error, setError] = useState<string | null>(null);
+   251→   251→
+   252→   252→  // Providers
+   253→   253→  const [providers, setProviders] = useState<ProviderOption[]>([]);
+   254→   254→
+   255→   255→  // Detail dialog
+   256→   256→  const [selectedId, setSelectedId] = useState<string | null>(null);
+   257→   257→  const [detail, setDetail] = useState<AppointmentDetail | null>(null);
+   258→   258→  const [detailLoading, setDetailLoading] = useState(false);
+   259→   259→
+   260→   260→  // Notes
+   261→   261→  const [noteContent, setNoteContent] = useState("");
+   262→   262→  const [noteSubmitting, setNoteSubmitting] = useState(false);
+   263→   263→
+   264→   264→  // Patient edit mode in detail dialog
+   265→   265→  const [editingPatient, setEditingPatient] = useState(false);
+   266→   266→  const [editName, setEditName] = useState("");
+   267→   267→  const [editEmail, setEditEmail] = useState("");
+   268→   268→  const [editPhone, setEditPhone] = useState("");
+   269→   269→  const [editDob, setEditDob] = useState("");
+   270→   270→  const [editInsuranceVerified, setEditInsuranceVerified] = useState(false);
+   271→   271→  const [patientSaving, setPatientSaving] = useState(false);
+   272→   272→
+   273→   273→  // Status transition
+   274→   274→  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+   275→   275→
+   276→   276→  // QR Code dialog
+   277→   277→  const [qrAppointmentId, setQrAppointmentId] = useState<string | null>(null);
+   278→   278→  const [qrPatientName, setQrPatientName] = useState<string | undefined>(undefined);
+   279→   279→
+   280→   280→  // View mode: appointments or waitlist
+   281→   281→  const [viewMode, setViewMode] = useState<"appointments" | "waitlist">("appointments");
+   282→   282→
+   283→   283→  // Waitlist data
+   284→   284→  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistRow[]>([]);
+   285→   285→  const [waitlistLoading, setWaitlistLoading] = useState(false);
+   286→   286→  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+   287→   287→  const [waitlistActionId, setWaitlistActionId] = useState<string | null>(null);
+   288→   288→
+   289→   289→  // Reschedule dialog
+   290→   290→  const [rescheduleApt, setRescheduleApt] = useState<AppointmentRow | null>(null);
+   291→   291→  const [rescheduleProviderId, setRescheduleProviderId] = useState("");
+   292→   292→  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
+   293→   293→  const [rescheduleSlots, setRescheduleSlots] = useState<RescheduleSlot[]>([]);
+   294→   294→  const [rescheduleSlotsLoading, setRescheduleSlotsLoading] = useState(false);
+   295→   295→  const [rescheduleSelectedSlotId, setRescheduleSelectedSlotId] = useState("");
+   296→   296→  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+   297→   297→
+   298→   298→  // Feature 1.1: Column sorting
+   299→   299→  const [sortField, setSortField] = useState<string>("startTime");
+   300→   300→  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+   301→   301→
+   302→   302→  // Feature 1.2: Grid/table view toggle
+   303→   303→  const [listView, setListView] = useState<"table" | "grid">("table");
+   304→   304→
+   305→   305→  // Feature 5.1: Video link manager
+   306→   306→  const [editVideoLink, setEditVideoLink] = useState("");
+   307→   307→  const [videoLinkSaving, setVideoLinkSaving] = useState(false);
+   308→   308→  const [videoLinkSending, setVideoLinkSending] = useState(false);
+   309→   309→
+   310→   310→  // Feature 6.1: Payment request
+   311→   311→  const [paymentRequestSending, setPaymentRequestSending] = useState(false);
+   312→   312→  const [paymentRequestAmount, setPaymentRequestAmount] = useState("");
+   313→   313→
+   314→   314→  // Feature 6.2: Refund confirmation
+   315→   315→  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+   316→   316→  const [refundSubmitting, setRefundSubmitting] = useState(false);
+   317→   317→
+   318→   318→  // Feature 7.1: Conflict alert
+   319→   319→  const [conflictIds, setConflictIds] = useState<Set<string>>(new Set());
+   320→   320→
+   321→   321→  // Build query params
+   322→   322→  const buildQuery = useCallback(
+   323→   323→    (overrides?: { pageOverride?: number }) => {
+   324→   324→      const params = new URLSearchParams();
+   325→   325→      if (statusFilter) params.set("status", statusFilter);
+   326→   326→      if (dateFrom) params.set("dateFrom", dateFrom);
+   327→   327→      if (dateTo) params.set("dateTo", dateTo);
+   328→   328→      if (search) params.set("search", search);
+   329→   329→      if (providerFilter) params.set("providerId", providerFilter);
+   330→   330→      params.set("page", String(overrides?.pageOverride ?? page));
+   331→   331→      params.set("limit", "20");
+   332→   332→      if (clinicId) params.set("clinicId", clinicId);
+   333→   333→      return params.toString();
+   334→   334→    },
+   335→   335→    [statusFilter, dateFrom, dateTo, search, providerFilter, page, clinicId]
+   336→   336→  );
+   337→   337→
+   338→   338→  // Fetch appointments
+   339→   339→  const fetchAppointments = useCallback(async () => {
+   340→   340→    setLoading(true);
+   341→   341→    setError(null);
+   342→   342→    try {
+   343→   343→      const res = await fetch(`/api/staff/appointments?${buildQuery()}`);
+   344→   344→      if (!res.ok) {
+   345→   345→        const data = await res.json().catch(() => ({}));
+   346→   346→        throw new Error(data.error || "Failed to fetch appointments");
+   347→   347→      }
+   348→   348→      const data = await res.json();
+   349→   349→      setAppointments(data.data || []);
+   350→   350→      setTotalPages(data.pagination?.totalPages || 1);
+   351→   351→      setTotal(data.pagination?.total || 0);
+   352→   352→    } catch (err) {
+   353→   353→      setError(err instanceof Error ? err.message : "Unknown error");
+   354→   354→    } finally {
+   355→   355→      setLoading(false);
+   356→   356→    }
+   357→   357→  }, [buildQuery]);
+   358→   358→
+   359→   359→  // Fetch providers
+   360→   360→  useEffect(() => {
+   361→   361→    if (!clinicId) return;
+   362→   362→    (async () => {
+   363→   363→      try {
+   364→   364→        const res = await fetch(`/api/taxonomies?clinicId=${clinicId}&include=providers`);
+   365→   365→        if (res.ok) {
+   366→   366→          // Providers come from the dashboard or we use a simpler approach
+   367→   367→        }
+   368→   368→      } catch {
+   369→   369→        // non-critical
+   370→   370→      }
+   371→   371→    })();
+   372→   372→  }, [clinicId]);
+   373→   373→
+   374→   374→  // Track previous filter values to detect non-page filter changes
+   375→   375→  const prevFiltersRef = useRef({ statusFilter, dateFrom, dateTo, search, providerFilter });
+   376→   376→
+   377→   377→  // Single effect: fetch appointments on any dependency change, reset page on filter change
+   378→   378→  useEffect(() => {
+   379→   379→    const prev = prevFiltersRef.current;
+   380→   380→    const filterChanged =
+   381→   381→      prev.statusFilter !== statusFilter ||
+   382→   382→      prev.dateFrom !== dateFrom ||
+   383→   383→      prev.dateTo !== dateTo ||
+   384→   384→      prev.search !== search ||
+   385→   385→      prev.providerFilter !== providerFilter;
+   386→   386→    prevFiltersRef.current = { statusFilter, dateFrom, dateTo, search, providerFilter };
+   387→   387→
+   388→   388→    if (filterChanged) {
+   389→   389→      setPage(1);
+   390→   390→      // fetchAppointments will re-run with page=1 via the dependency update below
+   391→   391→      return;
+   392→   392→    }
+   393→   393→    fetchAppointments();
+   394→   394→  }, [statusFilter, dateFrom, dateTo, search, providerFilter, page, fetchAppointments]);
+   395→   395→
+   396→   396→  // Fetch providers for the clinic
+   397→   397→  useEffect(() => {
+   398→   398→    if (!clinicId) return;
+   399→   399→    (async () => {
+   400→   400→      try {
+   401→   401→        const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
+   402→   402→        if (res.ok) {
+   403→   403→          const data = await res.json();
+   404→   404→          const allProviders = (data.providers || []).map(
+   405→   405→            (p: Record<string, unknown>) => ({
+   406→   406→              id: p.id as string,
+   407→   407→              firstName: (p.firstName as string) || "",
+   408→   408→              lastName: (p.lastName as string) || "",
+   409→   409→              credentials: (p.credentials as string) || null,
+   410→   410→            })
+   411→   411→          );
+   412→   412→          setProviders(allProviders);
+   413→   413→        }
+   414→   414→      } catch {
+   415→   415→        // non-critical
+   416→   416→      }
+   417→   417→    })();
+   418→   418→  }, [clinicId]);
+   419→   419→
+   420→   420→  // Fetch conflict IDs on mount
+   421→   421→  useEffect(() => {
+   422→   422→    if (!clinicId) return;
+   423→   423→    (async () => {
+   424→   424→      try {
+   425→   425→        const res = await fetch(`/api/staff/appointments/conflicts?clinicId=${clinicId}`);
+   426→   426→        if (res.ok) {
+   427→   427→          const data = await res.json();
+   428→   428→          const ids = new Set<string>();
+   429→   429→          for (const group of (data.conflicts || []) as Array<{ appointments: Array<{ id: string }> }>) {
+   430→   430→            for (const apt of group.appointments) {
+   431→   431→              ids.add(apt.id);
+   432→   432→            }
+   433→   433→          }
+   434→   434→          setConflictIds(ids);
+   435→   435→        }
+   436→   436→      } catch {
+   437→   437→        // non-critical
+   438→   438→      }
+   439→   439→    })();
+   440→   440→  }, [clinicId]);
+   441→   441→
+   442→   442→  // Feature 1.1: Client-side sorting
+   443→   443→  const sortedAppointments = useMemo(() => {
+   444→   444→    const sorted = [...appointments];
+   445→   445→    const dir = sortDir === "asc" ? 1 : -1;
+   446→   446→    sorted.sort((a, b) => {
+   447→   447→      let valA: string;
+   448→   448→      let valB: string;
+   449→   449→      switch (sortField) {
+   450→   450→        case "startTime":
+   451→   451→          valA = a.startTime;
+   452→   452→          valB = b.startTime;
+   453→   453→          break;
+   454→   454→        case "patientName":
+   455→   455→          valA = a.patientName.toLowerCase();
+   456→   456→          valB = b.patientName.toLowerCase();
+   457→   457→          break;
+   458→   458→        case "provider": {
+   459→   459→          valA = `${a.provider.lastName} ${a.provider.firstName}`.toLowerCase();
+   460→   460→          valB = `${b.provider.lastName} ${b.provider.firstName}`.toLowerCase();
+   461→   461→          break;
+   462→   462→        }
+   463→   463→        case "status":
+   464→   464→          valA = a.status;
+   465→   465→          valB = b.status;
+   466→   466→          break;
+   467→   467→        default:
+   468→   468→          valA = a.startTime;
+   469→   469→          valB = b.startTime;
+   470→   470→      }
+   471→   471→      if (valA < valB) return -1 * dir;
+   472→   472→      if (valA > valB) return 1 * dir;
+   473→   473→      return 0;
+   474→   474→    });
+   475→   475→    return sorted;
+   476→   476→  }, [appointments, sortField, sortDir]);
+   477→   477→
+   478→   478→  const handleSort = (field: string) => {
+   479→   479→    if (sortField === field) {
+   480→   480→      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+   481→   481→    } else {
+   482→   482→      setSortField(field);
+   483→   483→      setSortDir("asc");
+   484→   484→    }
+   485→   485→  };
+   486→   486→
+   487→   487→  const SortIcon = ({ field }: { field: string }) => {
+   488→   488→    if (sortField !== field) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
+   489→   489→    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-emerald-600" /> : <ArrowDown className="size-3 ml-1 text-emerald-600" />;
+   490→   490→  };
+   491→   491→
+   492→   492→  // Open detail dialog
+   493→   493→  const openDetail = async (id: string) => {
+   494→   494→    setSelectedId(id);
+   495→   495→    setDetailLoading(true);
+   496→   496→    setDetail(null);
+   497→   497→    setNoteContent("");
+   498→   498→    setEditingPatient(false);
+   499→   499→    setPaymentRequestAmount("");
+   500→   500→    try {
+   501→   501→      const res = await fetch(`/api/staff/appointments/${id}`);
+   502→   502→      if (!res.ok) throw new Error("Failed to load appointment");
+   503→   503→      const data = await res.json();
+   504→   504→      setDetail(data);
+   505→   505→      // Populate edit fields
+   506→   506→      setEditName(data.patientName);
+   507→   507→      setEditEmail(data.patientEmail);
+   508→   508→      setEditPhone(data.patientPhone);
+   509→   509→      setEditDob(data.patientDob ? format(parseISO(data.patientDob), "yyyy-MM-dd") : "");
+   510→   510→      setEditInsuranceVerified(data.insuranceVerified ?? false);
+   511→   511→      // Populate video link
+   512→   512→      setEditVideoLink(data.provider?.videoVisitLink || "");
+   513→   513→    } catch {
+   514→   514→      setDetail(null);
+   515→   515→    } finally {
+   516→   516→      setDetailLoading(false);
+   517→   517→    }
+   518→   518→  };
+   519→   519→
+   520→   520→  // Status transition
+   521→   521→  const handleTransition = async (appointmentId: string, newStatus: string) => {
+   522→   522→    setTransitioningId(appointmentId);
+   523→   523→    try {
+   524→   524→      const res = await fetch(`/api/staff/appointments/${appointmentId}`, {
+   525→   525→        method: "PATCH",
+   526→   526→        headers: { "Content-Type": "application/json" },
+   527→   527→        body: JSON.stringify({ status: newStatus }),
+   528→   528→      });
+   529→   529→      if (!res.ok) {
+   530→   530→        const data = await res.json().catch(() => ({}));
+   531→   531→        throw new Error(data.error || "Failed to update status");
+   532→   532→      }
+   533→   533→      // Refresh list
+   534→   534→      fetchAppointments();
+   535→   535→      // Refresh detail if open
+   536→   536→      if (selectedId === appointmentId) {
+   537→   537→        openDetail(appointmentId);
+   538→   538→      }
+   539→   539→      const statusLabels: Record<string, string> = {
+   540→   540→        CHECKED_IN: "checked in",
+   541→   541→        COMPLETED: "marked as completed",
+   542→   542→        CANCELLED: "cancelled",
+   543→   543→        NO_SHOW: "marked as no-show",
+   544→   544→      };
+   545→   545→      toast.success(`Appointment ${statusLabels[newStatus] || "updated"}`);
+   546→   546→    } catch (err) {
+   547→   547→      toast.error(err instanceof Error ? err.message : "Failed to update status");
+   548→   548→    } finally {
+   549→   549→      setTransitioningId(null);
+   550→   550→    }
+   551→   551→  };
+   552→   552→
+   553→   553→  // Add note
+   554→   554→  const handleAddNote = async () => {
+   555→   555→    if (!selectedId || !noteContent.trim()) return;
+   556→   556→    setNoteSubmitting(true);
+   557→   557→    try {
+   558→   558→      const res = await fetch(`/api/staff/appointments/${selectedId}/notes`, {
+   559→   559→        method: "POST",
+   560→   560→        headers: { "Content-Type": "application/json" },
+   561→   561→        body: JSON.stringify({ content: noteContent.trim() }),
+   562→   562→      });
+   563→   563→      if (!res.ok) throw new Error("Failed to add note");
+   564→   564→      setNoteContent("");
+   565→   565→      // Refresh detail
+   566→   566→      openDetail(selectedId);
+   567→   567→      toast.success("Note added");
+   568→   568→    } catch {
+   569→   569→      toast.error("Failed to add note");
+   570→   570→    } finally {
+   571→   571→      setNoteSubmitting(false);
+   572→   572→    }
+   573→   573→  };
+   574→   574→
+   575→   575→  // Save patient contact details + insurance verified + DOB
+   576→   576→  const handleSavePatient = async () => {
+   577→   577→    if (!selectedId || !detail) return;
+   578→   578→    setPatientSaving(true);
+   579→   579→    try {
+   580→   580→      const body: Record<string, unknown> = {
+   581→   581→        patientName: editName,
+   582→   582→        patientEmail: editEmail,
+   583→   583→        patientPhone: editPhone,
+   584→   584→        patientDob: editDob,
+   585→   585→        insuranceVerified: editInsuranceVerified,
+   586→   586→      };
+   587→   587→      const res = await fetch(`/api/staff/appointments/${selectedId}`, {
+   588→   588→        method: "PATCH",
+   589→   589→        headers: { "Content-Type": "application/json" },
+   590→   590→        body: JSON.stringify(body),
+   591→   591→      });
+   592→   592→      if (!res.ok) {
+   593→   593→        const data = await res.json().catch(() => ({}));
+   594→   594→        throw new Error(data.error || "Failed to update patient details");
+   595→   595→      }
+   596→   596→      setEditingPatient(false);
+   597→   597→      // Refresh detail to get updated data
+   598→   598→      openDetail(selectedId);
+   599→   599→      toast.success("Patient details updated");
+   600→   600→    } catch (err) {
+   601→   601→      toast.error(err instanceof Error ? err.message : "Failed to update patient details");
+   602→   602→    } finally {
+   603→   603→      setPatientSaving(false);
+   604→   604→    }
+   605→   605→  };
+   606→   606→
+   607→   607→  // ---- Reschedule ----
+   608→   608→  const openReschedule = (apt: AppointmentRow) => {
+   609→   609→    setRescheduleApt(apt);
+   610→   610→    setRescheduleProviderId(apt.provider.id);
+   611→   611→    setRescheduleDate(undefined);
+   612→   612→    setRescheduleSlots([]);
+   613→   613→    setRescheduleSelectedSlotId("");
+   614→   614→  };
+   615→   615→
+   616→   616→  const handleRescheduleProviderChange = async (providerId: string) => {
+   617→   617→    setRescheduleProviderId(providerId);
+   618→   618→    setRescheduleSelectedSlotId("");
+   619→   619→    if (rescheduleDate) {
+   620→   620→      await fetchRescheduleSlots(providerId, rescheduleDate);
+   621→   621→    } else {
+   622→   622→      setRescheduleSlots([]);
+   623→   623→    }
+   624→   624→  };
+   625→   625→
+   626→   626→  const handleRescheduleDateChange = async (date: Date | undefined) => {
+   627→   627→    setRescheduleDate(date);
+   628→   628→    setRescheduleSelectedSlotId("");
+   629→   629→    if (date && rescheduleProviderId) {
+   630→   630→      await fetchRescheduleSlots(rescheduleProviderId, date);
+   631→   631→    } else {
+   632→   632→      setRescheduleSlots([]);
+   633→   633→    }
+   634→   634→  };
+   635→   635→
+   636→   636→  const fetchRescheduleSlots = async (providerId: string, date: Date) => {
+   637→   637→    setRescheduleSlotsLoading(true);
+   638→   638→    try {
+   639→   639→      const dateStr = format(date, "yyyy-MM-dd");
+   640→   640→      const res = await fetch(`/api/staff/book?providerId=${providerId}&date=${dateStr}`);
+   641→   641→      if (!res.ok) throw new Error("Failed to load slots");
+   642→   642→      const data = await res.json();
+   643→   643→      setRescheduleSlots(data.slots || []);
+   644→   644→    } catch {
+   645→   645→      setRescheduleSlots([]);
+   646→   646→      toast.error("Failed to load available slots");
+   647→   647→    } finally {
+   648→   648→      setRescheduleSlotsLoading(false);
+   649→   649→    }
+   650→   650→  };
+   651→   651→
+   652→   652→  const handleRescheduleConfirm = async () => {
+   653→   653→    if (!rescheduleApt || !rescheduleSelectedSlotId || rescheduleSubmitting) return;
+   654→   654→    setRescheduleSubmitting(true);
+   655→   655→    try {
+   656→   656→      const res = await fetch(`/api/staff/appointments/${rescheduleApt.id}/reschedule`, {
+   657→   657→        method: "POST",
+   658→   658→        headers: { "Content-Type": "application/json" },
+   659→   659→        body: JSON.stringify({ newSlotId: rescheduleSelectedSlotId }),
+   660→   660→      });
+   661→   661→      if (!res.ok) {
+   662→   662→        const data = await res.json().catch(() => ({}));
+   663→   663→        throw new Error(data.error || "Reschedule failed");
+   664→   664→      }
+   665→   665→      toast.success("Appointment rescheduled successfully");
+   666→   666→      setRescheduleApt(null);
+   667→   667→      fetchAppointments();
+   668→   668→      // Also refresh detail if this appointment's detail is open
+   669→   669→      if (selectedId === rescheduleApt.id) {
+   670→   670→        setSelectedId(null);
+   671→   671→        setDetail(null);
+   672→   672→      }
+   673→   673→    } catch (err) {
+   674→   674→      toast.error(err instanceof Error ? err.message : "Failed to reschedule");
+   675→   675→    } finally {
+   676→   676→      setRescheduleSubmitting(false);
+   677→   677→    }
+   678→   678→  };
+   679→   679→
+   680→   680→  // Fetch waitlist entries
+   681→   681→  const fetchWaitlist = useCallback(async () => {
+   682→   682→    if (!clinicId) return;
+   683→   683→    setWaitlistLoading(true);
+   684→   684→    setWaitlistError(null);
+   685→   685→    try {
+   686→   686→      const res = await fetch(`/api/staff/waitlist?clinicId=${clinicId}`);
+   687→   687→      if (!res.ok) {
+   688→   688→        const data = await res.json().catch(() => ({}));
+   689→   689→        throw new Error(data.error || "Failed to fetch waitlist");
+   690→   690→      }
+   691→   691→      const data = await res.json();
+   692→   692→      setWaitlistEntries(data.data || []);
+   693→   693→    } catch (err) {
+   694→   694→      setWaitlistError(err instanceof Error ? err.message : "Failed to fetch waitlist");
+   695→   695→    } finally {
+   696→   696→      setWaitlistLoading(false);
+   697→   697→    }
+   698→   698→  }, [clinicId]);
+   699→   699→
+   700→   700→  // Fetch waitlist when view mode changes
+   701→   701→  useEffect(() => {
+   702→   702→    if (viewMode === "waitlist") {
+   703→   703→      fetchWaitlist();
+   704→   704→    }
+   705→   705→  }, [viewMode, fetchWaitlist]);
+   706→   706→
+   707→   707→  // Waitlist action handler (update status or contact)
+   708→   708→  const handleWaitlistAction = async (entryId: string, action: string) => {
+   709→   709→    setWaitlistActionId(entryId);
+   710→   710→    try {
+   711→   711→      const body: Record<string, unknown> = { id: entryId };
+   712→   712→      if (action === "contact") {
+   713→   713→        body.incrementContact = true;
+   714→   714→      } else {
+   715→   715→        body.status = action;
+   716→   716→      }
+   717→   717→      const res = await fetch("/api/staff/waitlist", {
+   718→   718→        method: "PATCH",
+   719→   719→        headers: { "Content-Type": "application/json" },
+   720→   720→        body: JSON.stringify(body),
+   721→   721→      });
+   722→   722→      if (!res.ok) {
+   723→   723→        const data = await res.json().catch(() => ({}));
+   724→   724→        throw new Error(data.error || "Failed to update waitlist entry");
+   725→   725→      }
+   726→   726→      fetchWaitlist();
+   727→   727→      const actionLabels: Record<string, string> = {
+   728→   728→        OFFERED: "marked as offered",
+   729→   729→        EXPIRED: "marked as expired",
+   730→   730→        REMOVED: "removed",
+   731→   731→        contact: "contact recorded",
+   732→   732→      };
+   733→   733→      toast.success(`Entry ${actionLabels[action] || "updated"}`);
+   734→   734→    } catch (err) {
+   735→   735→      toast.error(err instanceof Error ? err.message : "Failed to update entry");
+   736→   736→    } finally {
+   737→   737→      setWaitlistActionId(null);
+   738→   738→    }
+   739→   739→  };
+   740→   740→
+   741→   741→  // Feature 5.1: Save video link (on the provider)
+   742→   742→  const handleSaveVideoLink = async () => {
+   743→   743→    if (!selectedId || !detail) return;
+   744→   744→    setVideoLinkSaving(true);
+   745→   745→    try {
+   746→   746→      const res = await fetch(`/api/staff/appointments/${selectedId}`, {
+   747→   747→        method: "PATCH",
+   748→   748→        headers: { "Content-Type": "application/json" },
+   749→   749→        body: JSON.stringify({ videoVisitLink: editVideoLink }),
+   750→   750→      });
+   751→   751→      if (!res.ok) {
+   752→   752→        const data = await res.json().catch(() => ({}));
+   753→   753→        throw new Error(data.error || "Failed to save video link");
+   754→   754→      }
+   755→   755→      toast.success("Video link saved");
+   756→   756→      // Refresh detail to pick up updated provider data
+   757→   757→      openDetail(selectedId);
+   758→   758→    } catch (err) {
+   759→   759→      toast.error(err instanceof Error ? err.message : "Failed to save video link");
+   760→   760→    } finally {
+   761→   761→      setVideoLinkSaving(false);
+   762→   762→    }
+   763→   763→  };
+   764→   764→
+   765→   765→  // Feature 5.2: Send video link to patient
+   766→   766→  const handleSendVideoLink = async () => {
+   767→   767→    if (!selectedId) return;
+   768→   768→    setVideoLinkSending(true);
+   769→   769→    try {
+   770→   770→      const res = await fetch(`/api/staff/appointments/${selectedId}/send-video-link`, {
+   771→   771→        method: "POST",
+   772→   772→      });
+   773→   773→      if (!res.ok) {
+   774→   774→        const data = await res.json().catch(() => ({}));
+   775→   775→        throw new Error(data.error || "Failed to send video link");
+   776→   776→      }
+   777→   777→      toast.success("Video link sent to patient");
+   778→   778→    } catch (err) {
+   779→   779→      toast.error(err instanceof Error ? err.message : "Failed to send video link");
+   780→   780→    } finally {
+   781→   781→      setVideoLinkSending(false);
+   782→   782→    }
+   783→   783→  };
+   784→   784→
+   785→   785→  // Feature 6.1: Send payment request
+   786→   786→  const handleSendPaymentRequest = async () => {
+   787→   787→    if (!selectedId || !detail) return;
+   788→   788→    const amountCents = Math.round(parseFloat(paymentRequestAmount) * 100);
+   789→   789→    if (!amountCents || amountCents <= 0) {
+   790→   790→      toast.error("Please enter a valid amount");
+   791→   791→      return;
+   792→   792→    }
+   793→   793→    setPaymentRequestSending(true);
+   794→   794→    try {
+   795→   795→      const res = await fetch("/api/staff/payments/request", {
+   796→   796→        method: "POST",
+   797→   797→        headers: { "Content-Type": "application/json" },
+   798→   798→        body: JSON.stringify({ appointmentId: selectedId, amountCents }),
+   799→   799→      });
+   800→   800→      if (!res.ok) {
+   801→   801→        const data = await res.json().catch(() => ({}));
+   802→   802→        throw new Error(data.error || "Failed to send payment request");
+   803→   803→      }
+   804→   804→      const data = await res.json();
+   805→   805→      toast.success(`Payment request sent — ${data.paymentUrl}`);
+   806→   806→      setPaymentRequestAmount("");
+   807→   807→    } catch (err) {
+   808→   808→      toast.error(err instanceof Error ? err.message : "Failed to send payment request");
+   809→   809→    } finally {
+   810→   810→      setPaymentRequestSending(false);
+   811→   811→    }
+   812→   812→  };
+   813→   813→
+   814→   814→  // Feature 6.2: Manual refund
+   815→   815→  const handleConfirmRefund = async () => {
+   816→   816→    if (!selectedId || !detail) return;
+   817→   817→    setRefundSubmitting(true);
+   818→   818→    try {
+   819→   819→      const res = await fetch("/api/staff/payments/refund", {
+   820→   820→        method: "POST",
+   821→   821→        headers: { "Content-Type": "application/json" },
+   822→   822→        body: JSON.stringify({ appointmentId: selectedId }),
+   823→   823→      });
+   824→   824→      if (!res.ok) {
+   825→   825→        const data = await res.json().catch(() => ({}));
+   826→   826→        throw new Error(data.error || "Failed to process refund");
+   827→   827→      }
+   828→   828→      toast.success("Refund processed successfully");
+   829→   829→      setRefundDialogOpen(false);
+   830→   830→      // Refresh detail
+   831→   831→      openDetail(selectedId);
+   832→   832→    } catch (err) {
+   833→   833→      toast.error(err instanceof Error ? err.message : "Failed to process refund");
+   834→   834→    } finally {
+   835→   835→      setRefundSubmitting(false);
+   836→   836→    }
+   837→   837→  };
+   838→   838→
+   839→   839→  // Format cents
+   840→   840→  const formatCents = (cents: number) => {
+   841→   841→    if (cents === 0) return "Free";
+   842→   842→    return `$${(cents / 100).toFixed(2)}`;
+   843→   843→  };
+   844→   844→
+   845→   845→  // Modality badge
+   846→   846→  const ModalityBadge = ({ modality }: { modality: string }) => {
+   847→   847→    if (modality === "VIDEO") {
+   848→   848→      return (
+   849→   849→        <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50">
+   850→   850→          <Video className="size-3 mr-1" />
+   851→   851→          Video
+   852→   852→        </Badge>
+   853→   853→      );
+   854→   854→    }
+   855→   855→    return (
+   856→   856→      <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50">
+   857→   857→        <CalendarDays className="size-3 mr-1" />
+   858→   858→        In-Clinic
+   859→   859→      </Badge>
+   860→   860→    );
+   861→   861→  };
+   862→   862→
+   863→   863→  // Status badge
+   864→   864→  const StatusBadge = ({ status }: { status: string }) => (
+   865→   865→    <Badge className={`${STATUS_STYLES[status] || STATUS_STYLES.ARCHIVED} border`}>
+   866→   866→      {STATUS_LABELS[status] || status}
+   867→   867→    </Badge>
+   868→   868→  );
+   869→   869→
+   870→   870→  // Filter tabs
+   871→   871→  const statusTabs = [
+   872→   872→    { key: "", label: "All" },
+   873→   873→    { key: "BOOKED", label: "Booked" },
+   874→   874→    { key: "CHECKED_IN", label: "Checked In" },
+   875→   875→    { key: "COMPLETED", label: "Completed" },
+   876→   876→    { key: "CANCELLED", label: "Cancelled" },
+   877→   877→    { key: "NO_SHOW", label: "No Show" },
+   878→   878→    { key: "__WAITLIST__", label: "Waitlist", isWaitlist: true },
+   879→   879→  ];
+   880→   880→
+   881→   881→  // Waitlist status styles (Feature 10: fixed labels)
+   882→   882→  const WL_STATUS_STYLES: Record<string, string> = {
+   883→   883→    ACTIVE: "bg-amber-100 text-amber-700 border-amber-200",
+   884→   884→    OFFERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+   885→   885→    EXPIRED: "bg-gray-100 text-gray-600 border-gray-200",
+   886→   886→    FULFILLED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+   887→   887→    REMOVED: "bg-gray-100 text-gray-600 border-gray-200",
+   888→   888→  };
+   889→   889→
+   890→   890→  const WL_STATUS_LABELS: Record<string, string> = {
+   891→   891→    ACTIVE: "Waiting",
+   892→   892→    OFFERED: "Offered",
+   893→   893→    EXPIRED: "Expired",
+   894→   894→    FULFILLED: "Fulfilled",
+   895→   895→    REMOVED: "Removed",
+   896→   896→  };
+   897→   897→
+   898→   898→  // Appointment row actions dropdown (shared between table and grid)
+   899→   899→  const AppointmentActions = ({ apt }: { apt: AppointmentRow }) => (
+   900→   900→    <DropdownMenu>
+   901→   901→      <DropdownMenuTrigger asChild>
+   902→   902→        <Button
+   903→   903→          variant="ghost"
+   904→   904→          size="icon"
+   905→   905→          className="size-8 cursor-pointer"
+   906→   906→          disabled={transitioningId === apt.id}
+   907→   907→        >
+   908→   908→          {transitioningId === apt.id ? (
+   909→   909→            <Loader2 className="size-4 animate-spin" />
+   910→   910→          ) : (
+   911→   911→            <MoreHorizontal className="size-4" />
+   912→   912→          )}
+   913→   913→        </Button>
+   914→   914→      </DropdownMenuTrigger>
+   915→   915→      <DropdownMenuContent align="end" className="w-44">
+   916→   916→        <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
+   917→   917→          <Eye className="size-3.5 mr-2" />
+   918→   918→          View Details
+   919→   919→        </DropdownMenuItem>
+   920→   920→        <DropdownMenuSeparator />
+   921→   921→        {apt.status === "BOOKED" && (
+   922→   922→          <DropdownMenuItem
+   923→   923→            onClick={() => handleTransition(apt.id, "CHECKED_IN")}
+   924→   924→            className="cursor-pointer"
+   925→   925→          >
+   926→   926→            <UserCheck className="size-3.5 mr-2 text-amber-600" />
+   927→   927→            Check In
+   928→   928→          </DropdownMenuItem>
+   929→   929→        )}
+   930→   930→        {apt.status === "BOOKED" && (
+   931→   931→          <DropdownMenuItem
+   932→   932→            onClick={() => openReschedule(apt)}
+   933→   933→            className="cursor-pointer"
+   934→   934→          >
+   935→   935→            <RefreshCw className="size-3.5 mr-2 text-blue-600" />
+   936→   936→            Reschedule
+   937→   937→          </DropdownMenuItem>
+   938→   938→        )}
+   939→   939→        {apt.status === "CHECKED_IN" && (
+   940→   940→          <DropdownMenuItem
+   941→   941→            onClick={() => handleTransition(apt.id, "COMPLETED")}
+   942→   942→            className="cursor-pointer"
+   943→   943→          >
+   944→   944→            <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+   945→   945→            Complete
+   946→   946→          </DropdownMenuItem>
+   947→   947→        )}
+   948→   948→        {(apt.status === "BOOKED" || apt.status === "CHECKED_IN") && (
+   949→   949→          <DropdownMenuItem
+   950→   950→            onClick={() => handleTransition(apt.id, "CANCELLED")}
+   951→   951→            className="cursor-pointer text-red-600 focus:text-red-600"
+   952→   952→          >
+   953→   953→            <XCircle className="size-3.5 mr-2" />
+   954→   954→            Cancel
+   955→   955→          </DropdownMenuItem>
+   956→   956→        )}
+   957→   957→        <DropdownMenuSeparator />
+   958→   958→        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+   959→   959→          <DropdownMenuItem
+   960→   960→            onClick={() => {
+   961→   961→              setQrAppointmentId(apt.id);
+   962→   962→              setQrPatientName(apt.patientName);
+   963→   963→            }}
+   964→   964→            className="cursor-pointer"
+   965→   965→          >
+   966→   966→            <QrCode className="size-3.5 mr-2 text-emerald-600" />
+   967→   967→            QR Code
+   968→   968→          </DropdownMenuItem>
+   969→   969→        )}
+   970→   970→        {apt.status === "BOOKED" && (
+   971→   971→          <DropdownMenuItem
+   972→   972→            onClick={() => handleTransition(apt.id, "NO_SHOW")}
+   973→   973→            className="cursor-pointer"
+   974→   974→          >
+   975→   975→            <UserX className="size-3.5 mr-2" />
+   976→   976→            Mark No Show
+   977→   977→          </DropdownMenuItem>
+   978→   978→        )}
+   979→   979→      </DropdownMenuContent>
+   980→   980→    </DropdownMenu>
+   981→   981→  );
+   982→   982→
+   983→   983→  // Grid card for an appointment
+   984→   984→  const AppointmentGridCard = ({ apt }: { apt: AppointmentRow }) => (
+   985→   985→    <div
+   986→   986→      className={cn(
+   987→   987→        "rounded-xl border border-border/60 bg-white p-4 shadow-sm hover:shadow-md transition-all",
+   988→   988→        conflictIds.has(apt.id) && "ring-2 ring-orange-300"
+   989→   989→      )}
+   990→   990→    >
+   991→   991→      <div className="flex items-start justify-between mb-3">
+   992→   992→        <div className="flex items-center gap-2 min-w-0 flex-1">
+   993→   993→          <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+   994→   994→            <User className="size-4 text-emerald-600" />
+   995→   995→          </div>
+   996→   996→          <button
+   997→   997→            type="button"
+   998→   998→            onClick={() => openDetail(apt.id)}
+   999→   999→            className="text-left cursor-pointer hover:text-emerald-700 transition-colors min-w-0"
+  1000→  1000→          >
+  1001→  1001→            <p className={cn("font-medium truncate text-sm", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+  1002→  1002→              {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+  1003→  1003→              {apt.patientName}
+  1004→  1004→            </p>
+  1005→  1005→          </button>
+  1006→  1006→        </div>
+  1007→  1007→        <AppointmentActions apt={apt} />
+  1008→  1008→      </div>
+  1009→  1009→      <div className="space-y-1.5 text-sm">
+  1010→  1010→        <div className="flex items-center gap-2 text-muted-foreground">
+  1011→  1011→          <UserCheck className="size-3.5 shrink-0" />
+  1012→  1012→          <span className="truncate">Dr. {apt.provider.firstName} {apt.provider.lastName}</span>
+  1013→  1013→        </div>
+  1014→  1014→        <div className="flex items-center gap-2 text-muted-foreground">
+  1015→  1015→          <FileText className="size-3.5 shrink-0" />
+  1016→  1016→          <span className="truncate">{apt.service.name}</span>
+  1017→  1017→        </div>
+  1018→  1018→        <div className="flex items-center gap-2 text-muted-foreground">
+  1019→  1019→          <Clock className="size-3.5 shrink-0" />
+  1020→  1020→          <span>{format(parseISO(apt.startTime), "h:mm a")}</span>
+  1021→  1021→          <span className="text-xs">·</span>
+  1022→  1022→          <span className="text-xs">{format(parseISO(apt.startTime), "MMM d, yyyy")}</span>
+  1023→  1023→        </div>
+  1024→  1024→        <div className="flex items-center gap-2 pt-1">
+  1025→  1025→          <StatusBadge status={apt.status} />
+  1026→  1026→          <ModalityBadge modality={apt.modality} />
+  1027→  1027→        </div>
+  1028→  1028→      </div>
+  1029→  1029→    </div>
+  1030→  1030→  );
+  1031→  1031→
+  1032→  1032→  return (
+  1033→  1033→    <div className="space-y-4">
+  1034→  1034→      {/* Page Header */}
+  1035→  1035→      <div>
+  1036→  1036→        <h1 className="text-xl font-semibold text-foreground">Appointments</h1>
+  1037→  1037→        <p className="text-sm text-muted-foreground mt-0.5">
+  1038→  1038→          Manage and review all clinic appointments
+  1039→  1039→        </p>
+  1040→  1040→      </div>
+  1041→  1041→
+  1042→  1042→      {/* Filter Bar */}
+  1043→  1043→      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+  1044→  1044→        {/* Status Tabs */}
+  1045→  1045→        <div className="flex flex-wrap gap-1.5">
+  1046→  1046→          {statusTabs.map((tab) => {
+  1047→  1047→            const isWl = 'isWaitlist' in tab && tab.isWaitlist;
+  1048→  1048→            const isActive = isWl
+  1049→  1049→              ? viewMode === "waitlist"
+  1050→  1050→              : viewMode === "appointments" && statusFilter === tab.key;
+  1051→  1051→            return (
+  1052→  1052→              <button
+  1053→  1053→                key={tab.key}
+  1054→  1054→                onClick={() => {
+  1055→  1055→                  if (isWl) {
+  1056→  1056→                    setViewMode("waitlist");
+  1057→  1057→                  } else {
+  1058→  1058→                    setViewMode("appointments");
+  1059→  1059→                    setStatusFilter(tab.key);
+  1060→  1060→                  }
+  1061→  1061→                }}
+  1062→  1062→                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer border ${
+  1063→  1063→                  isActive
+  1064→  1064→                    ? isWl
+  1065→  1065→                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+  1066→  1066→                      : "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+  1067→  1067→                    : "bg-white text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
+  1068→  1068→                }`}
+  1069→  1069→              >
+  1070→  1070→                {isWl && <Bell className="size-3 mr-1 inline" />}
+  1071→  1071→                {tab.label}
+  1072→  1072→              </button>
+  1073→  1073→            );
+  1074→  1074→          })}
+  1075→  1075→        </div>
+  1076→  1076→
+  1077→  1077→        <Separator />
+  1078→  1078→
+  1079→  1079→        {/* Search + Filters Row — only show for appointments view */}
+  1080→  1080→        {viewMode === "appointments" && (
+  1081→  1081→        <div className="flex flex-col sm:flex-row gap-2.5">
+  1082→  1082→          {/* Search */}
+  1083→  1083→          <div className="relative flex-1">
+  1084→  1084→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/70" />
+  1085→  1085→            <Input
+  1086→  1086→              placeholder="Search by name, email, phone, booking ID, or token..."
+  1087→  1087→              value={search}
+  1088→  1088→              onChange={(e) => setSearch(e.target.value)}
+  1089→  1089→              className="pl-9 h-9"
+  1090→  1090→            />
+  1091→  1091→            {search && (
+  1092→  1092→              <button
+  1093→  1093→                onClick={() => setSearch("")}
+  1094→  1094→                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+  1095→  1095→              >
+  1096→  1096→                <X className="size-3.5" />
+  1097→  1097→              </button>
+  1098→  1098→            )}
+  1099→  1099→          </div>
+  1100→  1100→
+  1101→  1101→          {/* Provider Filter */}
+  1102→  1102→          <Select value={providerFilter} onValueChange={setProviderFilter}>
+  1103→  1103→            <SelectTrigger className="w-full sm:w-48 h-9">
+  1104→  1104→              <SelectValue placeholder="All Providers" />
+  1105→  1105→            </SelectTrigger>
+  1106→  1106→            <SelectContent>
+  1107→  1107→              <SelectItem value="__all">All Providers</SelectItem>
+  1108→  1108→              {providers.map((p) => (
+  1109→  1109→                <SelectItem key={p.id} value={p.id}>
+  1110→  1110→                  {p.firstName} {p.lastName}{p.credentials ? `, ${p.credentials}` : ""}
+  1111→  1111→                </SelectItem>
+  1112→  1112→              ))}
+  1113→  1113→            </SelectContent>
+  1114→  1114→          </Select>
+  1115→  1115→
+  1116→  1116→          {/* Date From */}
+  1117→  1117→          <div className="flex items-center gap-1.5">
+  1118→  1118→            <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+  1119→  1119→            <Input
+  1120→  1120→              type="date"
+  1121→  1121→              value={dateFrom}
+  1122→  1122→              onChange={(e) => setDateFrom(e.target.value)}
+  1123→  1123→              className="h-9 w-36"
+  1124→  1124→            />
+  1125→  1125→          </div>
+  1126→  1126→
+  1127→  1127→          {/* Date To */}
+  1128→  1128→          <div className="flex items-center gap-1.5">
+  1129→  1129→            <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+  1130→  1130→            <Input
+  1131→  1131→              type="date"
+  1132→  1132→              value={dateTo}
+  1133→  1133→              onChange={(e) => setDateTo(e.target.value)}
+  1134→  1134→              className="h-9 w-36"
+  1135→  1135→            />
+  1136→  1136→          </div>
+  1137→  1137→
+  1138→  1138→          {/* Search Button */}
+  1139→  1139→          <Button
+  1140→  1140→            size="sm"
+  1141→  1141→            className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+  1142→  1142→            onClick={() => { setPage(1); fetchAppointments(); }}
+  1143→  1143→          >
+  1144→  1144→            <Search className="size-3.5 mr-1.5" />
+  1145→  1145→            Search
+  1146→  1146→          </Button>
+  1147→  1147→        </div>
+  1148→  1148→        )}
+  1149→  1149→      </div>
+  1150→  1150→
+  1151→  1151→      {/* Results Count + View Toggle — only show for appointments view */}
+  1152→  1152→      {viewMode === "appointments" && (
+  1153→  1153→      <div className="flex items-center justify-between">
+  1154→  1154→        <div className="flex items-center gap-3">
+  1155→  1155→          <p className="text-sm text-muted-foreground">
+  1156→  1156→            {loading ? (
+  1157→  1157→              "Loading..."
+  1158→  1158→            ) : (
+  1159→  1159→              <>
+  1160→  1160→                <span className="font-medium text-foreground">{total}</span> appointment{total !== 1 ? "s" : ""} found
+  1161→  1161→              </>
+  1162→  1162→            )}
+  1163→  1163→          </p>
+  1164→  1164→          {/* Grid/Table toggle */}
+  1165→  1165→          <div className="flex items-center border border-border/60 rounded-lg overflow-hidden">
+  1166→  1166→            <button
+  1167→  1167→              onClick={() => setListView("table")}
+  1168→  1168→              className={cn(
+  1169→  1169→                "p-1.5 transition-colors cursor-pointer",
+  1170→  1170→                listView === "table"
+  1171→  1171→                  ? "bg-emerald-600 text-white"
+  1172→  1172→                  : "bg-white text-muted-foreground hover:bg-muted/60"
+  1173→  1173→              )}
+  1174→  1174→              title="Table view"
+  1175→  1175→            >
+  1176→  1176→              <List className="size-3.5" />
+  1177→  1177→            </button>
+  1178→  1178→            <button
+  1179→  1179→              onClick={() => setListView("grid")}
+  1180→  1180→              className={cn(
+  1181→  1181→                "p-1.5 transition-colors cursor-pointer",
+  1182→  1182→                listView === "grid"
+  1183→  1183→                  ? "bg-emerald-600 text-white"
+  1184→  1184→                  : "bg-white text-muted-foreground hover:bg-muted/60"
+  1185→  1185→              )}
+  1186→  1186→              title="Grid view"
+  1187→  1187→            >
+  1188→  1188→              <LayoutGrid className="size-3.5" />
+  1189→  1189→            </button>
+  1190→  1190→          </div>
+  1191→  1191→        </div>
+  1192→  1192→        {(statusFilter || search || providerFilter || dateFrom !== format(new Date(), "yyyy-MM-dd") || dateTo !== format(addDays(new Date(), 30), "yyyy-MM-dd")) && (
+  1193→  1193→          <button
+  1194→  1194→            onClick={() => {
+  1195→  1195→              setStatusFilter("");
+  1196→  1196→              setSearch("");
+  1197→  1197→              setProviderFilter("");
+  1198→  1198→              setDateFrom(format(new Date(), "yyyy-MM-dd"));
+  1199→  1199→              setDateTo(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  1200→  1200→            }}
+  1201→  1201→            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer flex items-center gap-1"
+  1202→  1202→          >
+  1203→  1203→            <Filter className="size-3" />
+  1204→  1204→            Clear filters
+  1205→  1205→          </button>
+  1206→  1206→        )}
+  1207→  1207→      </div>
+  1208→  1208→      )}
+  1209→  1209→
+  1210→  1210→      {/* ================================================================== */}
+  1211→  1211→      {/* WAITLIST VIEW                                                       */}
+  1212→  1212→      {/* ================================================================== */}
+  1213→  1213→      {viewMode === "waitlist" ? (
+  1214→  1214→        <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+  1215→  1215→          <div className="overflow-x-auto">
+  1216→  1216→            <table className="w-full text-sm">
+  1217→  1217→              <thead>
+  1218→  1218→                <tr className="border-b border-border/60 bg-muted/30">
+  1219→  1219→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Joined</th>
+  1220→  1220→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Patient</th>
+  1221→  1221→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Provider</th>
+  1222→  1222→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
+  1223→  1223→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+  1224→  1224→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Contacts</th>
+  1225→  1225→                  <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+  1226→  1226→                </tr>
+  1227→  1227→              </thead>
+  1228→  1228→              <tbody>
+  1229→  1229→                {waitlistLoading ? (
+  1230→  1230→                  Array.from({ length: 4 }).map((_, i) => (
+  1231→  1231→                    <tr key={i} className="border-b border-border/30">
+  1232→  1232→                      <td className="py-3 px-4"><Skeleton className="h-4 w-24" /></td>
+  1233→  1233→                      <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+  1234→  1234→                      <td className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+  1235→  1235→                      <td className="py-3 px-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+  1236→  1236→                      <td className="py-3 px-4"><Skeleton className="h-5 w-16" /></td>
+  1237→  1237→                      <td className="py-3 px-4 hidden sm:table-cell"><Skeleton className="h-4 w-8" /></td>
+  1238→  1238→                      <td className="py-3 px-4"><Skeleton className="h-8 w-8 ml-auto" /></td>
+  1239→  1239→                    </tr>
+  1240→  1240→                  ))
+  1241→  1241→                ) : waitlistError ? (
+  1242→  1242→                  <tr>
+  1243→  1243→                    <td colSpan={7} className="py-12 text-center">
+  1244→  1244→                      <p className="text-sm text-red-500">{waitlistError}</p>
+  1245→  1245→                      <Button
+  1246→  1246→                        variant="outline"
+  1247→  1247→                        size="sm"
+  1248→  1248→                        onClick={fetchWaitlist}
+  1249→  1249→                        className="mt-2 cursor-pointer"
+  1250→  1250→                      >
+  1251→  1251→                        Retry
+  1252→  1252→                      </Button>
+  1253→  1253→                    </td>
+  1254→  1254→                  </tr>
+  1255→  1255→                ) : waitlistEntries.length === 0 ? (
+  1256→  1256→                  <tr>
+  1257→  1257→                    <td colSpan={7} className="py-16 text-center">
+  1258→  1258→                      <div className="flex flex-col items-center gap-2">
+  1259→  1259→                        <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1260→  1260→                          <Bell className="size-5 text-muted-foreground/60" />
+  1261→  1261→                        </div>
+  1262→  1262→                        <p className="text-sm font-medium text-muted-foreground">No waitlist entries</p>
+  1263→  1263→                        <p className="text-xs text-muted-foreground/70">
+  1264→  1264→                          Patients will appear here when they join the waitlist
+  1265→  1265→                        </p>
+  1266→  1266→                      </div>
+  1267→  1267→                    </td>
+  1268→  1268→                  </tr>
+  1269→  1269→                ) : (
+  1270→  1270→                  waitlistEntries.map((entry, index) => (
+  1271→  1271→                    <tr
+  1272→  1272→                      key={entry.id}
+  1273→  1273→                      className={`border-b border-border/30 transition-colors hover:bg-amber-50/30 ${
+  1274→  1274→                        index % 2 === 0 ? "bg-white" : "bg-muted/15"
+  1275→  1275→                      }`}
+  1276→  1276→                    >
+  1277→  1277→                      <td className="py-3 px-4 whitespace-nowrap">
+  1278→  1278→                        <div className="flex items-center gap-1.5">
+  1279→  1279→                          <Clock className="size-3.5 text-muted-foreground/60" />
+  1280→  1280→                          <span className="text-xs text-muted-foreground">
+  1281→  1281→                            {format(parseISO(entry.createdAt), "MMM d, h:mm a")}
+  1282→  1282→                          </span>
+  1283→  1283→                        </div>
+  1284→  1284→                        {entry.expiresAt && (
+  1285→  1285→                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+  1286→  1286→                            Expires: {format(parseISO(entry.expiresAt), "MMM d")}
+  1287→  1287→                          </p>
+  1288→  1288→                        )}
+  1289→  1289→                      </td>
+  1290→  1290→                      <td className="py-3 px-4">
+  1291→  1291→                        <div className="flex items-center gap-2">
+  1292→  1292→                          <div className="size-7 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+  1293→  1293→                            <User className="size-3.5 text-amber-600" />
+  1294→  1294→                          </div>
+  1295→  1295→                          <div className="min-w-0">
+  1296→  1296→                            <p className="font-medium truncate">{entry.patientName}</p>
+  1297→  1297→                            <p className="text-xs text-muted-foreground truncate">
+  1298→  1298→                              {entry.patientEmail}
+  1299→  1299→                            </p>
+  1300→  1300→                          </div>
+  1301→  1301→                        </div>
+  1302→  1302→                      </td>
+  1303→  1303→                      <td className="py-3 px-4 hidden md:table-cell whitespace-nowrap">
+  1304→  1304→                        <span className="text-sm">{entry.providerName}</span>
+  1305→  1305→                      </td>
+  1306→  1306→                      <td className="py-3 px-4 hidden lg:table-cell whitespace-nowrap text-muted-foreground">
+  1307→  1307→                        {entry.serviceName}
+  1308→  1308→                      </td>
+  1309→  1309→                      <td className="py-3 px-4">
+  1310→  1310→                        <Badge className={`${WL_STATUS_STYLES[entry.status] || WL_STATUS_STYLES.ACTIVE} border`}>
+  1311→  1311→                          {WL_STATUS_LABELS[entry.status] || entry.status}
+  1312→  1312→                        </Badge>
+  1313→  1313→                      </td>
+  1314→  1314→                      <td className="py-3 px-4 hidden sm:table-cell">
+  1315→  1315→                        <span className="text-sm text-muted-foreground">
+  1316→  1316→                          {entry.contactCount}
+  1317→  1317→                        </span>
+  1318→  1318→                        {entry.lastContactAt && (
+  1319→  1319→                          <p className="text-[10px] text-muted-foreground/60">
+  1320→  1320→                            Last: {format(parseISO(entry.lastContactAt), "MMM d")}
+  1321→  1321→                          </p>
+  1322→  1322→                        )}
+  1323→  1323→                      </td>
+  1324→  1324→                      <td className="py-3 px-4 text-right">
+  1325→  1325→                        <DropdownMenu>
+  1326→  1326→                          <DropdownMenuTrigger asChild>
+  1327→  1327→                            <Button
+  1328→  1328→                              variant="ghost"
+  1329→  1329→                              size="icon"
+  1330→  1330→                              className="size-8 cursor-pointer"
+  1331→  1331→                              disabled={waitlistActionId === entry.id}
+  1332→  1332→                            >
+  1333→  1333→                              {waitlistActionId === entry.id ? (
+  1334→  1334→                                <Loader2 className="size-4 animate-spin" />
+  1335→  1335→                              ) : (
+  1336→  1336→                                <MoreHorizontal className="size-4" />
+  1337→  1337→                              )}
+  1338→  1338→                            </Button>
+  1339→  1339→                          </DropdownMenuTrigger>
+  1340→  1340→                          <DropdownMenuContent align="end" className="w-48">
+  1341→  1341→                            {entry.status === "ACTIVE" && (
+  1342→  1342→                              <DropdownMenuItem
+  1343→  1343→                                onClick={() => handleWaitlistAction(entry.id, "OFFERED")}
+  1344→  1344→                                className="cursor-pointer"
+  1345→  1345→                              >
+  1346→  1346→                                <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+  1347→  1347→                                Mark as Offered
+  1348→  1348→                              </DropdownMenuItem>
+  1349→  1349→                            )}
+  1350→  1350→                            <DropdownMenuItem
+  1351→  1351→                              onClick={() => handleWaitlistAction(entry.id, "contact")}
+  1352→  1352→                              className="cursor-pointer"
+  1353→  1353→                            >
+  1354→  1354→                              <Phone className="size-3.5 mr-2 text-amber-600" />
+  1355→  1355→                              Record Contact
+  1356→  1356→                            </DropdownMenuItem>
+  1357→  1357→                            {(entry.status === "ACTIVE" || entry.status === "OFFERED") && (
+  1358→  1358→                              <>
+  1359→  1359→                                <DropdownMenuSeparator />
+  1360→  1360→                                <DropdownMenuItem
+  1361→  1361→                                  onClick={() => handleWaitlistAction(entry.id, "EXPIRED")}
+  1362→  1362→                                  className="cursor-pointer text-red-600 focus:text-red-600"
+  1363→  1363→                                >
+  1364→  1364→                                  <XCircle className="size-3.5 mr-2" />
+  1365→  1365→                                  Mark as Expired
+  1366→  1366→                                </DropdownMenuItem>
+  1367→  1367→                                <DropdownMenuItem
+  1368→  1368→                                  onClick={() => handleWaitlistAction(entry.id, "REMOVED")}
+  1369→  1369→                                  className="cursor-pointer text-red-600 focus:text-red-600"
+  1370→  1370→                                >
+  1371→  1371→                                  <UserX className="size-3.5 mr-2" />
+  1372→  1372→                                  Remove
+  1373→  1373→                                </DropdownMenuItem>
+  1374→  1374→                              </>
+  1375→  1375→                            )}
+  1376→  1376→                          </DropdownMenuContent>
+  1377→  1377→                        </DropdownMenu>
+  1378→  1378→                      </td>
+  1379→  1379→                    </tr>
+  1380→  1380→                  ))
+  1381→  1381→                )}
+  1382→  1382→              </tbody>
+  1383→  1383→            </table>
+  1384→  1384→          </div>
+  1385→  1385→        </div>
+  1386→  1386→      ) : (
+  1387→  1387→      <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+  1388→  1388→        {/* Feature 7.1: Conflict banner */}
+  1389→  1389→        {conflictIds.size > 0 && (
+  1390→  1390→          <div className="bg-orange-50 border-b border-orange-200 px-4 py-2.5 flex items-center gap-2">
+  1391→  1391→            <AlertTriangle className="size-4 text-orange-600 shrink-0" />
+  1392→  1392→            <p className="text-sm text-orange-700 font-medium">
+  1393→  1393→              ⚠️ {conflictIds.size} potential double-booking{conflictIds.size !== 1 ? "s" : ""} detected
+  1394→  1394→            </p>
+  1395→  1395→          </div>
+  1396→  1396→        )}
+  1397→  1397→
+  1398→  1398→        {listView === "table" ? (
+  1399→  1399→        <div className="overflow-x-auto">
+  1400→  1400→          <table className="w-full text-sm">
+  1401→  1401→            <thead>
+  1402→  1402→              <tr className="border-b border-border/60 bg-muted/30">
+  1403→  1403→                <th
+  1404→  1404→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1405→  1405→                  onClick={() => handleSort("startTime")}
+  1406→  1406→                >
+  1407→  1407→                  <span className="inline-flex items-center">
+  1408→  1408→                    Time
+  1409→  1409→                    <SortIcon field="startTime" />
+  1410→  1410→                  </span>
+  1411→  1411→                </th>
+  1412→  1412→                <th
+  1413→  1413→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1414→  1414→                  onClick={() => handleSort("patientName")}
+  1415→  1415→                >
+  1416→  1416→                  <span className="inline-flex items-center">
+  1417→  1417→                    Patient
+  1418→  1418→                    <SortIcon field="patientName" />
+  1419→  1419→                  </span>
+  1420→  1420→                </th>
+  1421→  1421→                <th
+  1422→  1422→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell cursor-pointer hover:text-foreground transition-colors select-none"
+  1423→  1423→                  onClick={() => handleSort("provider")}
+  1424→  1424→                >
+  1425→  1425→                  <span className="inline-flex items-center">
+  1426→  1426→                    Provider
+  1427→  1427→                    <SortIcon field="provider" />
+  1428→  1428→                  </span>
+  1429→  1429→                </th>
+  1430→  1430→                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
+  1431→  1431→                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Modality</th>
+  1432→  1432→                <th
+  1433→  1433→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1434→  1434→                  onClick={() => handleSort("status")}
+  1435→  1435→                >
+  1436→  1436→                  <span className="inline-flex items-center">
+  1437→  1437→                    Status
+  1438→  1438→                    <SortIcon field="status" />
+  1439→  1439→                  </span>
+  1440→  1440→                </th>
+  1441→  1441→                <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+  1442→  1442→              </tr>
+  1443→  1443→            </thead>
+  1444→  1444→            <tbody>
+  1445→  1445→              {loading ? (
+  1446→  1446→                // Skeleton rows
+  1447→  1447→                Array.from({ length: 5 }).map((_, i) => (
+  1448→  1448→                  <tr key={i} className="border-b border-border/30">
+  1449→  1449→                    <td className="py-3 px-4"><Skeleton className="h-4 w-20" /></td>
+  1450→  1450→                    <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+  1451→  1451→                    <td className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+  1452→  1452→                    <td className="py-3 px-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+  1453→  1453→                    <td className="py-3 px-4 hidden sm:table-cell"><Skeleton className="h-4 w-16" /></td>
+  1454→  1454→                    <td className="py-3 px-4"><Skeleton className="h-5 w-16" /></td>
+  1455→  1455→                    <td className="py-3 px-4"><Skeleton className="h-8 w-8 ml-auto" /></td>
+  1456→  1456→                  </tr>
+  1457→  1457→                ))
+  1458→  1458→              ) : error ? (
+  1459→  1459→                <tr>
+  1460→  1460→                  <td colSpan={7} className="py-12 text-center">
+  1461→  1461→                    <p className="text-sm text-red-500">{error}</p>
+  1462→  1462→                    <Button
+  1463→  1463→                      variant="outline"
+  1464→  1464→                      size="sm"
+  1465→  1465→                      onClick={fetchAppointments}
+  1466→  1466→                      className="mt-2"
+  1467→  1467→                    >
+  1468→  1468→                      Retry
+  1469→  1469→                    </Button>
+  1470→  1470→                  </td>
+  1471→  1471→                </tr>
+  1472→  1472→              ) : sortedAppointments.length === 0 ? (
+  1473→  1473→                <tr>
+  1474→  1474→                  <td colSpan={7} className="py-16 text-center">
+  1475→  1475→                    <div className="flex flex-col items-center gap-2">
+  1476→  1476→                      <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1477→  1477→                        <Calendar className="size-5 text-muted-foreground/60" />
+  1478→  1478→                      </div>
+  1479→  1479→                      <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+  1480→  1480→                      <p className="text-xs text-muted-foreground/70">
+  1481→  1481→                        {statusFilter || search || providerFilter
+  1482→  1482→                          ? "Try adjusting your filters"
+  1483→  1483→                          : "No upcoming appointments in this date range. Try expanding the date range or check past dates."}
+  1484→  1484→                      </p>
+  1485→  1485→                    </div>
+  1486→  1486→                  </td>
+  1487→  1487→                </tr>
+  1488→  1488→              ) : (
+  1489→  1489→                sortedAppointments.map((apt, index) => (
+  1490→  1490→                  <tr
+  1491→  1491→                    key={apt.id}
+  1492→  1492→                    className={`border-b border-border/30 transition-colors hover:bg-emerald-50/30 ${
+  1493→  1493→                      index % 2 === 0 ? "bg-white" : "bg-muted/15"
+  1494→  1494→                    } ${conflictIds.has(apt.id) ? "bg-orange-50/40" : ""}`}
+  1495→  1495→                  >
+  1496→  1496→                    <td className="py-3 px-4 whitespace-nowrap">
+  1497→  1497→                      <div className="flex items-center gap-1.5">
+  1498→  1498→                        <Clock className="size-3.5 text-muted-foreground/60" />
+  1499→  1499→                        <span className="font-medium">
+  1500→  1500→                          {format(parseISO(apt.startTime), "h:mm a")}
+  1501→  1501→                        </span>
+  1502→  1502→                      </div>
+  1503→  1503→                      <p className="text-xs text-muted-foreground mt-0.5">
+  1504→  1504→                        {format(parseISO(apt.startTime), "MMM d, yyyy")}
+  1505→  1505→                      </p>
+  1506→  1506→                    </td>
+  1507→  1507→                    <td className="py-3 px-4">
+  1508→  1508→                      <button
+  1509→  1509→                        type="button"
+  1510→  1510→                        onClick={() => openDetail(apt.id)}
+  1511→  1511→                        className="flex items-center gap-2 text-left cursor-pointer hover:text-emerald-700 transition-colors w-full"
+  1512→  1512→                      >
+  1513→  1513→                        <div className="size-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1514→  1514→                          <User className="size-3.5 text-emerald-600" />
+  1515→  1515→                        </div>
+  1516→  1516→                        <div className="min-w-0">
+  1517→  1517→                          <p className={cn("font-medium truncate", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+  1518→  1518→                            {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+  1519→  1519→                            {apt.patientName}
+  1520→  1520→                          </p>
+  1521→  1521→                          <p className="text-xs text-muted-foreground truncate">
+  1522→  1522→                            {apt.patientEmail}
+  1523→  1523→                          </p>
+  1524→  1524→                        </div>
+  1525→  1525→                      </button>
+  1526→  1526→                    </td>
+  1527→  1527→                    <td className="py-3 px-4 hidden md:table-cell whitespace-nowrap">
+  1528→  1528→                      <span className="text-sm">
+  1529→  1529→                        Dr. {apt.provider.firstName} {apt.provider.lastName}
+  1530→  1530→                      </span>
+  1531→  1531→                    </td>
+  1532→  1532→                    <td className="py-3 px-4 hidden lg:table-cell whitespace-nowrap text-muted-foreground">
+  1533→  1533→                      {apt.service.name}
+  1534→  1534→                    </td>
+  1535→  1535→                    <td className="py-3 px-4 hidden sm:table-cell">
+  1536→  1536→                      <ModalityBadge modality={apt.modality} />
+  1537→  1537→                    </td>
+  1538→  1538→                    <td className="py-3 px-4">
+  1539→  1539→                      <StatusBadge status={apt.status} />
+  1540→  1540→                    </td>
+  1541→  1541→                    <td className="py-3 px-4 text-right">
+  1542→  1542→                      <AppointmentActions apt={apt} />
+  1543→  1543→                    </td>
+  1544→  1544→                  </tr>
+  1545→  1545→                ))
+  1546→  1546→              )}
+  1547→  1547→            </tbody>
+  1548→  1548→          </table>
+  1549→  1549→        </div>
+  1550→  1550→        ) : (
+  1551→  1551→        <div className="p-4">
+  1552→  1552→          {loading ? (
+  1553→  1553→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1554→  1554→              {Array.from({ length: 6 }).map((_, i) => (
+  1555→  1555→                <div key={i} className="rounded-xl border border-border/60 p-4 space-y-3">
+  1556→  1556→                  <Skeleton className="h-5 w-32" />
+  1557→  1557→                  <Skeleton className="h-4 w-24" />
+  1558→  1558→                  <Skeleton className="h-4 w-28" />
+  1559→  1559→                  <Skeleton className="h-4 w-20" />
+  1560→  1560→                  <div className="flex gap-2">
+  1561→  1561→                    <Skeleton className="h-5 w-16" />
+  1562→  1562→                    <Skeleton className="h-5 w-16" />
+  1563→  1563→                  </div>
+  1564→  1564→                </div>
+  1565→  1565→              ))}
+  1566→  1566→            </div>
+  1567→  1567→          ) : error ? (
+  1568→  1568→            <div className="py-12 text-center">
+  1569→  1569→              <p className="text-sm text-red-500">{error}</p>
+  1570→  1570→              <Button
+  1571→  1571→                variant="outline"
+  1572→  1572→                size="sm"
+  1573→  1573→                onClick={fetchAppointments}
+  1574→  1574→                className="mt-2"
+  1575→  1575→              >
+  1576→  1576→                Retry
+  1577→  1577→              </Button>
+  1578→  1578→            </div>
+  1579→  1579→          ) : sortedAppointments.length === 0 ? (
+  1580→  1580→            <div className="py-16 text-center">
+  1581→  1581→              <div className="flex flex-col items-center gap-2">
+  1582→  1582→                <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1583→  1583→                  <Calendar className="size-5 text-muted-foreground/60" />
+  1584→  1584→                </div>
+  1585→  1585→                <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+  1586→  1586→                <p className="text-xs text-muted-foreground/70">
+  1587→  1587→                  {statusFilter || search || providerFilter
+  1588→  1588→                    ? "Try adjusting your filters"
+  1589→  1589→                    : "No upcoming appointments in this date range."}
+  1590→  1590→                </p>
+  1591→  1591→              </div>
+  1592→  1592→            </div>
+  1593→  1593→          ) : (
+  1594→  1594→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1595→  1595→              {sortedAppointments.map((apt) => (
+  1596→  1596→                <AppointmentGridCard key={apt.id} apt={apt} />
+  1597→  1597→              ))}
+  1598→  1598→            </div>
+  1599→  1599→          )}
+  1600→  1600→        </div>
+  1601→  1601→        )}
+  1602→  1602→
+  1603→  1603→        {/* Pagination */}
+  1604→  1604→        {!loading && totalPages > 1 && listView === "table" && (
+  1605→  1605→          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 bg-muted/20">
+  1606→  1606→            <p className="text-xs text-muted-foreground">
+  1607→  1607→              Page {page} of {totalPages}
+  1608→  1608→            </p>
+  1609→  1609→            <div className="flex items-center gap-1">
+  1610→  1610→              <Button
+  1611→  1611→                variant="outline"
+  1612→  1612→                size="icon"
+  1613→  1613→                className="size-8 cursor-pointer"
+  1614→  1614→                disabled={page <= 1}
+  1615→  1615→                onClick={() => setPage((p) => Math.max(1, p - 1))}
+  1616→  1616→              >
+  1617→  1617→                <ChevronLeft className="size-4" />
+  1618→  1618→              </Button>
+  1619→  1619→              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+  1620→  1620→                let pageNum: number;
+  1621→  1621→                if (totalPages <= 5) {
+  1622→  1622→                  pageNum = i + 1;
+  1623→  1623→                } else if (page <= 3) {
+  1624→  1624→                  pageNum = i + 1;
+  1625→  1625→                } else if (page >= totalPages - 2) {
+  1626→  1626→                  pageNum = totalPages - 4 + i;
+  1627→  1627→                } else {
+  1628→  1628→                  pageNum = page - 2 + i;
+  1629→  1629→                }
+  1630→  1630→                return (
+  1631→  1631→                  <Button
+  1632→  1632→                    key={pageNum}
+  1633→  1633→                    variant={pageNum === page ? "default" : "outline"}
+  1634→  1634→                    size="icon"
+  1635→  1635→                    className={`size-8 cursor-pointer ${pageNum === page ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+  1636→  1636→                    onClick={() => setPage(pageNum)}
+  1637→  1637→                  >
+  1638→  1638→                    {pageNum}
+  1639→  1639→                  </Button>
+  1640→  1640→                );
+  1641→  1641→              })}
+  1642→  1642→              <Button
+  1643→  1643→                variant="outline"
+  1644→  1644→                size="icon"
+  1645→  1645→                className="size-8 cursor-pointer"
+  1646→  1646→                disabled={page >= totalPages}
+  1647→  1647→                onClick={() => setPage((p) => p + 1)}
+  1648→  1648→              >
+  1649→  1649→                <ChevronRight className="size-4" />
+  1650→  1650→              </Button>
+  1651→  1651→            </div>
+  1652→  1652→          </div>
+  1653→  1653→        )}
+  1654→  1654→      </div>
+  1655→  1655→      )}
+  1656→  1656→
+  1657→  1657→      {/* ================================================================== */}
+  1658→  1658→      {/* RESCHEDULE DIALOG                                                  */}
+  1659→  1659→      {/* ================================================================== */}
+  1660→  1660→      <Dialog
+  1661→  1661→        open={!!rescheduleApt}
+  1662→  1662→        onOpenChange={(open) => {
+  1663→  1663→          if (!open) {
+  1664→  1664→            setRescheduleApt(null);
+  1665→  1665→            setRescheduleSlots([]);
+  1666→  1666→            setRescheduleSelectedSlotId("");
+  1667→  1667→            setRescheduleDate(undefined);
+  1668→  1668→          }
+  1669→  1669→        }}
+  1670→  1670→      >
+  1671→  1671→        <DialogContent className="sm:max-w-lg">
+  1672→  1672→          <DialogHeader>
+  1673→  1673→            <DialogTitle className="flex items-center gap-2">
+  1674→  1674→              <div className="size-8 rounded-lg bg-blue-100 flex items-center justify-center">
+  1675→  1675→                <RefreshCw className="size-4 text-blue-600" />
+  1676→  1676→              </div>
+  1677→  1677→              Reschedule Appointment
+  1678→  1678→            </DialogTitle>
+  1679→  1679→            <DialogDescription>
+  1680→  1680→              Select a new provider, date, and time slot for this appointment.
+  1681→  1681→            </DialogDescription>
+  1682→  1682→          </DialogHeader>
+  1683→  1683→
+  1684→  1684→          {rescheduleApt && (
+  1685→  1685→            <div className="space-y-5">
+  1686→  1686→              {/* Current appointment info */}
+  1687→  1687→              <div className="rounded-lg bg-muted/50 border border-border/50 p-3.5 space-y-1.5">
+  1688→  1688→                <div className="flex items-center justify-between">
+  1689→  1689→                  <span className="text-sm font-medium text-foreground">
+  1690→  1690→                    {rescheduleApt.patientName}
+  1691→  1691→                  </span>
+  1692→  1692→                  <Badge className={cn("text-[10px] border", STATUS_STYLES[rescheduleApt.status])}>
+  1693→  1693→                    {STATUS_LABELS[rescheduleApt.status]}
+  1694→  1694→                  </Badge>
+  1695→  1695→                </div>
+  1696→  1696→                <div className="text-xs text-muted-foreground space-y-0.5">
+  1697→  1697→                  <p>
+  1698→  1698→                    Current: {format(parseISO(rescheduleApt.startTime), "EEE, MMM d 'at' h:mm a")} — {format(parseISO(rescheduleApt.endTime), "h:mm a")}
+  1699→  1699→                  </p>
+  1700→  1700→                  <p>
+  1701→  1701→                    Dr. {rescheduleApt.provider.firstName} {rescheduleApt.provider.lastName}
+  1702→  1702→                    {rescheduleApt.provider.credentials && <span>, {rescheduleApt.provider.credentials}</span>}
+  1703→  1703→                    {" · "}{rescheduleApt.service.name}
+  1704→  1704→                  </p>
+  1705→  1705→                </div>
+  1706→  1706→              </div>
+  1707→  1707→
+  1708→  1708→              {/* Provider selector */}
+  1709→  1709→              <div className="space-y-1.5">
+  1710→  1710→                <Label className="text-sm font-medium">Provider</Label>
+  1711→  1711→                <Select value={rescheduleProviderId} onValueChange={handleRescheduleProviderChange}>
+  1712→  1712→                  <SelectTrigger className="h-10">
+  1713→  1713→                    <SelectValue placeholder="Select provider" />
+  1714→  1714→                  </SelectTrigger>
+  1715→  1715→                  <SelectContent>
+  1716→  1716→                    {providers.map((p) => (
+  1717→  1717→                      <SelectItem key={p.id} value={p.id}>
+  1718→  1718→                        Dr. {p.firstName} {p.lastName}{p.credentials ? `, ${p.credentials}` : ""}
+  1719→  1719→                      </SelectItem>
+  1720→  1720→                    ))}
+  1721→  1721→                  </SelectContent>
+  1722→  1722→                </Select>
+  1723→  1723→              </div>
+  1724→  1724→
+  1725→  1725→              {/* Date picker */}
+  1726→  1726→              <div className="space-y-1.5">
+  1727→  1727→                <Label className="text-sm font-medium">New Date</Label>
+  1728→  1728→                <Popover>
+  1729→  1729→                  <PopoverTrigger asChild>
+  1730→  1730→                    <Button
+  1731→  1731→                      variant="outline"
+  1732→  1732→                      className={cn(
+  1733→  1733→                        "w-full h-10 justify-start text-left font-normal",
+  1734→  1734→                        !rescheduleDate && "text-muted-foreground"
+  1735→  1735→                      )}
+  1736→  1736→                    >
+  1737→  1737→                      <CalendarDays className="mr-2 h-4 w-4" />
+  1738→  1738→                      {rescheduleDate ? format(rescheduleDate, "EEEE, MMM d, yyyy") : "Pick a date"}
+  1739→  1739→                    </Button>
+  1740→  1740→                  </PopoverTrigger>
+  1741→  1741→                  <PopoverContent className="w-auto p-0" align="start">
+  1742→  1742→                    <CalendarComponent
+  1743→  1743→                      mode="single"
+  1744→  1744→                      selected={rescheduleDate}
+  1745→  1745→                      onSelect={handleRescheduleDateChange}
+  1746→  1746→                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+  1747→  1747→                      initialFocus
+  1748→  1748→                    />
+  1749→  1749→                  </PopoverContent>
+  1750→  1750→                </Popover>
+  1751→  1751→              </div>
+  1752→  1752→
+  1753→  1753→              {/* Available slots */}
+  1754→  1754→              {rescheduleDate && rescheduleProviderId && (
+  1755→  1755→                <div className="space-y-2">
+  1756→  1756→                  <Label className="text-sm font-medium">
+  1757→  1757→                    Available Slots
+  1758→  1758→                    {rescheduleSlotsLoading && (
+  1759→  1759→                      <Loader2 className="inline size-3.5 ml-2 animate-spin text-muted-foreground" />
+  1760→  1760→                    )}
+  1761→  1761→                  </Label>
+  1762→  1762→                  {rescheduleSlotsLoading ? (
+  1763→  1763→                    <div className="grid grid-cols-3 gap-2">
+  1764→  1764→                      {Array.from({ length: 6 }).map((_, i) => (
+  1765→  1765→                        <Skeleton key={i} className="h-10 rounded-lg" />
+  1766→  1766→                      ))}
+  1767→  1767→                    </div>
+  1768→  1768→                  ) : rescheduleSlots.length === 0 ? (
+  1769→  1769→                    <div className="rounded-lg border border-dashed border-border/60 p-6 text-center">
+  1770→  1770→                      <Calendar className="size-8 mx-auto text-muted-foreground/40 mb-2" />
+  1771→  1771→                      <p className="text-sm text-muted-foreground">No available slots for this date</p>
+  1772→  1772→                      <p className="text-xs text-muted-foreground mt-1">Try selecting a different date</p>
+  1773→  1773→                    </div>
+  1774→  1774→                  ) : (
+  1775→  1775→                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+  1776→  1776→                      {rescheduleSlots.map((slot) => {
+  1777→  1777→                        const isSelected = rescheduleSelectedSlotId === slot.id;
+  1778→  1778→                        return (
+  1779→  1779→                          <button
+  1780→  1780→                            key={slot.id}
+  1781→  1781→                            type="button"
+  1782→  1782→                            onClick={() => setRescheduleSelectedSlotId(slot.id)}
+  1783→  1783→                            className={cn(
+  1784→  1784→                              "flex flex-col items-center justify-center rounded-lg border p-2.5 text-center transition-all cursor-pointer",
+  1785→  1785→                              isSelected
+  1786→  1786→                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
+  1787→  1787→                                : "border-border/60 hover:border-emerald-300 hover:bg-emerald-50/50 text-foreground"
+  1788→  1788→                            )}
+  1789→  1789→                          >
+  1790→  1790→                            <span className="text-sm font-medium">
+  1791→  1791→                              {format(parseISO(slot.startTime), "h:mm a")}
+  1792→  1792→                            </span>
+  1793→  1793→                            <span className="text-[10px] text-muted-foreground mt-0.5">
+  1794→  1794→                              {slot.modality === "VIDEO" ? "📹 Video" : "🏢 In-Person"}
+  1795→  1795→                            </span>
+  1796→  1796→                          </button>
+  1797→  1797→                        );
+  1798→  1798→                      })}
+  1799→  1799→                    </div>
+  1800→  1800→                  )}
+  1801→  1801→                </div>
+  1802→  1802→              )}
+  1803→  1803→
+  1804→  1804→              {/* Summary when slot selected */}
+  1805→  1805→              {rescheduleSelectedSlotId && (
+  1806→  1806→                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+  1807→  1807→                  <p className="text-xs font-medium text-emerald-800 mb-1">New Appointment Time</p>
+  1808→  1808→                  {(() => {
+  1809→  1809→                    const selectedSlot = rescheduleSlots.find((s) => s.id === rescheduleSelectedSlotId);
+  1810→  1810→                    if (!selectedSlot) return null;
+  1811→  1811→                    return (
+  1812→  1812→                      <div className="flex items-center gap-2 text-sm text-emerald-700">
+  1813→  1813→                        <span className="font-medium">
+  1814→  1814→                          {format(parseISO(selectedSlot.startTime), "EEE, MMM d 'at' h:mm a")}
+  1815→  1815→                        </span>
+  1816→  1816→                        <ArrowRight className="size-3.5" />
+  1817→  1817→                        <span>{format(parseISO(selectedSlot.endTime), "h:mm a")}</span>
+  1818→  1818→                      </div>
+  1819→  1819→                    );
+  1820→  1820→                  })()}
+  1821→  1821→                </div>
+  1822→  1822→              )}
+  1823→  1823→
+  1824→  1824→              {/* Actions */}
+  1825→  1825→              <div className="flex gap-3 pt-1">
+  1826→  1826→                <Button
+  1827→  1827→                  variant="outline"
+  1828→  1828→                  className="flex-1 cursor-pointer"
+  1829→  1829→                  onClick={() => {
+  1830→  1830→                    setRescheduleApt(null);
+  1831→  1831→                    setRescheduleSlots([]);
+  1832→  1832→                    setRescheduleSelectedSlotId("");
+  1833→  1833→                  }}
+  1834→  1834→                  disabled={rescheduleSubmitting}
+  1835→  1835→                >
+  1836→  1836→                  Cancel
+  1837→  1837→                </Button>
+  1838→  1838→                <Button
+  1839→  1839→                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+  1840→  1840→                  disabled={!rescheduleSelectedSlotId || rescheduleSubmitting}
+  1841→  1841→                  onClick={handleRescheduleConfirm}
+  1842→  1842→                >
+  1843→  1843→                  {rescheduleSubmitting ? (
+  1844→  1844→                    <Loader2 className="size-4 mr-1.5 animate-spin" />
+  1845→  1845→                  ) : (
+  1846→  1846→                    <RefreshCw className="size-4 mr-1.5" />
+  1847→  1847→                  )}
+  1848→  1848→                  Confirm Reschedule
+  1849→  1849→                </Button>
+  1850→  1850→              </div>
+  1851→  1851→            </div>
+  1852→  1852→          )}
+  1853→  1853→        </DialogContent>
+  1854→  1854→      </Dialog>
+  1855→  1855→
+  1856→  1856→      {/* ================================================================== */}
+  1857→  1857→      {/* QR CODE DIALOG                                                     */}
+  1858→  1858→      {/* ================================================================== */}
+  1859→  1859→      <Dialog
+  1860→  1860→        open={!!qrAppointmentId}
+  1861→  1861→        onOpenChange={(open) => {
+  1862→  1862→          if (!open) {
+  1863→  1863→            setQrAppointmentId(null);
+  1864→  1864→            setQrPatientName(undefined);
+  1865→  1865→          }
+  1866→  1866→        }}
+  1867→  1867→      >
+  1868→  1868→        <DialogContent className="sm:max-w-md">
+  1869→  1869→          <DialogHeader>
+  1870→  1870→            <DialogTitle className="flex items-center gap-2">
+  1871→  1871→              <QrCode className="size-5 text-emerald-600" />
+  1872→  1872→              Appointment QR Code
+  1873→  1873→            </DialogTitle>
+  1874→  1874→            <DialogDescription>
+  1875→  1875→              {qrPatientName
+  1876→  1876→                ? `QR code for ${qrPatientName}'s appointment`
+  1877→  1877→                : "Scannable QR code for this appointment"}
+  1878→  1878→            </DialogDescription>
+  1879→  1879→          </DialogHeader>
+  1880→  1880→          {qrAppointmentId && (
+  1881→  1881→            <QrCodeDisplay
+  1882→  1882→              appointmentId={qrAppointmentId}
+  1883→  1883→              patientName={qrPatientName}
+  1884→  1884→            />
+  1885→  1885→          )}
+  1886→  1886→        </DialogContent>
+  1887→  1887→      </Dialog>
+  1888→  1888→
+  1889→  1889→      {/* ================================================================== */}
+  1890→  1890→      {/* REFUND CONFIRMATION DIALOG (Feature 6.2)                           */}
+  1891→  1891→      {/* ================================================================== */}
+  1892→  1892→      <AlertDialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+  1893→  1893→        <AlertDialogContent>
+  1894→  1894→          <AlertDialogHeader>
+  1895→  1895→            <AlertDialogTitle>Confirm Refund</AlertDialogTitle>
+  1896→  1896→            <AlertDialogDescription>
+  1897→  1897→              Are you sure you want to refund{" "}
+  1898→  1898→              <span className="font-semibold text-foreground">
+  1899→  1899→                {detail?.ledger ? formatCents(detail.ledger.amountCents) : ""}
+  1900→  1900→              </span>
+  1901→  1901→              ? This cannot be undone.
+  1902→  1902→            </AlertDialogDescription>
+  1903→  1903→          </AlertDialogHeader>
+  1904→  1904→          <AlertDialogFooter>
+  1905→  1905→            <AlertDialogCancel disabled={refundSubmitting}>Cancel</AlertDialogCancel>
+  1906→  1906→            <AlertDialogAction
+  1907→  1907→              onClick={handleConfirmRefund}
+  1908→  1908→              disabled={refundSubmitting}
+  1909→  1909→              className="bg-red-600 hover:bg-red-700 text-white"
+  1910→  1910→            >
+  1911→  1911→              {refundSubmitting && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+  1912→  1912→              Confirm Refund
+  1913→  1913→            </AlertDialogAction>
+  1914→  1914→          </AlertDialogFooter>
+  1915→  1915→        </AlertDialogContent>
+  1916→  1916→      </AlertDialog>
+  1917→  1917→
+  1918→  1918→      {/* ================================================================== */}
+  1919→  1919→      {/* DETAIL DIALOG                                                      */}
+  1920→  1920→      {/* ================================================================== */}
+  1921→  1921→      <Dialog
+  1922→  1922→        open={!!selectedId}
+  1923→  1923→        onOpenChange={(open) => {
+  1924→  1924→          if (!open) {
+  1925→  1925→            setSelectedId(null);
+  1926→  1926→            setDetail(null);
+  1927→  1927→          }
+  1928→  1928→        }}
+  1929→  1929→      >
+  1930→  1930→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+  1931→  1931→          {detailLoading ? (
+  1932→  1932→            <div className="p-6 space-y-4">
+  1933→  1933→              <Skeleton className="h-6 w-48" />
+  1934→  1934→              <Skeleton className="h-4 w-full" />
+  1935→  1935→              <Skeleton className="h-4 w-3/4" />
+  1936→  1936→              <div className="grid grid-cols-2 gap-4 pt-4">
+  1937→  1937→                {Array.from({ length: 6 }).map((_, i) => (
+  1938→  1938→                  <Skeleton key={i} className="h-12" />
+  1939→  1939→                ))}
+  1940→  1940→              </div>
+  1941→  1941→            </div>
+  1942→  1942→          ) : detail ? (
+  1943→  1943→            <>
+  1944→  1944→              {/* Dialog Header */}
+  1945→  1945→              <div className="px-6 pt-6 pb-4 border-b border-border/40">
+  1946→  1946→                <DialogHeader>
+  1947→  1947→                  <div className="flex items-center justify-between">
+  1948→  1948→                    <DialogTitle className="text-lg font-semibold">
+  1949→  1949→                      Appointment Details
+  1950→  1950→                    </DialogTitle>
+  1951→  1951→                    <StatusBadge status={detail.status} />
+  1952→  1952→                  </div>
+  1953→  1953→                  <DialogDescription className="text-sm text-muted-foreground">
+  1954→  1954→                    {format(parseISO(detail.startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} —{" "}
+  1955→  1955→                    {format(parseISO(detail.endTime), "h:mm a")}
+  1956→  1956→                  </DialogDescription>
+  1957→  1957→                </DialogHeader>
+  1958→  1958→              </div>
+  1959→  1959→
+  1960→  1960→              <div className="px-6 py-4 space-y-5">
+  1961→  1961→                {/* Status Transition Buttons */}
+  1962→  1962→                {detail.validTransitions.length > 0 && (
+  1963→  1963→                  <div className="flex flex-wrap gap-2">
+  1964→  1964→                    {detail.validTransitions.map((t) => (
+  1965→  1965→                      <Button
+  1966→  1966→                        key={t}
+  1967→  1967→                        variant="outline"
+  1968→  1968→                        size="sm"
+  1969→  1969→                        className={`cursor-pointer transition-all ${
+  1970→  1970→                          t === "CANCELLED"
+  1971→  1971→                            ? "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+  1972→  1972→                            : t === "COMPLETED"
+  1973→  1973→                              ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+  1974→  1974→                              : t === "CHECKED_IN"
+  1975→  1975→                                ? "border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+  1976→  1976→                                : ""
+  1977→  1977→                        }`}
+  1978→  1978→                        disabled={transitioningId === detail.id}
+  1979→  1979→                        onClick={() => handleTransition(detail.id, t)}
+  1980→  1980→                      >
+  1981→  1981→                        {transitioningId === detail.id ? (
+  1982→  1982→                          <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+  1983→  1983→                        ) : (
+  1984→  1984→                          TRANSITION_ICONS[t] || null
+  1985→  1985→                        )}
+  1986→  1986→                        {TRANSITION_LABELS[t] || t}
+  1987→  1987→                      </Button>
+  1988→  1988→                    ))}
+  1989→  1989→                  </div>
+  1990→  1990→                )}
+  1991→  1991→
+  1992→  1992→                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+  1993→  1993→                  {/* Patient Info Card */}
+  1994→  1994→                  <div className="rounded-lg border border-border/60 p-4 space-y-3">
+  1995→  1995→                    <div className="flex items-center justify-between mb-1">
+  1996→  1996→                      <div className="flex items-center gap-2">
+  1997→  1997→                        <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center">
+  1998→  1998→                          <User className="size-4 text-emerald-600" />
+  1999→  1999→                        </div>
+  2000→  2000→                        <div>
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]

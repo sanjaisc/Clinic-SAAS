@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DoctASessionUser } from "@/lib/auth";
+import { useActiveClinicId } from "@/components/active-clinic-context";
 
 // ---- Types ----
 interface StaffInvitation {
@@ -82,6 +83,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function StaffPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
+  const clinicId = useActiveClinicId(user?.clinicId);
 
   // Staff state
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
@@ -98,7 +100,7 @@ export default function StaffPage() {
   const fetchInvitations = useCallback(async () => {
     try {
       setInvitationsLoading(true);
-      const res = await fetch(`/api/staff/invitations?clinicId=${user?.clinicId}`);
+      const res = await fetch(`/api/staff/invitations?clinicId=${clinicId}`);
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setInvitations(data.invitations || []);
@@ -107,13 +109,13 @@ export default function StaffPage() {
     } finally {
       setInvitationsLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicId]);
 
   useEffect(() => {
-    if (user?.clinicId) {
+    if (clinicId) {
       fetchInvitations();
     }
-  }, [user?.clinicId, fetchInvitations]);
+  }, [clinicId, fetchInvitations]);
 
   // Derived staff list from accepted invitations
   const acceptedStaff = invitations.filter((inv) => inv.acceptedAt);
@@ -134,7 +136,7 @@ export default function StaffPage() {
     try {
       setInviteSending(true);
       setInviteResult(null);
-      const res = await fetch(`/api/staff/invitations?clinicId=${user?.clinicId}`, {
+      const res = await fetch(`/api/staff/invitations?clinicId=${clinicId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, role: "CLINIC_RECEPTION" }),
@@ -173,7 +175,7 @@ export default function StaffPage() {
   const revokeInvitation = async (id: string) => {
     try {
       const res = await fetch(
-        `/api/staff/invitations/${id}?clinicId=${user?.clinicId}`,
+        `/api/staff/invitations/${id}?clinicId=${clinicId}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed");
@@ -188,7 +190,7 @@ export default function StaffPage() {
   const resendInvitation = async (id: string) => {
     try {
       const res = await fetch(
-        `/api/staff/invitations/${id}/resend?clinicId=${user?.clinicId}`,
+        `/api/staff/invitations/${id}/resend?clinicId=${clinicId}`,
         { method: "POST" }
       );
       if (!res.ok) {
