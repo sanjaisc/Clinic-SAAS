@@ -1,0 +1,1213 @@
+     1→// =============================================================================
+     2→// Database Seed Script — Demo Data for Medical Marketplace
+     3→// Run: npx tsx prisma/seed.ts  OR  bunx tsx prisma/seed.ts
+     4→// =============================================================================
+     5→
+     6→import { db } from '../src/lib/db';
+     7→import {
+     8→  CLINIC_STATUS,
+     9→  PROVIDER_STATUS,
+    10→  SLOT_STATUS,
+    11→  SLOT_MODALITY,
+    12→  STAFF_ROLE,
+    13→} from '../src/lib/enums';
+    14→import { hashPassword } from '../src/lib/crypto';
+    15→
+    16→// ─── Helpers ───────────────────────────────────────────────────────────────────
+    17→
+    18→/** Convert a NYC local date + time string to a UTC Date object.
+    19→ *  EST = UTC-5 (we ignore DST for seed simplicity). */
+    20→function nycToUTC(
+    21→  date: Date,
+    22→  hours: number,
+    23→  minutes: number
+    24→): Date {
+    25→  const utc = new Date(date);
+    26→  utc.setUTCHours(hours + 5, minutes, 0, 0); // NYC EST is UTC-5 → add 5
+    27→  return utc;
+    28→}
+    29→
+    30→/** Add N days to a date, returning a new Date. */
+    31→function addDays(date: Date, days: number): Date {
+    32→  const d = new Date(date);
+    33→  d.setDate(d.getDate() + days);
+    34→  return d;
+    35→}
+    36→
+    37→/** Return a date-only UTC Date for the given day offset from today. */
+    38→function dayOffset(days: number): Date {
+    39→  const d = new Date();
+    40→  d.setUTCHours(0, 0, 0, 0);
+    41→  d.setDate(d.getDate() + days);
+    42→  return d;
+    43→}
+    44→
+    45→// Standard hours-of-operation JSON
+    46→const HOURS_OF_OPERATION = JSON.stringify({
+    47→  mon: { open: '09:00', close: '17:00' },
+    48→  tue: { open: '09:00', close: '17:00' },
+    49→  wed: { open: '09:00', close: '17:00' },
+    50→  thu: { open: '09:00', close: '17:00' },
+    51→  fri: { open: '09:00', close: '17:00' },
+    52→  sat: { open: '09:00', close: '13:00' },
+    53→  sun: null,
+    54→});
+    55→
+    56→// ─── Main ──────────────────────────────────────────────────────────────────────
+    57→
+    58→async function main() {
+    59→  console.log('🌱 Seeding database with demo data...\n');
+    60→
+    61→  // ── 0. Clean existing data (idempotent re-runs) ────────────────────────────
+    62→
+    63→  console.log('0️⃣  Cleaning existing data for idempotent re-run...');
+    64→  // Delete in reverse dependency order to avoid FK violations (sequential)
+    65→  await db.auditLog.deleteMany();
+    66→  await db.internalNote.deleteMany();
+    67→  await db.review.deleteMany();
+    68→  await db.appointmentLedger.deleteMany();
+    69→  await db.token.deleteMany();
+    70→  await db.slotLock.deleteMany();
+    71→  await db.appointment.deleteMany();
+    72→  await db.waitlistEntry.deleteMany();
+    73→  await db.clinicClosure.deleteMany();
+    74→  await db.user.deleteMany();
+    75→  await db.slot.deleteMany();
+    76→  await db.slotTemplate.deleteMany();
+    77→  await db.providerService.deleteMany();
+    78→  await db.providerLanguage.deleteMany();
+    79→  await db.clinicInsurance.deleteMany();
+    80→  await db.serviceInsurance.deleteMany();
+    81→  await db.provider.deleteMany();
+    82→  await db.clinic.deleteMany();
+    83→  await db.service.deleteMany();
+    84→  await db.insurance.deleteMany();
+    85→  await db.specialty.deleteMany();
+    86→  await db.language.deleteMany();
+    87→  await db.systemConfig.deleteMany();
+    88→  console.log('   ✅ All existing data cleared\n');
+    89→
+    90→  // ── 1. SystemConfig ────────────────────────────────────────────────────────
+    91→
+    92→  console.log('1️⃣  Creating SystemConfig...');
+    93→  await db.systemConfig.upsert({
+    94→    where: { id: 'singleton' },
+    95→    update: {},
+    96→    create: {
+    97→      id: 'singleton',
+    98→      minDepositCents: 0,
+    99→      maxDepositCents: 50000,
+   100→      lockTtlSeconds: 600,
+   101→      slotGenerationWindowDays: 90,
+   102→      waitlistProcessingDelayMin: 3,
+   103→      zeroDepositRequireCard: false,
+   104→      platformFeeCents: 0,
+   105→    },
+   106→  });
+   107→  console.log('   ✅ SystemConfig created\n');
+   108→
+   109→  // ── 2. Specialties ─────────────────────────────────────────────────────────
+   110→
+   111→  console.log('2️⃣  Creating Specialties...');
+   112→  const specialtiesData = [
+   113→    { name: 'Family Medicine', slug: 'family-medicine', icon: '🩺', description: 'Comprehensive primary care for patients of all ages.', sortOrder: 1 },
+   114→    { name: 'Cardiology', slug: 'cardiology', icon: '❤️', description: 'Diagnosis and treatment of heart and cardiovascular conditions.', sortOrder: 2 },
+   115→    { name: 'Dermatology', slug: 'dermatology', icon: '🔬', description: 'Skin, hair, and nail conditions — medical and cosmetic.', sortOrder: 3 },
+   116→    { name: 'Pediatrics', slug: 'pediatrics', icon: '👶', description: 'Specialized care for infants, children, and adolescents.', sortOrder: 4 },
+   117→    { name: 'Orthopedics', slug: 'orthopedics', icon: '🦴', description: 'Musculoskeletal conditions, injuries, and joint care.', sortOrder: 5 },
+   118→  ];
+   119→
+   120→  const specialties: Record<string, string> = {};
+   121→  for (const s of specialtiesData) {
+   122→    const record = await db.specialty.create({ data: s });
+   123→    specialties[s.slug] = record.id;
+   124→    console.log(`   ✅ ${s.name} (${record.id})`);
+   125→  }
+   126→  console.log('');
+   127→
+   128→  // ── 3. Services (2 per specialty) ──────────────────────────────────────────
+   129→
+   130→  console.log('3️⃣  Creating Services...');
+   131→  const servicesData = [
+   132→    // Family Medicine
+   133→    { name: 'Annual Physical', slug: 'annual-physical', specialtySlug: 'family-medicine', durationMinutes: 30, selfPayPriceCents: 15000, copayDemoCents: 0, description: 'Comprehensive yearly health examination and preventive screening.', sortOrder: 1 },
+   134→    { name: 'Sick Visit', slug: 'sick-visit', specialtySlug: 'family-medicine', durationMinutes: 30, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Urgent same-day visit for acute illness symptoms.', sortOrder: 2 },
+   135→    // Cardiology
+   136→    { name: 'Heart Screening', slug: 'heart-screening', specialtySlug: 'cardiology', durationMinutes: 45, selfPayPriceCents: 25000, copayDemoCents: 5000, description: 'Cardiovascular risk assessment including blood pressure, cholesterol review, and ECG.', sortOrder: 1 },
+   137→    { name: 'ECG Consultation', slug: 'ecg-consultation', specialtySlug: 'cardiology', durationMinutes: 30, selfPayPriceCents: 18000, copayDemoCents: 0, description: 'Electrocardiogram interpretation and cardiac consultation.', sortOrder: 2 },
+   138→    // Dermatology
+   139→    { name: 'Skin Check', slug: 'skin-check', specialtySlug: 'dermatology', durationMinutes: 20, selfPayPriceCents: 15000, copayDemoCents: 3000, description: 'Full-body skin examination for moles, lesions, and signs of skin cancer.', sortOrder: 1 },
+   140→    { name: 'Acne Consultation', slug: 'acne-consultation', specialtySlug: 'dermatology', durationMinutes: 20, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Evaluation and treatment planning for acne and related skin conditions.', sortOrder: 2 },
+   141→    // Pediatrics
+   142→    { name: 'Well Child Visit', slug: 'well-child-visit', specialtySlug: 'pediatrics', durationMinutes: 30, selfPayPriceCents: 15000, copayDemoCents: 0, description: 'Routine well-child checkup including growth assessment and vaccinations.', sortOrder: 1 },
+   143→    { name: 'Pediatric Sick Visit', slug: 'pediatric-sick-visit', specialtySlug: 'pediatrics', durationMinutes: 30, selfPayPriceCents: 12000, copayDemoCents: 2500, description: 'Same-day visit for acute childhood illness.', sortOrder: 2 },
+   144→    // Orthopedics
+   145→    { name: 'Joint Assessment', slug: 'joint-assessment', specialtySlug: 'orthopedics', durationMinutes: 30, selfPayPriceCents: 20000, copayDemoCents: 4000, description: 'Comprehensive evaluation of joint pain, stiffness, or mobility issues.', sortOrder: 1 },
+   146→    { name: 'Sports Injury Evaluation', slug: 'sports-injury-evaluation', specialtySlug: 'orthopedics', durationMinutes: 30, selfPayPriceCents: 18000, copayDemoCents: 3000, description: 'Assessment and treatment plan for sports-related injuries.', sortOrder: 2 },
+   147→  ];
+   148→
+   149→  const services: Record<string, string> = {};
+   150→  const serviceCopays: Record<string, number> = {};
+   151→  for (const s of servicesData) {
+   152→    const record = await db.service.create({
+   153→      data: {
+   154→        name: s.name,
+   155→        slug: s.slug,
+   156→        description: s.description,
+   157→        specialtyId: specialties[s.specialtySlug],
+   158→        durationMinutes: s.durationMinutes,
+   159→        selfPayPriceCents: s.selfPayPriceCents,
+   160→        selfPayPaymentType: 'STANDARD_DEPOSIT',
+   161→        isActive: true,
+   162→        sortOrder: s.sortOrder,
+   163→      },
+   164→    });
+   165→    services[s.slug] = record.id;
+   166→    serviceCopays[s.slug] = s.copayDemoCents;
+   167→    console.log(`   ✅ ${s.name} (${record.id})`);
+   168→  }
+   169→  console.log('');
+   170→
+   171→  // ── 4. Insurances ──────────────────────────────────────────────────────────
+   172→
+   173→  console.log('4️⃣  Creating Insurances...');
+   174→  const insurancesData = [
+   175→    { name: 'Demo Insurance', slug: 'demo-insurance', isDemo: true, sortOrder: 1 },
+   176→    { name: 'Aetna', slug: 'aetna', isDemo: false, sortOrder: 2 },
+   177→    { name: 'Blue Cross Blue Shield', slug: 'blue-cross-blue-shield', isDemo: false, sortOrder: 3 },
+   178→  ];
+   179→
+   180→  const insurances: Record<string, string> = {};
+   181→  for (const ins of insurancesData) {
+   182→    const record = await db.insurance.create({ data: ins });
+   183→    insurances[ins.slug] = record.id;
+   184→    console.log(`   ✅ ${ins.name} (${record.id})`);
+   185→  }
+   186→  console.log('');
+   187→
+   188→  // ── 5. ServiceInsurance entries ────────────────────────────────────────────
+   189→
+   190→  console.log('5️⃣  Creating ServiceInsurance entries...');
+   191→  const demoInsuranceId = insurances['demo-insurance'];
+   192→  const serviceInsuranceRows = servicesData.map((s) => ({
+   193→    serviceId: services[s.slug],
+   194→    insuranceId: demoInsuranceId,
+   195→    copayCents: s.copayDemoCents,
+   196→    isActive: true,
+   197→  }));
+   198→
+   199→  await db.serviceInsurance.createMany({ data: serviceInsuranceRows });
+   200→  console.log(`   ✅ Created ${serviceInsuranceRows.length} ServiceInsurance entries\n`);
+   201→
+   202→  // ── 6. Languages ───────────────────────────────────────────────────────────
+   203→
+   204→  console.log('6️⃣  Creating Languages...');
+   205→  const languagesData = [
+   206→    { name: 'English', code: 'en', sortOrder: 1 },
+   207→    { name: 'Spanish', code: 'es', sortOrder: 2 },
+   208→    { name: 'Mandarin', code: 'zh', sortOrder: 3 },
+   209→    { name: 'French', code: 'fr', sortOrder: 4 },
+   210→    { name: 'Hindi', code: 'hi', sortOrder: 5 },
+   211→    { name: 'Arabic', code: 'ar', sortOrder: 6 },
+   212→    { name: 'Korean', code: 'ko', sortOrder: 7 },
+   213→  ];
+   214→
+   215→  const languages: Record<string, string> = {};
+   216→  for (const lang of languagesData) {
+   217→    const record = await db.language.create({ data: lang });
+   218→    languages[lang.code] = record.id;
+   219→    console.log(`   ✅ ${lang.name} (${record.id})`);
+   220→  }
+   221→  console.log('');
+   222→
+   223→  // ── 7. Clinics ─────────────────────────────────────────────────────────────
+   224→
+   225→  console.log('7️⃣  Creating Clinics...');
+   226→  const clinicsData = [
+   227→    {
+   228→      name: 'Downtown Medical Group',
+   229→      slug: 'downtown-medical-group',
+   230→      streetAddress: '100 Broadway, Suite 400',
+   231→      city: 'New York',
+   232→      state: 'NY',
+   233→      zipCode: '10005',
+   234→      latitude: 40.7128,
+   235→      longitude: -74.006,
+   236→      phoneNumber: '(212) 555-0101',
+   237→      email: 'info@downtownmedical.com',
+   238→      website: 'https://downtownmedical.example.com',
+   239→      tagline: 'Comprehensive care in the heart of Lower Manhattan',
+   240→      description: 'Downtown Medical Group has been serving the Lower Manhattan community for over 15 years. Our board-certified physicians provide personalized primary care with a focus on preventive medicine and patient education.',
+   241→      inPersonDepositCents: 2500,
+   242→      videoDepositCents: 1500,
+   243→      selfPayFlatRateCents: 20000,
+   244→    },
+   245→    {
+   246→      name: 'Midtown Health Center',
+   247→      slug: 'midtown-health-center',
+   248→      streetAddress: '350 Fifth Avenue, Floor 18',
+   249→      city: 'New York',
+   250→      state: 'NY',
+   251→      zipCode: '10118',
+   252→      latitude: 40.7549,
+   253→      longitude: -73.984,
+   254→      phoneNumber: '(212) 555-0202',
+   255→      email: 'info@midtownhealth.com',
+   256→      website: 'https://midtownhealth.example.com',
+   257→      tagline: 'Expert cardiac care in Midtown Manhattan',
+   258→      description: 'Midtown Health Center is a premier cardiology practice offering state-of-the-art cardiovascular diagnostics and treatment. Our team of fellowship-trained cardiologists is dedicated to heart health and prevention.',
+   259→      inPersonDepositCents: 2500,
+   260→      videoDepositCents: 1500,
+   261→      selfPayFlatRateCents: 20000,
+   262→    },
+   263→    {
+   264→      name: 'Brooklyn Family Care',
+   265→      slug: 'brooklyn-family-care',
+   266→      streetAddress: '189 Atlantic Avenue',
+   267→      city: 'Brooklyn',
+   268→      state: 'NY',
+   269→      zipCode: '11201',
+   270→      latitude: 40.6782,
+   271→      longitude: -73.9442,
+   272→      phoneNumber: '(718) 555-0303',
+   273→      email: 'info@brooklynfamilycare.com',
+   274→      website: 'https://brooklynfamilycare.example.com',
+   275→      tagline: 'Your neighborhood dermatology experts in Brooklyn Heights',
+   276→      description: 'Brooklyn Family Care provides expert dermatological services in a warm, welcoming environment. We treat everything from routine skin checks to complex dermatological conditions using the latest evidence-based approaches.',
+   277→      inPersonDepositCents: 2500,
+   278→      videoDepositCents: 1500,
+   279→      selfPayFlatRateCents: 20000,
+   280→    },
+   281→    {
+   282→      name: 'Upper East Side Clinic',
+   283→      slug: 'upper-east-side-clinic',
+   284→      streetAddress: '720 Park Avenue, Suite 2B',
+   285→      city: 'New York',
+   286→      state: 'NY',
+   287→      zipCode: '10021',
+   288→      latitude: 40.7736,
+   289→      longitude: -73.9566,
+   290→      phoneNumber: '(212) 555-0404',
+   291→      email: 'info@uesclinic.com',
+   292→      website: 'https://uesclinic.example.com',
+   293→      tagline: 'Trusted pediatric care on the Upper East Side',
+   294→      description: 'Upper East Side Clinic specializes in comprehensive pediatric care from newborn through adolescence. Our child-friendly environment and experienced team make every visit comfortable for both children and parents.',
+   295→      inPersonDepositCents: 2500,
+   296→      videoDepositCents: 1500,
+   297→      selfPayFlatRateCents: 20000,
+   298→    },
+   299→    {
+   300→      name: 'Harlem Wellness Center',
+   301→      slug: 'harlem-wellness-center',
+   302→      streetAddress: '2080 Adam Clayton Powell Jr. Blvd',
+   303→      city: 'New York',
+   304→      state: 'NY',
+   305→      zipCode: '10027',
+   306→      latitude: 40.8116,
+   307→      longitude: -73.9465,
+   308→      phoneNumber: '(212) 555-0505',
+   309→      email: 'info@harlemwellness.com',
+   310→      website: 'https://harlemwellness.example.com',
+   311→      tagline: 'Holistic family medicine serving the Harlem community',
+   312→      description: 'Harlem Wellness Center is dedicated to providing accessible, high-quality family medicine. We believe in treating the whole person — body, mind, and spirit — with culturally sensitive care that honors our diverse community.',
+   313→      inPersonDepositCents: 2500,
+   314→      videoDepositCents: 1500,
+   315→      selfPayFlatRateCents: 20000,
+   316→    },
+   317→    {
+   318→      name: 'Queens Medical Associates',
+   319→      slug: 'queens-medical-associates',
+   320→      streetAddress: '28-20 Astoria Boulevard',
+   321→      city: 'Astoria',
+   322→      state: 'NY',
+   323→      zipCode: '11102',
+   324→      latitude: 40.7282,
+   325→      longitude: -73.7949,
+   326→      phoneNumber: '(718) 555-0606',
+   327→      email: 'info@queensmedical.com',
+   328→      website: 'https://queensmedical.example.com',
+   329→      tagline: 'Orthopedic excellence in the heart of Astoria, Queens',
+   330→      description: 'Queens Medical Associates offers comprehensive orthopedic care including sports medicine, joint replacement, and fracture management. Our state-of-the-art facility and experienced orthopedic surgeons help patients regain mobility and live pain-free.',
+   331→      inPersonDepositCents: 2500,
+   332→      videoDepositCents: 1500,
+   333→      selfPayFlatRateCents: 20000,
+   334→    },
+   335→  ];
+   336→
+   337→  const clinics: Record<string, string> = {};
+   338→  for (const c of clinicsData) {
+   339→    const record = await db.clinic.create({
+   340→      data: {
+   341→        ...c,
+   342→        hoursOfOperation: HOURS_OF_OPERATION,
+   343→        status: CLINIC_STATUS.PUBLISHED,
+   344→        commonInstructions: 'Please arrive 15 minutes before your appointment. Bring a valid photo ID and your insurance card.',
+   345→        intakeReminderDays: '3,1',
+   346→      },
+   347→    });
+   348→    clinics[c.slug] = record.id;
+   349→    console.log(`   ✅ ${c.name} (${record.id})`);
+   350→  }
+   351→  console.log('');
+   352→
+   353→  // ── 8. Providers (2-3 per clinic) ──────────────────────────────────────────
+   354→
+   355→  console.log('8️⃣  Creating Providers...');
+   356→  const providersData = [
+   357→    // === Downtown Medical Group (Family Medicine) ===
+   358→    {
+   359→      firstName: 'Sarah', lastName: 'Chen', credentials: 'MD',
+   360→      slug: 'sarah-chen',
+   361→      bio: 'Dr. Sarah Chen is a board-certified family medicine physician with over 12 years of experience. She graduated from Columbia University College of Physicians and Surgeons and completed her residency at NYU Langone. Dr. Chen is passionate about preventive care and building long-term patient relationships.',
+   362→      clinicSlug: 'downtown-medical-group',
+   363→      yearsExperience: 12, rating: 4.8, reviewCount: 67,
+   364→      serviceSlugs: ['annual-physical', 'sick-visit', 'well-child-visit'],
+   365→      languageCodes: ['en', 'zh'],
+   366→    },
+   367→    {
+   368→      firstName: 'Aisha', lastName: 'Patel', credentials: 'MD',
+   369→      slug: 'aisha-patel',
+   370→      bio: 'Dr. Aisha Patel is a family medicine physician who brings a unique integrative approach to primary care. She combines evidence-based Western medicine with lifestyle coaching to help patients achieve optimal health. She earned her medical degree from Duke University.',
+   371→      clinicSlug: 'downtown-medical-group',
+   372→      yearsExperience: 7, rating: 4.6, reviewCount: 38,
+   373→      serviceSlugs: ['annual-physical', 'sick-visit'],
+   374→      languageCodes: ['en', 'hi'],
+   375→    },
+   376→    // === Midtown Health Center (Cardiology) ===
+   377→    {
+   378→      firstName: 'Michael', lastName: 'Rodriguez', credentials: 'MD, FACC',
+   379→      slug: 'michael-rodriguez',
+   380→      bio: 'Dr. Michael Rodriguez is a fellowship-trained cardiologist and Fellow of the American College of Cardiology. With 18 years of clinical experience, he specializes in preventive cardiology, heart failure management, and cardiac imaging. He completed his training at Mount Sinai Hospital.',
+   381→      clinicSlug: 'midtown-health-center',
+   382→      yearsExperience: 18, rating: 4.9, reviewCount: 95,
+   383→      serviceSlugs: ['heart-screening', 'ecg-consultation', 'joint-assessment'],
+   384→      languageCodes: ['en', 'es'],
+   385→    },
+   386→    {
+   387→      firstName: 'Lisa', lastName: 'Chang', credentials: 'MD',
+   388→      slug: 'lisa-chang',
+   389→      bio: 'Dr. Lisa Chang is a board-certified cardiologist specializing in women\'s heart health and preventive cardiology. She has 9 years of experience and is committed to raising awareness about cardiovascular disease in women. She completed her fellowship at Columbia Presbyterian.',
+   390→      clinicSlug: 'midtown-health-center',
+   391→      yearsExperience: 9, rating: 4.7, reviewCount: 44,
+   392→      serviceSlugs: ['heart-screening', 'ecg-consultation'],
+   393→      languageCodes: ['en', 'zh'],
+   394→    },
+   395→    {
+   396→      firstName: 'Robert', lastName: 'Martinez', credentials: 'NP',
+   397→      slug: 'robert-martinez',
+   398→      bio: 'Robert Martinez is a board-certified Nurse Practitioner specializing in cardiovascular care. With 6 years of experience in cardiology, he provides thorough heart health assessments and patient education. He is fluent in Spanish and passionate about making cardiac care accessible to the Latino community.',
+   399→      clinicSlug: 'midtown-health-center',
+   400→      yearsExperience: 6, rating: 4.5, reviewCount: 31,
+   401→      serviceSlugs: ['heart-screening'],
+   402→      languageCodes: ['en', 'es'],
+   403→    },
+   404→    // === Brooklyn Family Care (Dermatology) ===
+   405→    {
+   406→      firstName: 'Emily', lastName: 'Watson', credentials: 'MD, FAAD',
+   407→      slug: 'emily-watson',
+   408→      bio: 'Dr. Emily Watson is a board-certified dermatologist and Fellow of the American Academy of Dermatology. She has 8 years of experience treating a wide range of skin conditions with a special interest in skin cancer screening and acne management. She earned her medical degree from Weill Cornell Medicine.',
+   409→      clinicSlug: 'brooklyn-family-care',
+   410→      yearsExperience: 8, rating: 4.6, reviewCount: 42,
+   411→      serviceSlugs: ['skin-check', 'acne-consultation', 'annual-physical'],
+   412→      languageCodes: ['en'],
+   413→    },
+   414→    {
+   415→      firstName: 'Sophia', lastName: 'Benjamin', credentials: 'MD',
+   416→      slug: 'sophia-benjamin',
+   417→      bio: 'Dr. Sophia Benjamin is a dermatologist with a focus on medical dermatology and cosmetic procedures. She has 11 years of experience and is known for her meticulous approach to skin examinations. She completed her residency at NYU and a fellowship in dermatologic surgery.',
+   418→      clinicSlug: 'brooklyn-family-care',
+   419→      yearsExperience: 11, rating: 4.4, reviewCount: 28,
+   420→      serviceSlugs: ['skin-check', 'acne-consultation'],
+   421→      languageCodes: ['en'],
+   422→    },
+   423→    // === Upper East Side Clinic (Pediatrics) ===
+   424→    {
+   425→      firstName: 'James', lastName: 'Okafor', credentials: 'MD, FAAP',
+   426→      slug: 'james-okafor',
+   427→      bio: 'Dr. James Okafor is a board-certified pediatrician and Fellow of the American Academy of Pediatrics. He has been caring for children in the New York area for over 10 years. Dr. Okafor is known for his gentle bedside manner and thorough approach to child wellness.',
+   428→      clinicSlug: 'upper-east-side-clinic',
+   429→      yearsExperience: 10, rating: 4.7, reviewCount: 54,
+   430→      serviceSlugs: ['well-child-visit', 'pediatric-sick-visit', 'sick-visit'],
+   431→      languageCodes: ['en', 'fr'],
+   432→    },
+   433→    {
+   434→      firstName: 'Nina', lastName: 'Kowalski', credentials: 'MD',
+   435→      slug: 'nina-kowalski',
+   436→      bio: 'Dr. Nina Kowalski is a pediatrician with special interests in childhood development and adolescent medicine. She has 5 years of experience and brings warmth and patience to every visit. She completed her residency at Children\'s Hospital of Philadelphia.',
+   437→      clinicSlug: 'upper-east-side-clinic',
+   438→      yearsExperience: 5, rating: 4.8, reviewCount: 33,
+   439→      serviceSlugs: ['well-child-visit', 'pediatric-sick-visit'],
+   440→      languageCodes: ['en'],
+   441→    },
+   442→    // === Harlem Wellness Center (Family Medicine) ===
+   443→    {
+   444→      firstName: 'Priya', lastName: 'Sharma', credentials: 'MD',
+   445→      slug: 'priya-sharma',
+   446→      bio: 'Dr. Priya Sharma is a compassionate family medicine physician with 15 years of experience. She completed her medical education at Johns Hopkins University School of Medicine and her residency at Stanford. Dr. Sharma takes a holistic approach to primary care, emphasizing wellness and prevention.',
+   447→      clinicSlug: 'harlem-wellness-center',
+   448→      yearsExperience: 15, rating: 4.5, reviewCount: 38,
+   449→      serviceSlugs: ['annual-physical', 'sick-visit', 'well-child-visit'],
+   450→      languageCodes: ['en', 'hi'],
+   451→    },
+   452→    {
+   453→      firstName: 'Marcus', lastName: 'Thompson', credentials: 'MD',
+   454→      slug: 'marcus-thompson',
+   455→      bio: 'Dr. Marcus Thompson is a family medicine physician dedicated to serving urban communities. He has 9 years of experience with a special interest in chronic disease management and health equity. Dr. Thompson believes in empowering patients through education and shared decision-making.',
+   456→      clinicSlug: 'harlem-wellness-center',
+   457→      yearsExperience: 9, rating: 4.3, reviewCount: 25,
+   458→      serviceSlugs: ['annual-physical', 'sick-visit'],
+   459→      languageCodes: ['en'],
+   460→    },
+   461→    // === Queens Medical Associates (Orthopedics) ===
+   462→    {
+   463→      firstName: 'David', lastName: 'Kim', credentials: 'MD',
+   464→      slug: 'david-kim',
+   465→      bio: 'Dr. David Kim is a board-certified orthopedic surgeon specializing in sports medicine and joint replacement. He has 14 years of experience and serves as team physician for several local sports organizations. Dr. Kim completed his orthopedic surgery residency at Hospital for Special Surgery.',
+   466→      clinicSlug: 'queens-medical-associates',
+   467→      yearsExperience: 14, rating: 4.8, reviewCount: 73,
+   468→      serviceSlugs: ['joint-assessment', 'sports-injury-evaluation', 'heart-screening'],
+   469→      languageCodes: ['en', 'ko'],
+   470→    },
+   471→    {
+   472→      firstName: 'Amir', lastName: 'Hassan', credentials: 'MD',
+   473→      slug: 'amir-hassan',
+   474→      bio: 'Dr. Amir Hassan is an orthopedic surgeon specializing in hand and upper extremity surgery. With 8 years of experience, he treats conditions ranging from carpal tunnel syndrome to complex fractures. He completed his fellowship at Mayo Clinic and is known for his meticulous surgical technique.',
+   475→      clinicSlug: 'queens-medical-associates',
+   476→      yearsExperience: 8, rating: 4.6, reviewCount: 36,
+   477→      serviceSlugs: ['joint-assessment', 'sports-injury-evaluation'],
+   478→      languageCodes: ['en', 'ar'],
+   479→    },
+   480→    {
+   481→      firstName: 'Carmen', lastName: 'Vasquez', credentials: 'PA-C',
+   482→      slug: 'carmen-vasquez',
+   483→      bio: 'Carmen Vasquez is a board-certified Physician Assistant with 7 years of experience in orthopedic care. She specializes in non-surgical treatment of musculoskeletal conditions and post-operative rehabilitation. Carmen is dedicated to helping patients recover quickly and return to the activities they love.',
+   484→      clinicSlug: 'queens-medical-associates',
+   485→      yearsExperience: 7, rating: 4.4, reviewCount: 29,
+   486→      serviceSlugs: ['joint-assessment', 'sports-injury-evaluation'],
+   487→      languageCodes: ['en', 'es'],
+   488→    },
+   489→  ];
+   490→
+   491→  const providers: Record<string, string> = {};
+   492→  for (const p of providersData) {
+   493→    const record = await db.provider.create({
+   494→      data: {
+   495→        clinicId: clinics[p.clinicSlug],
+   496→        firstName: p.firstName,
+   497→        lastName: p.lastName,
+   498→        credentials: p.credentials,
+   499→        slug: p.slug,
+   500→        bio: p.bio,
+   501→        yearsExperience: p.yearsExperience,
+   502→        rating: p.rating,
+   503→        reviewCount: p.reviewCount,
+   504→        slotDurationMinutes: 30,
+   505→        status: PROVIDER_STATUS.ACTIVE,
+   506→      },
+   507→    });
+   508→    providers[p.slug] = record.id;
+   509→    console.log(`   ✅ ${p.firstName} ${p.lastName} (${record.id})`);
+   510→  }
+   511→  console.log('');
+   512→
+   513→  // ── 9. ProviderService entries ──────────────────────────────────────────────
+   514→
+   515→  console.log('9️⃣  Creating ProviderService entries...');
+   516→  const providerServiceRows: Array<{ providerId: string; serviceId: string }> = [];
+   517→  for (const p of providersData) {
+   518→    for (const serviceSlug of p.serviceSlugs) {
+   519→      providerServiceRows.push({
+   520→        providerId: providers[p.slug],
+   521→        serviceId: services[serviceSlug],
+   522→      });
+   523→    }
+   524→  }
+   525→
+   526→  await db.providerService.createMany({ data: providerServiceRows });
+   527→  console.log(`   ✅ Created ${providerServiceRows.length} ProviderService entries\n`);
+   528→
+   529→  // ── 10. ClinicInsurance entries ──────────────────────────────────────────────
+   530→
+   531→  console.log('🔟 Creating ClinicInsurance entries...');
+   532→  const clinicInsuranceRows: Array<{ clinicId: string; insuranceId: string }> = [];
+   533→  const insuranceIds = Object.values(insurances);
+   534→
+   535→  const clinicSlugs = clinicsData.map((c) => c.slug);
+   536→  for (let i = 0; i < clinicSlugs.length; i++) {
+   537→    clinicInsuranceRows.push(
+   538→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insurances['demo-insurance'] },
+   539→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insuranceIds[1] },
+   540→      { clinicId: clinics[clinicSlugs[i]], insuranceId: insuranceIds[2] },
+   541→    );
+   542→  }
+   543→
+   544→  await db.clinicInsurance.createMany({ data: clinicInsuranceRows });
+   545→  console.log(`   ✅ Created ${clinicInsuranceRows.length} ClinicInsurance entries\n`);
+   546→
+   547→  // ── 11. ProviderLanguage entries ────────────────────────────────────────────
+   548→
+   549→  console.log('1️⃣1️⃣  Creating ProviderLanguage entries...');
+   550→  const providerLanguageRows: Array<{ providerId: string; languageId: string }> = [];
+   551→  for (const p of providersData) {
+   552→    for (const langCode of p.languageCodes) {
+   553→      providerLanguageRows.push({
+   554→        providerId: providers[p.slug],
+   555→        languageId: languages[langCode],
+   556→      });
+   557→    }
+   558→  }
+   559→
+   560→  await db.providerLanguage.createMany({ data: providerLanguageRows });
+   561→  console.log(`   ✅ Created ${providerLanguageRows.length} ProviderLanguage entries\n`);
+   562→
+   563→  // ── 12. Slots for next 14 days ─────────────────────────────────────────────
+   564→
+   565→  console.log('1️⃣2️⃣  Generating Slots (next 14 days)...');
+   566→
+   567→  const MORNING_SLOTS = [9, 9, 10, 10, 11, 11];
+   568→  const MORNING_MINUTES = [0, 30, 0, 30, 0, 30];
+   569→  const AFTERNOON_SLOTS = [13, 13, 14, 14, 15, 15];
+   570→  const AFTERNOON_MINUTES = [0, 30, 0, 30, 0, 30];
+   571→
+   572→  const allSlotData: Array<{
+   573→    clinicId: string;
+   574→    providerId: string;
+   575→    startTime: Date;
+   576→    endTime: Date;
+   577→    modality: string;
+   578→    status: string;
+   579→  }> = [];
+   580→
+   581→  const providerList = providersData.map((p) => ({
+   582→    providerId: providers[p.slug],
+   583→    clinicId: clinics[p.clinicSlug],
+   584→  }));
+   585→
+   586→  let totalSlots = 0;
+   587→
+   588→  for (const { providerId, clinicId } of providerList) {
+   589→    for (let day = 0; day < 14; day++) {
+   590→      const baseDate = dayOffset(day);
+   591→      const dayOfWeek = baseDate.getUTCDay();
+   592→
+   593→      if (dayOfWeek === 0) continue;
+   594→
+   595→      const isSaturday = dayOfWeek === 6;
+   596→      const numMorningSlots = isSaturday ? 4 : 6;
+   597→      const numAfternoonSlots = isSaturday ? 0 : 6;
+   598→
+   599→      for (let i = 0; i < numMorningSlots; i++) {
+   600→        const start = nycToUTC(baseDate, MORNING_SLOTS[i], MORNING_MINUTES[i]);
+   601→        const end = new Date(start.getTime() + 30 * 60 * 1000);
+   602→
+   603→        const modality = Math.random() < 0.7 ? SLOT_MODALITY.IN_PERSON : SLOT_MODALITY.VIDEO;
+   604→
+   605→        let status = SLOT_STATUS.AVAILABLE;
+   606→        if (day <= 1 && Math.random() < 0.2) {
+   607→          status = SLOT_STATUS.BOOKED;
+   608→        } else if (day <= 3 && Math.random() < 0.1) {
+   609→          status = SLOT_STATUS.BLOCKED;
+   610→        }
+   611→
+   612→        allSlotData.push({ clinicId, providerId, startTime: start, endTime: end, modality, status });
+   613→        totalSlots++;
+   614→      }
+   615→
+   616→      for (let i = 0; i < numAfternoonSlots; i++) {
+   617→        const start = nycToUTC(baseDate, AFTERNOON_SLOTS[i], AFTERNOON_MINUTES[i]);
+   618→        const end = new Date(start.getTime() + 30 * 60 * 1000);
+   619→
+   620→        const modality = Math.random() < 0.7 ? SLOT_MODALITY.IN_PERSON : SLOT_MODALITY.VIDEO;
+   621→
+   622→        let status = SLOT_STATUS.AVAILABLE;
+   623→        if (day <= 1 && Math.random() < 0.15) {
+   624→          status = SLOT_STATUS.BOOKED;
+   625→        } else if (day <= 2 && Math.random() < 0.08) {
+   626→          status = SLOT_STATUS.BLOCKED;
+   627→        }
+   628→
+   629→        allSlotData.push({ clinicId, providerId, startTime: start, endTime: end, modality, status });
+   630→        totalSlots++;
+   631→      }
+   632→    }
+   633→  }
+   634→
+   635→  const BATCH_SIZE = 500;
+   636→  for (let i = 0; i < allSlotData.length; i += BATCH_SIZE) {
+   637→    const batch = allSlotData.slice(i, i + BATCH_SIZE);
+   638→    await db.slot.createMany({ data: batch });
+   639→  }
+   640→  console.log(`   ✅ Created ${totalSlots} slots across ${providersData.length} providers × 14 days\n`);
+   641→
+   642→  // ── 13. Reviews (completed appointments in the past) ──────────────────────────
+   643→
+   644→  console.log('1️⃣3️⃣  Creating Reviews with completed appointments...');
+   645→
+   646→  const clinicForProvider: Record<string, string> = {};
+   647→  for (const p of providersData) {
+   648→    clinicForProvider[p.slug] = clinics[p.clinicSlug];
+   649→  }
+   650→
+   651→  const serviceSpecialty: Record<string, string> = {};
+   652→  for (const s of servicesData) {
+   653→    serviceSpecialty[s.slug] = specialties[s.specialtySlug];
+   654→  }
+   655→
+   656→  const allReviewData = [
+   657→    // === Dr. Sarah Chen (3 reviews) ===
+   658→    {
+   659→      providerSlug: 'sarah-chen',
+   660→      patientName: 'Maria Gonzalez',
+   661→      patientDob: new Date('1988-03-15'),
+   662→      patientPhone: '(212) 555-1001',
+   663→      patientEmail: 'maria.gonzalez@example.com',
+   664→      serviceSlug: 'annual-physical',
+   665→      daysAgo: 14,
+   666→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   667→      comment: 'Dr. Chen is incredibly thorough and took the time to explain everything. The staff was friendly and the office was very clean. Highly recommend!',
+   668→    },
+   669→    {
+   670→      providerSlug: 'sarah-chen',
+   671→      patientName: 'Thomas Park',
+   672→      patientDob: new Date('1975-11-20'),
+   673→      patientPhone: '(646) 555-2001',
+   674→      patientEmail: 'thomas.park@example.com',
+   675→      serviceSlug: 'sick-visit',
+   676→      daysAgo: 8,
+   677→      overallRating: 4, waitTimeRating: 3, bedsideRating: 5, staffRating: 4,
+   678→      comment: 'Dr. Chen diagnosed my condition quickly and accurately. The wait time was a bit longer than expected, about 25 minutes, but once I saw her, the visit was excellent. She really listens.',
+   679→    },
+   680→    {
+   681→      providerSlug: 'sarah-chen',
+   682→      patientName: 'Jennifer Lee',
+   683→      patientDob: new Date('1992-06-04'),
+   684→      patientPhone: '(917) 555-2002',
+   685→      patientEmail: 'jennifer.lee@example.com',
+   686→      serviceSlug: 'annual-physical',
+   687→      daysAgo: 3,
+   688→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 5,
+   689→      comment: 'Best doctor I have ever had. Dr. Chen remembers details from previous visits and truly cares about her patients. The front desk staff is always welcoming and efficient.',
+   690→    },
+   691→    // === Dr. Michael Rodriguez (3 reviews) ===
+   692→    {
+   693→      providerSlug: 'michael-rodriguez',
+   694→      patientName: 'John Mitchell',
+   695→      patientDob: new Date('1975-07-22'),
+   696→      patientPhone: '(646) 555-1002',
+   697→      patientEmail: 'john.mitchell@example.com',
+   698→      serviceSlug: 'heart-screening',
+   699→      daysAgo: 10,
+   700→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 4,
+   701→      comment: 'Outstanding cardiologist. Dr. Rodriguez explained my test results clearly and put me at ease. The screening was comprehensive and well-organized.',
+   702→    },
+   703→    {
+   704→      providerSlug: 'michael-rodriguez',
+   705→      patientName: 'Diane Cooper',
+   706→      patientDob: new Date('1968-02-14'),
+   707→      patientPhone: '(212) 555-2003',
+   708→      patientEmail: 'diane.cooper@example.com',
+   709→      serviceSlug: 'ecg-consultation',
+   710→      daysAgo: 5,
+   711→      overallRating: 4, waitTimeRating: 4, bedsideRating: 4, staffRating: 5,
+   712→      comment: 'Very professional and knowledgeable. Dr. Rodriguez walked me through the ECG results step by step. The only minor issue was the waiting room was quite crowded when I arrived.',
+   713→    },
+   714→    {
+   715→      providerSlug: 'michael-rodriguez',
+   716→      patientName: 'Samuel Wright',
+   717→      patientDob: new Date('1980-09-30'),
+   718→      patientPhone: '(347) 555-2004',
+   719→      patientEmail: 'samuel.wright@example.com',
+   720→      serviceSlug: 'heart-screening',
+   721→      daysAgo: 1,
+   722→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 5,
+   723→      comment: 'Dr. Rodriguez is the gold standard for cardiac care. His bedside manner is exceptional and he makes complex medical information easy to understand. The staff is top-notch.',
+   724→    },
+   725→    // === Dr. Emily Watson (2 reviews) ===
+   726→    {
+   727→      providerSlug: 'emily-watson',
+   728→      patientName: 'Rachel Adams',
+   729→      patientDob: new Date('1990-04-18'),
+   730→      patientPhone: '(718) 555-2005',
+   731→      patientEmail: 'rachel.adams@example.com',
+   732→      serviceSlug: 'skin-check',
+   733→      daysAgo: 12,
+   734→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 4,
+   735→      comment: 'Dr. Watson caught a suspicious mole that my previous doctor missed. She biopsied it the same day and followed up personally with the results. I am so grateful for her thoroughness.',
+   736→    },
+   737→    {
+   738→      providerSlug: 'emily-watson',
+   739→      patientName: 'Kevin Murphy',
+   740→      patientDob: new Date('1985-12-01'),
+   741→      patientPhone: '(929) 555-2006',
+   742→      patientEmail: 'kevin.murphy@example.com',
+   743→      serviceSlug: 'acne-consultation',
+   744→      daysAgo: 6,
+   745→      overallRating: 4, waitTimeRating: 3, bedsideRating: 4, staffRating: 3,
+   746→      comment: 'Good consultation overall. Dr. Watson was knowledgeable and prescribed a treatment plan that is working well. The front desk seemed a bit disorganized with scheduling, but the medical care was solid.',
+   747→    },
+   748→    // === Dr. James Okafor (3 reviews) ===
+   749→    {
+   750→      providerSlug: 'james-okafor',
+   751→      patientName: 'Rebecca Torres',
+   752→      patientDob: new Date('1992-11-08'),
+   753→      patientPhone: '(917) 555-1003',
+   754→      patientEmail: 'rebecca.torres@example.com',
+   755→      serviceSlug: 'well-child-visit',
+   756→      daysAgo: 7,
+   757→      overallRating: 4, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   758→      comment: 'My 3-year-old actually enjoyed his visit! Dr. Okafor is so gentle and patient with kids. The waiting area has toys and books which was a nice touch.',
+   759→    },
+   760→    {
+   761→      providerSlug: 'james-okafor',
+   762→      patientName: 'Daniel Kim',
+   763→      patientDob: new Date('2019-03-22'),
+   764→      patientPhone: '(212) 555-2007',
+   765→      patientEmail: 'daniel.parent@example.com',
+   766→      serviceSlug: 'pediatric-sick-visit',
+   767→      daysAgo: 4,
+   768→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 5,
+   769→      comment: 'We brought our 5-year-old in with a fever and Dr. Okafor saw us right away. He was so calming and thorough. The nurses were wonderful too. This is the best pediatric practice in the city.',
+   770→    },
+   771→    {
+   772→      providerSlug: 'james-okafor',
+   773→      patientName: 'Laura Bennett',
+   774→      patientDob: new Date('2021-08-10'),
+   775→      patientPhone: '(646) 555-2008',
+   776→      patientEmail: 'laura.bennett@example.com',
+   777→      serviceSlug: 'well-child-visit',
+   778→      daysAgo: 2,
+   779→      overallRating: 4, waitTimeRating: 3, bedsideRating: 5, staffRating: 4,
+   780→      comment: 'Dr. Okafor is wonderful with our toddler. He takes time to answer all our first-time parent questions without making us feel rushed. Only slight wait time issue but worth it for the quality of care.',
+   781→    },
+   782→    // === Dr. Priya Sharma (2 reviews) ===
+   783→    {
+   784→      providerSlug: 'priya-sharma',
+   785→      patientName: 'Alex Nguyen',
+   786→      patientDob: new Date('1990-01-30'),
+   787→      patientPhone: '(347) 555-1004',
+   788→      patientEmail: 'alex.nguyen@example.com',
+   789→      serviceSlug: 'sick-visit',
+   790→      daysAgo: 4,
+   791→      overallRating: 4, waitTimeRating: 3, bedsideRating: 4, staffRating: 4,
+   792→      comment: 'Dr. Sharma was very thorough in diagnosing my condition. The wait was a bit long but the care quality made up for it. She prescribed the right treatment and I felt better within days.',
+   793→    },
+   794→    {
+   795→      providerSlug: 'priya-sharma',
+   796→      patientName: 'Chris Johnson',
+   797→      patientDob: new Date('1972-05-19'),
+   798→      patientPhone: '(212) 555-2009',
+   799→      patientEmail: 'chris.johnson@example.com',
+   800→      serviceSlug: 'annual-physical',
+   801→      daysAgo: 9,
+   802→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   803→      comment: 'Dr. Sharma takes a truly holistic approach. She asked about my diet, exercise, stress levels, and sleep — not just my symptoms. The entire staff was warm and welcoming. Highly recommend this practice.',
+   804→    },
+   805→    // === Dr. David Kim (2 reviews) ===
+   806→    {
+   807→      providerSlug: 'david-kim',
+   808→      patientName: 'Patricia Williams',
+   809→      patientDob: new Date('1983-05-12'),
+   810→      patientPhone: '(718) 555-1005',
+   811→      patientEmail: 'patricia.williams@example.com',
+   812→      serviceSlug: 'joint-assessment',
+   813→      daysAgo: 2,
+   814→      overallRating: 5, waitTimeRating: 5, bedsideRating: 4, staffRating: 5,
+   815→      comment: 'Finally found an orthopedist who listens! Dr. Kim took the time to understand my knee issues and created a detailed treatment plan. The facility is modern and well-equipped.',
+   816→    },
+   817→    {
+   818→      providerSlug: 'david-kim',
+   819→      patientName: 'Mark Stevens',
+   820→      patientDob: new Date('1978-10-07'),
+   821→      patientPhone: '(347) 555-2010',
+   822→      patientEmail: 'mark.stevens@example.com',
+   823→      serviceSlug: 'sports-injury-evaluation',
+   824→      daysAgo: 11,
+   825→      overallRating: 4, waitTimeRating: 4, bedsideRating: 4, staffRating: 4,
+   826→      comment: 'Dr. Kim accurately diagnosed my rotator cuff issue and set up a comprehensive rehab plan. The facilities are top-notch. I only wish the appointment had been a bit longer to discuss more questions.',
+   827→    },
+   828→    // === Dr. Aisha Patel (2 reviews) ===
+   829→    {
+   830→      providerSlug: 'aisha-patel',
+   831→      patientName: 'Sandra Mitchell',
+   832→      patientDob: new Date('1995-07-25'),
+   833→      patientPhone: '(646) 555-2011',
+   834→      patientEmail: 'sandra.mitchell@example.com',
+   835→      serviceSlug: 'annual-physical',
+   836→      daysAgo: 6,
+   837→      overallRating: 4, waitTimeRating: 5, bedsideRating: 4, staffRating: 5,
+   838→      comment: 'Dr. Patel has a wonderful bedside manner and makes you feel truly heard. The check-in process was smooth and quick. She gave me practical lifestyle advice that I have already started following.',
+   839→    },
+   840→    {
+   841→      providerSlug: 'aisha-patel',
+   842→      patientName: 'Raymond Chen',
+   843→      patientDob: new Date('1988-01-14'),
+   844→      patientPhone: '(212) 555-2012',
+   845→      patientEmail: 'raymond.chen@example.com',
+   846→      serviceSlug: 'sick-visit',
+   847→      daysAgo: 3,
+   848→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 4,
+   849→      comment: 'Saw Dr. Patel for a persistent cough. She was thorough, ordered the right tests, and followed up quickly with results. The clinic itself is clean and well-organized. Great experience overall.',
+   850→    },
+   851→    // === Dr. Lisa Chang (2 reviews) ===
+   852→    {
+   853→      providerSlug: 'lisa-chang',
+   854→      patientName: 'Barbara Hughes',
+   855→      patientDob: new Date('1962-08-30'),
+   856→      patientPhone: '(917) 555-2013',
+   857→      patientEmail: 'barbara.hughes@example.com',
+   858→      serviceSlug: 'heart-screening',
+   859→      daysAgo: 13,
+   860→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   861→      comment: 'Dr. Chang is incredibly knowledgeable about women\'s heart health. She explained my risk factors in a way I could understand and created a personalized prevention plan. The staff was courteous and efficient.',
+   862→    },
+   863→    {
+   864→      providerSlug: 'lisa-chang',
+   865→      patientName: 'Frank Ortiz',
+   866→      patientDob: new Date('1970-04-05'),
+   867→      patientPhone: '(646) 555-2014',
+   868→      patientEmail: 'frank.ortiz@example.com',
+   869→      serviceSlug: 'ecg-consultation',
+   870→      daysAgo: 7,
+   871→      overallRating: 4, waitTimeRating: 3, bedsideRating: 4, staffRating: 4,
+   872→      comment: 'Good experience with Dr. Chang. She was thorough and professional during the ECG consultation. The wait was about 20 minutes which was a bit long, but the quality of care was excellent.',
+   873→    },
+   874→    // === Robert Martinez (1 review) ===
+   875→    {
+   876→      providerSlug: 'robert-martinez',
+   877→      patientName: 'Elena Reyes',
+   878→      patientDob: new Date('1985-12-20'),
+   879→      patientPhone: '(347) 555-2015',
+   880→      patientEmail: 'elena.reyes@example.com',
+   881→      serviceSlug: 'heart-screening',
+   882→      daysAgo: 5,
+   883→      overallRating: 4, waitTimeRating: 5, bedsideRating: 4, staffRating: 4,
+   884→      comment: 'Robert was very thorough during my heart screening and explained everything in Spanish which I really appreciated. He answered all my questions and made me feel comfortable throughout the visit.',
+   885→    },
+   886→    // === Dr. Sophia Benjamin (2 reviews) ===
+   887→    {
+   888→      providerSlug: 'sophia-benjamin',
+   889→      patientName: 'Amanda Foster',
+   890→      patientDob: new Date('1991-02-28'),
+   891→      patientPhone: '(718) 555-2016',
+   892→      patientEmail: 'amanda.foster@example.com',
+   893→      serviceSlug: 'skin-check',
+   894→      daysAgo: 10,
+   895→      overallRating: 4, waitTimeRating: 4, bedsideRating: 4, staffRating: 3,
+   896→      comment: 'Dr. Benjamin did a very thorough skin check and biopsied a spot I was worried about. The biopsy results came back quickly. The front desk could be more organized but the medical care was excellent.',
+   897→    },
+   898→    {
+   899→      providerSlug: 'sophia-benjamin',
+   900→      patientName: 'George Patterson',
+   901→      patientDob: new Date('1965-09-15'),
+   902→      patientPhone: '(929) 555-2017',
+   903→      patientEmail: 'george.patterson@example.com',
+   904→      serviceSlug: 'acne-consultation',
+   905→      daysAgo: 4,
+   906→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 4,
+   907→      comment: 'Even as an older patient dealing with unexpected skin issues, Dr. Benjamin treated me with respect and professionalism. Her treatment plan has made a noticeable difference in just a few weeks.',
+   908→    },
+   909→    // === Dr. Nina Kowalski (2 reviews) ===
+   910→    {
+   911→      providerSlug: 'nina-kowalski',
+   912→      patientName: 'Megan O\'Brien',
+   913→      patientDob: new Date('2020-06-12'),
+   914→      patientPhone: '(212) 555-2018',
+   915→      patientEmail: 'megan.obrien@example.com',
+   916→      serviceSlug: 'well-child-visit',
+   917→      daysAgo: 8,
+   918→      overallRating: 5, waitTimeRating: 5, bedsideRating: 5, staffRating: 5,
+   919→      comment: 'Dr. Kowalski is amazing with babies and toddlers. My daughter was so comfortable with her. She gave us great developmental guidance and answered all our questions. The office is beautiful and child-friendly.',
+   920→    },
+   921→    {
+   922→      providerSlug: 'nina-kowalski',
+   923→      patientName: 'Anthony Rivera',
+   924→      patientDob: new Date('2017-11-03'),
+   925→      patientPhone: '(646) 555-2019',
+   926→      patientEmail: 'anthony.rivera@example.com',
+   927→      serviceSlug: 'pediatric-sick-visit',
+   928→      daysAgo: 2,
+   929→      overallRating: 4, waitTimeRating: 4, bedsideRating: 5, staffRating: 4,
+   930→      comment: 'Brought my son in with an ear infection and Dr. Kowalski saw us promptly. She is gentle and explains things clearly to both parents and kids. The only reason for 4 stars is the wait room was a bit full.',
+   931→    },
+   932→    // === Dr. Marcus Thompson (2 reviews) ===
+   933→    {
+   934→      providerSlug: 'marcus-thompson',
+   935→      patientName: 'Vincent Harris',
+   936→      patientDob: new Date('1979-03-08'),
+   937→      patientPhone: '(347) 555-2020',
+   938→      patientEmail: 'vincent.harris@example.com',
+   939→      serviceSlug: 'annual-physical',
+   940→      daysAgo: 11,
+   941→      overallRating: 4, waitTimeRating: 4, bedsideRating: 4, staffRating: 4,
+   942→      comment: 'Dr. Thompson is a solid primary care physician. He takes the time to discuss lifestyle changes and prevention. The clinic has a welcoming atmosphere and the staff is friendly. A bit of a wait but nothing unreasonable.',
+   943→    },
+   944→    {
+   945→      providerSlug: 'marcus-thompson',
+   946→      patientName: 'Tanya Brooks',
+   947→      patientDob: new Date('1987-07-21'),
+   948→      patientPhone: '(212) 555-2021',
+   949→      patientEmail: 'tanya.brooks@example.com',
+   950→      serviceSlug: 'sick-visit',
+   951→      daysAgo: 6,
+   952→      overallRating: 3, waitTimeRating: 3, bedsideRating: 4, staffRating: 3,
+   953→      comment: 'Dr. Thompson was knowledgeable but the visit felt a bit rushed. The wait time was about 30 minutes which was frustrating when I was not feeling well. The front desk could improve their communication about delays.',
+   954→    },
+   955→    // === Dr. Amir Hassan (2 reviews) ===
+   956→    {
+   957→      providerSlug: 'amir-hassan',
+   958→      patientName: 'Paulo Mendes',
+   959→      patientDob: new Date('1982-05-16'),
+   960→      patientPhone: '(718) 555-2022',
+   961→      patientEmail: 'paulo.mendes@example.com',
+   962→      serviceSlug: 'joint-assessment',
+   963→      daysAgo: 9,
+   964→      overallRating: 5, waitTimeRating: 4, bedsideRating: 5, staffRating: 5,
+   965→      comment: 'Dr. Hassan performed an incredibly detailed assessment of my wrist pain. His Mayo Clinic training really shows — he explained the anatomy, the diagnosis, and the treatment options with diagrams. Exceptional care.',
+   966→    },
+   967→    {
+   968→      providerSlug: 'amir-hassan',
+   969→      patientName: 'Michelle Tanaka',
+   970→      patientDob: new Date('1993-10-25'),
+   971→      patientPhone: '(929) 555-2023',
+   972→      patientEmail: 'michelle.tanaka@example.com',
+   973→      serviceSlug: 'sports-injury-evaluation',
+   974→      daysAgo: 3,
+   975→      overallRating: 4, waitTimeRating: 5, bedsideRating: 4, staffRating: 5,
+   976→      comment: 'Saw Dr. Hassan for a running injury. He quickly identified the issue and gave me a clear rehab plan. The office is clean and modern, and the staff was very helpful with scheduling my follow-up.',
+   977→    },
+   978→    // === Carmen Vasquez (1 review) ===
+   979→    {
+   980→      providerSlug: 'carmen-vasquez',
+   981→      patientName: 'Roberto Diaz',
+   982→      patientDob: new Date('1990-08-11'),
+   983→      patientPhone: '(347) 555-2024',
+   984→      patientEmail: 'roberto.diaz@example.com',
+   985→      serviceSlug: 'joint-assessment',
+   986→      daysAgo: 7,
+   987→      overallRating: 4, waitTimeRating: 5, bedsideRating: 4, staffRating: 4,
+   988→      comment: 'Carmen was thorough and explained my knee x-rays clearly. She speaks Spanish fluently which was very helpful for my parents who accompanied me. The whole experience was smooth and professional.',
+   989→    },
+   990→  ];
+   991→
+   992→  for (const r of allReviewData) {
+   993→    const providerId = providers[r.providerSlug];
+   994→    const clinicId = clinicForProvider[r.providerSlug];
+   995→    const serviceId = services[r.serviceSlug];
+   996→    const specialtyId = serviceSpecialty[r.serviceSlug];
+   997→
+   998→    const slotDate = dayOffset(-r.daysAgo);
+   999→    const dayOfWeek = slotDate.getUTCDay();
+  1000→    if (dayOfWeek === 0) {
+  1001→      slotDate.setDate(slotDate.getDate() + 1);
+  1002→    }
+  1003→    const slotStart = nycToUTC(slotDate, 10, 0);
+  1004→    const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
+  1005→
+  1006→    const slot = await db.slot.create({
+  1007→      data: {
+  1008→        clinicId,
+  1009→        providerId,
+  1010→        startTime: slotStart,
+  1011→        endTime: slotEnd,
+  1012→        modality: SLOT_MODALITY.IN_PERSON,
+  1013→        status: SLOT_STATUS.BOOKED,
+  1014→      },
+  1015→    });
+  1016→
+  1017→    const appointment = await db.appointment.create({
+  1018→      data: {
+  1019→        slotId: slot.id,
+  1020→        clinicId,
+  1021→        providerId,
+  1022→        specialtyId,
+  1023→        serviceId,
+  1024→        patientName: r.patientName,
+  1025→        patientDob: r.patientDob,
+  1026→        patientPhone: r.patientPhone,
+  1027→        patientEmail: r.patientEmail,
+  1028→        patientType: r.serviceSlug.startsWith('well-child') || r.serviceSlug.startsWith('pediatric') ? 'PEDIATRIC' : 'ADULT',
+  1029→        reasonForVisit: `Follow-up / ${r.serviceSlug.replace(/-/g, ' ')}`,
+  1030→        insuranceId: demoInsuranceId,
+  1031→        isDemoInsurance: true,
+  1032→        depositCents: 2500,
+  1033→        paymentStatus: 'CAPTURED',
+  1034→        paymentMethod: 'MANUAL_WAIVER',
+  1035→        modality: SLOT_MODALITY.IN_PERSON,
+  1036→        startTime: slotStart,
+  1037→        endTime: slotEnd,
+  1038→        status: 'COMPLETED',
+  1039→        intakeCompleted: true,
+  1040→        insuranceVerified: true,
+  1041→      },
+  1042→    });
+  1043→
+  1044→    await db.review.create({
+  1045→      data: {
+  1046→        appointmentId: appointment.id,
+  1047→        clinicId,
+  1048→        providerId,
+  1049→        overallRating: r.overallRating,
+  1050→        waitTimeRating: r.waitTimeRating,
+  1051→        bedsideRating: r.bedsideRating,
+  1052→        staffRating: r.staffRating,
+  1053→        comment: r.comment,
+  1054→        isVerified: true,
+  1055→      },
+  1056→    });
+  1057→
+  1058→    console.log(`   ✅ Review for ${r.providerSlug} (${r.overallRating}/5)`);
+  1059→  }
+  1060→  console.log('');
+  1061→
+  1062→  // ── 14. Recalculate provider ratings from reviews ─────────────────────────
+  1063→
+  1064→  console.log('1️⃣4️⃣  Recalculating provider ratings from reviews...');
+  1065→  for (const p of providersData) {
+  1066→    const providerReviews = await db.review.findMany({
+  1067→      where: { providerId: providers[p.slug] },
+  1068→      select: { overallRating: true },
+  1069→    });
+  1070→
+  1071→    if (providerReviews.length > 0) {
+  1072→      const avgRating = providerReviews.reduce((sum, r) => sum + r.overallRating, 0) / providerReviews.length;
+  1073→      const roundedRating = Math.round(avgRating * 10) / 10;
+  1074→
+  1075→      await db.provider.update({
+  1076→        where: { id: providers[p.slug] },
+  1077→        data: {
+  1078→          rating: roundedRating,
+  1079→          reviewCount: providerReviews.length,
+  1080→        },
+  1081→      });
+  1082→
+  1083→      console.log(`   ✅ ${p.slug}: ${roundedRating.toFixed(1)} (${providerReviews.length} reviews)`);
+  1084→    }
+  1085→  }
+  1086→  console.log('');
+  1087→
+  1088→  // ── 15. SlotTemplates ──────────────────────────────────────────────────────
+  1089→
+  1090→  console.log('1️⃣5️⃣  Creating SlotTemplates...');
+  1091→
+  1092→  const DAY_OF_WEEK_MAP: Record<string, number> = {
+  1093→    mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
+  1094→  };
+  1095→
+  1096→  const slotTemplateRows: Array<{
+  1097→    providerId: string;
+  1098→    dayOfWeek: number;
+  1099→    startTime: string;
+  1100→    endTime: string;
+  1101→    modality: string;
+  1102→  }> = [];
+  1103→
+  1104→  for (const p of providersData) {
+  1105→    const pid = providers[p.slug];
+  1106→
+  1107→    for (const dayCode of Object.keys(DAY_OF_WEEK_MAP)) {
+  1108→      const dow = DAY_OF_WEEK_MAP[dayCode];
+  1109→      const isSaturday = dow === 6;
+  1110→
+  1111→      slotTemplateRows.push(
+  1112→        { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.IN_PERSON },
+  1113→        { providerId: pid, dayOfWeek: dow, startTime: '09:00', endTime: '12:00', modality: SLOT_MODALITY.VIDEO },
+  1114→      );
+  1115→      if (!isSaturday) {
+  1116→        slotTemplateRows.push(
+  1117→          { providerId: pid, dayOfWeek: dow, startTime: '13:00', endTime: '16:00', modality: SLOT_MODALITY.IN_PERSON },
+  1118→        );
+  1119→      }
+  1120→    }
+  1121→  }
+  1122→
+  1123→  await db.slotTemplate.createMany({ data: slotTemplateRows });
+  1124→  console.log(`   ✅ Created ${slotTemplateRows.length} SlotTemplate entries (2-3 templates × 6 days × ${providersData.length} providers)\n`);
+  1125→
+  1126→  // ── 16. Staff User Accounts ─────────────────────────────────────────────
+  1127→
+  1128→  console.log('1️⃣6️⃣  Creating Staff User Accounts...');
+  1129→
+  1130→  const sysMgrHash = await hashPassword('sysadmin123');
+  1131→  const sysMgr = await db.user.create({
+  1132→    data: {
+  1133→      email: 'sysadmin@clinicbook.com',
+  1134→      name: 'System Manager',
+  1135→      passwordHash: sysMgrHash,
+  1136→      role: STAFF_ROLE.SYSTEM_MANAGER,
+  1137→      clinicId: null,
+  1138→      isActive: true,
+  1139→    },
+  1140→  });
+  1141→  console.log(`   ✅ ${sysMgr.email} (${sysMgr.role})`);
+  1142→
+  1143→  const staffCount = { admin: 0, reception: 0 };
+  1144→  for (const clinicInfo of clinicsData) {
+  1145→    const clinicRec = await db.clinic.findFirst({ where: { slug: clinicInfo.slug }, select: { id: true, name: true } });
+  1146→    if (!clinicRec) continue;
+  1147→    const clinicDomain = clinicInfo.slug.replace(/-/g, '');
+  1148→
+  1149→    const adminHash = await hashPassword('admin123');
+  1150→    await db.user.create({
+  1151→      data: {
+  1152→        email: `admin@${clinicDomain}.clinicbook.com`,
+  1153→        name: `${clinicRec.name} Admin`,
+  1154→        passwordHash: adminHash,
+  1155→        role: STAFF_ROLE.CLINIC_ADMIN,
+  1156→        clinicId: clinicRec.id,
+  1157→        isActive: true,
+  1158→      },
+  1159→    });
+  1160→    staffCount.admin++;
+  1161→    console.log(`   ✅ admin@${clinicDomain}.clinicbook.com (CLINIC_ADMIN) → ${clinicRec.name}`);
+  1162→
+  1163→    const receptionHash = await hashPassword('reception123');
+  1164→    await db.user.create({
+  1165→      data: {
+  1166→        email: `reception@${clinicDomain}.clinicbook.com`,
+  1167→        name: `${clinicRec.name} Reception`,
+  1168→        passwordHash: receptionHash,
+  1169→        role: STAFF_ROLE.CLINIC_RECEPTION,
+  1170→        clinicId: clinicRec.id,
+  1171→        isActive: true,
+  1172→      },
+  1173→    });
+  1174→    staffCount.reception++;
+  1175→    console.log(`   ✅ reception@${clinicDomain}.clinicbook.com (CLINIC_RECEPTION) → ${clinicRec.name}`);
+  1176→  }
+  1177→  console.log(`   Total staff: 1 system manager + ${staffCount.admin} admins + ${staffCount.reception} receptionists\n`);
+  1178→
+  1179→  // ── Done ───────────────────────────────────────────────────────────────────
+  1180→
+  1181→  console.log('═══════════════════════════════════════════════════════════════');
+  1182→  console.log('✅ Seed complete! Summary:');
+  1183→  console.log(`   • SystemConfig: 1`);
+  1184→  console.log(`   • Specialties: ${specialtiesData.length}`);
+  1185→  console.log(`   • Services: ${servicesData.length}`);
+  1186→  console.log(`   • Insurances: ${insurancesData.length}`);
+  1187→  console.log(`   • ServiceInsurance: ${serviceInsuranceRows.length}`);
+  1188→  console.log(`   • Languages: ${languagesData.length}`);
+  1189→  console.log(`   • Clinics: ${clinicsData.length}`);
+  1190→  console.log(`   • Providers: ${providersData.length}`);
+  1191→  console.log(`   • ProviderService: ${providerServiceRows.length}`);
+  1192→  console.log(`   • ClinicInsurance: ${clinicInsuranceRows.length}`);
+  1193→  console.log(`   • ProviderLanguage: ${providerLanguageRows.length}`);
+  1194→  console.log(`   • Slots: ${totalSlots}`);
+  1195→  console.log(`   • Appointments (completed): ${allReviewData.length}`);
+  1196→  console.log(`   • Reviews: ${allReviewData.length}`);
+  1197→  console.log(`   • SlotTemplates: ${slotTemplateRows.length}`);
+  1198→  console.log(`   • Staff Users: ${1 + staffCount.admin + staffCount.reception}`);
+  1199→  console.log('═══════════════════════════════════════════════════════════════');
+  1200→}
+  1201→
+  1202→// ── Run ────────────────────────────────────────────────────────────────────────
+  1203→
+  1204→main()
+  1205→  .then(async () => {
+  1206→    await db.$disconnect();
+  1207→  })
+  1208→  .catch(async (e) => {
+  1209→    console.error('❌ Seed failed:');
+  1210→    console.error(e);
+  1211→    await db.$disconnect();
+  1212→    process.exit(1);
+  1213→  });

@@ -1,0 +1,635 @@
+    35→    35→    35→// =============================================================================
+    36→    36→    36→// SECTION 2: Taxonomy / Reference Data
+    37→    37→    37→// =============================================================================
+    38→    38→    38→
+    39→    39→    39→/// Medical specialties (e.g., "Family Medicine", "Cardiology")
+    40→    40→    40→model Specialty {
+    41→    41→    41→  id          String   @id @default(cuid())
+    42→    42→    42→  name        String   @unique
+    43→    43→    43→  slug        String   @unique
+    44→    44→    44→  description String?
+    45→    45→    45→  icon        String?                          // icon name or emoji
+    46→    46→    46→  isActive    Boolean  @default(true)
+    47→    47→    47→  sortOrder   Int      @default(0)
+    48→    48→    48→  createdAt   DateTime @default(now())
+    49→    49→    49→  updatedAt   DateTime @updatedAt
+    50→    50→    50→
+    51→    51→    51→  services    Service[]
+    52→    52→    52→  appointments Appointment[]
+    53→    53→    53→}
+    54→    54→    54→
+    55→    55→    55→/// Services offered (linked to a specialty). Contains pricing.
+    56→    56→    56→model Service {
+    57→    57→    57→  id                   String  @id @default(cuid())
+    58→    58→    58→  name                 String
+    59→    59→    59→  slug                 String  @unique
+    60→    60→    60→  description          String?
+    61→    61→    61→  specialtyId          String
+    62→    62→    62→  durationMinutes      Int     @default(30)
+    63→    63→    63→  selfPayPriceCents    Int     @default(0)       // $0 = not set
+    64→    64→    64→  selfPayPaymentType   String  @default("STANDARD_DEPOSIT") // FULL_UPFRONT | STANDARD_DEPOSIT
+    65→    65→    65→  isActive             Boolean @default(true)
+    66→    66→    66→  sortOrder            Int     @default(0)
+    67→    67→    67→  createdAt            DateTime @default(now())
+    68→    68→    68→  updatedAt            DateTime @updatedAt
+    69→    69→    69→
+    70→    70→    70→  specialty            Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+    71→    71→    71→  providerServices     ProviderService[]
+    72→    72→    72→  serviceInsurances    ServiceInsurance[]
+    73→    73→    73→  appointments         Appointment[]
+    74→    74→    74→  waitlistEntries      WaitlistEntry[]
+    75→    75→    75→}
+    76→    76→    76→
+    77→    77→    77→/// Insurance providers (e.g., "Aetna", "Blue Cross", "Demo Insurance")
+    78→    78→    78→model Insurance {
+    79→    79→    79→  id          String   @id @default(cuid())
+    80→    80→    80→  name        String   @unique
+    81→    81→    81→  slug        String   @unique
+    82→    82→    82→  isActive    Boolean  @default(true)
+    83→    83→    83→  isDemo      Boolean  @default(false)
+    84→    84→    84→  sortOrder   Int      @default(0)
+    85→    85→    85→  createdAt   DateTime @default(now())
+    86→    86→    86→  updatedAt   DateTime @updatedAt
+    87→    87→    87→
+    88→    88→    88→  clinicInsurances    ClinicInsurance[]
+    89→    89→    89→  serviceInsurances   ServiceInsurance[]
+    90→    90→    90→  appointments        Appointment[]
+    91→    91→    91→}
+    92→    92→    92→
+    93→    93→    93→/// Amenity tags (e.g., "Wheelchair Accessible", "Free Parking")
+    94→    94→    94→model Amenity {
+    95→    95→    95→  id          String   @id @default(cuid())
+    96→    96→    96→  name        String   @unique
+    97→    97→    97→  slug        String   @unique
+    98→    98→    98→  icon        String?
+    99→    99→    99→  sortOrder   Int      @default(0)
+   100→   100→   100→  createdAt   DateTime @default(now())
+   101→   101→   101→
+   102→   102→   102→  clinicAmenities ClinicAmenity[]
+   103→   103→   103→}
+   104→   104→   104→
+   105→   105→   105→/// Spoken languages (e.g., "English", "Spanish", "Mandarin")
+   106→   106→   106→model Language {
+   107→   107→   107→  id          String   @id @default(cuid())
+   108→   108→   108→  name        String   @unique
+   109→   109→   109→  code        String   @unique              // ISO 639-1, e.g., "en", "es"
+   110→   110→   110→  sortOrder   Int      @default(0)
+   111→   111→   111→  createdAt   DateTime @default(now())
+   112→   112→   112→
+   113→   113→   113→  providerLanguages ProviderLanguage[]
+   114→   114→   114→}
+   115→   115→   115→
+   116→   116→   116→// =============================================================================
+   117→   117→   117→// SECTION 3: Core Business Models — Clinic & Provider (Strict 1:1)
+   118→   118→   118→// =============================================================================
+   119→   119→   119→
+   120→   120→   120→/// Clinic entity. Provider FK lives on the Provider model (1:1 enforcement via @unique).
+   121→   121→   121→model Clinic {
+   122→   122→   122→  id                      String   @id @default(cuid())
+   123→   123→   123→  slug                    String   @unique
+   124→   124→   124→  name                    String
+   125→   125→   125→  tagline                 String?
+   126→   126→   126→  description             String?              // rich text / markdown
+   127→   127→   127→  streetAddress           String
+   128→   128→   128→  city                    String
+   129→   129→   129→  state                   String               // 2-letter code
+   130→   130→   130→  zipCode                 String
+   131→   131→   131→  latitude                Float
+   132→   132→   132→  longitude               Float
+   133→   133→   133→  phoneNumber             String
+   134→   134→   134→  email                   String?
+   135→   135→   135→  website                 String?
+   136→   136→   136→  logoUrl                 String?
+   137→   137→   137→  coverImageUrl           String?
+   138→   138→   138→  about                   String?              // detailed about section
+   139→   139→   139→  hoursOfOperation        String?              // JSON string: {mon: {open, close}, ...}
+   140→   140→   140→  faq                     String?              // JSON string: [{q, a}, ...]
+   141→   141→   141→  galleryUrls             String?              // JSON string: [url, ...]
+   142→   142→   142→  status                  String   @default("DRAFT") // DRAFT|PENDING|PUBLISHED|SUSPENDED|ARCHIVED
+   143→   143→   143→
+   144→   144→   144→  // Financial configuration
+   145→   145→   145→  inPersonDepositCents       Int      @default(2500)    // $25.00
+   146→   146→   146→  videoDepositCents          Int      @default(0)       // $0.00
+   147→   147→   147→  selfPayFlatRateCents       Int      @default(0)       // per-visit flat rate
+   148→   148→   148→  cancellationLeadTimeMin    Int      @default(1440)    // 24 hours in minutes
+   149→   149→   149→  videoCancellationLeadTimeMin Int  @default(120)     // 2 hours in minutes
+   150→   150→   150→  reschedulePolicy           String   @default("FORFEIT_ON_LATE") // FORFEIT_ON_LATE|TRANSFER_ON_LATE|ALLOW_1_GRACE_TRANSFER
+   151→   151→   151→
+   152→   152→   152→  // Patient experience
+   153→   153→   153→  parkingInstructions       String?              // parking info (WYSIWYG)
+   154→   154→   154→  visitInstructions         String?              // visit/arrival info (WYSIWYG)
+   155→   155→   155→
+   156→   156→   156→  // Email / communication
+   157→   157→   157→  emailFromName             String?
+   158→   158→   158→  customEmailHeader         String?
+   159→   159→   159→  commonInstructions        String?              // parking, arrival info (WYSIWYG)
+   160→   160→   160→  intakeReminderDays        String   @default("3,1") // comma-separated days before appt
+   161→   161→   161→  intakeFormIds             String?              // JSON: {serviceId: "formId", ...}
+   162→   162→   162→
+   163→   163→   163→  // Visibility
+   164→   164→   164→  isFeatured              Boolean  @default(false)
+   165→   165→   165→  featuredExpiry          DateTime?
+   166→   166→   166→
+   167→   167→   167→  createdAt               DateTime @default(now())
+   168→   168→   168→  updatedAt               DateTime @updatedAt
+   169→   169→   169→
+   170→   170→   170→  // One-to-many relationship — multiple providers per clinic
+   171→   171→   171→  providers               Provider[]
+   172→   172→   172→
+   173→   173→   173→  // Many-to-many junctions
+   174→   174→   174→  insurances              ClinicInsurance[]
+   175→   175→   175→  amenities               ClinicAmenity[]
+   176→   176→   176→
+   177→   177→   177→  // One-to-many
+   178→   178→   178→  slots                   Slot[]
+   179→   179→   179→  appointments            Appointment[]
+   180→   180→   180→  closures                ClinicClosure[]
+   181→   181→   181→  staff                   User[]
+   182→   182→   182→  reviews                 Review[]
+   183→   183→   183→  waitlistEntries         WaitlistEntry[]
+   184→   184→   184→  emailTemplates          EmailTemplate[]
+   185→   185→   185→  staffInvitations        StaffInvitation[]
+   186→   186→   186→
+   187→   187→   187→  @@index([status])
+   188→   188→   188→  @@index([latitude, longitude])
+   189→   189→   189→  @@index([city, state])
+   190→   190→   190→}
+   191→   191→   191→
+   192→   192→   192→/// Provider. Belongs to a Clinic (many providers per clinic).
+   193→   193→   193→model Provider {
+   194→   194→   194→  id                  String   @id @default(cuid())
+   195→   195→   195→  clinicId            String
+   196→   196→   196→  firstName           String
+   197→   197→   197→  lastName            String
+   198→   198→   198→  credentials         String?              // e.g., "MD", "DO", "NP", "PA-C"
+   199→   199→   199→  slug                String   @unique
+   200→   200→   200→  bio                 String?              // detailed biography (markdown)
+   201→   201→   201→  photoUrl            String?
+   202→   202→   202→  npiNumber           String?              // National Provider Identifier
+   203→   203→   203→  yearsExperience     Int?
+   204→   204→   204→  rating              Float    @default(0)
+   205→   205→   205→  reviewCount         Int      @default(0)
+   206→   206→   206→  slotDurationMinutes Int      @default(30)  // ONE strict duration per provider
+   207→   207→   207→  status              String   @default("ACTIVE") // ACTIVE|INACTIVE|SUSPENDED
+   208→   208→   208→  videoVisitLink      String?              // 3rd party link for video visits
+   209→   209→   209→
+   210→   210→   210→  createdAt           DateTime @default(now())
+   211→   211→   211→  updatedAt           DateTime @updatedAt
+   212→   212→   212→
+   213→   213→   213→  clinic              Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   214→   214→   214→  languages           ProviderLanguage[]
+   215→   215→   215→  providerServices    ProviderService[]
+   216→   216→   216→  slots               Slot[]
+   217→   217→   217→  slotTemplates       SlotTemplate[]
+   218→   218→   218→  appointments        Appointment[]
+   219→   219→   219→  reviews             Review[]
+   220→   220→   220→  waitlistEntries     WaitlistEntry[]
+   221→   221→   221→
+   222→   222→   222→  @@index([status, rating])
+   223→   223→   223→  @@index([clinicId, status])
+   224→   224→   224→}
+   225→   225→   225→
+   226→   226→   226→// =============================================================================
+   227→   227→   227→// SECTION 4: Many-to-Many Junction Tables
+   228→   228→   228→// =============================================================================
+   229→   229→   229→
+   230→   230→   230→/// Clinic ↔ Insurance
+   231→   231→   231→model ClinicInsurance {
+   232→   232→   232→  id          String  @id @default(cuid())
+   233→   233→   233→  clinicId    String
+   234→   234→   234→  insuranceId String
+   235→   235→   235→
+   236→   236→   236→  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   237→   237→   237→  insurance   Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
+   238→   238→   238→
+   239→   239→   239→  @@unique([clinicId, insuranceId])
+   240→   240→   240→}
+   241→   241→   241→
+   242→   242→   242→/// Clinic ↔ Amenity
+   243→   243→   243→model ClinicAmenity {
+   244→   244→   244→  id          String  @id @default(cuid())
+   245→   245→   245→  clinicId    String
+   246→   246→   246→  amenityId   String
+   247→   247→   247→
+   248→   248→   248→  clinic      Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   249→   249→   249→  amenity     Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+   250→   250→   250→
+   251→   251→   251→  @@unique([clinicId, amenityId])
+   252→   252→   252→}
+   253→   253→   253→
+   254→   254→   254→/// Provider ↔ Language
+   255→   255→   255→model ProviderLanguage {
+   256→   256→   256→  id          String  @id @default(cuid())
+   257→   257→   257→  providerId  String
+   258→   258→   258→  languageId  String
+   259→   259→   259→
+   260→   260→   260→  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+   261→   261→   261→  language    Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+   262→   262→   262→
+   263→   263→   263→  @@unique([providerId, languageId])
+   264→   264→   264→}
+   265→   265→   265→
+   266→   266→   266→/// Provider ↔ Service
+   267→   267→   267→model ProviderService {
+   268→   268→   268→  id          String  @id @default(cuid())
+   269→   269→   269→  providerId  String
+   270→   270→   270→  serviceId   String
+   271→   271→   271→
+   272→   272→   272→  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+   273→   273→   273→  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+   274→   274→   274→
+   275→   275→   275→  @@unique([providerId, serviceId])
+   276→   276→   276→}
+   277→   277→   277→
+   278→   278→   278→/// Service ↔ Insurance (with copay/pricing data)
+   279→   279→   279→model ServiceInsurance {
+   280→   280→   280→  id              String  @id @default(cuid())
+   281→   281→   281→  serviceId       String
+   282→   282→   282→  insuranceId     String
+   283→   283→   283→  copayCents      Int     @default(0)        // e.g., $25 copay
+   284→   284→   284→  isActive        Boolean @default(true)
+   285→   285→   285→
+   286→   286→   286→  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+   287→   287→   287→  insurance       Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
+   288→   288→   288→
+   289→   289→   289→  @@unique([serviceId, insuranceId])
+   290→   290→   290→}
+   291→   291→   291→
+   292→   292→   292→// =============================================================================
+   293→   293→   293→// SECTION 5: Slot Inventory System
+   294→   294→   294→// =============================================================================
+   295→   295→   295→
+   296→   296→   296→/// Weekly recurring schedule template for auto-generating slots.
+   297→   297→   297→model SlotTemplate {
+   298→   298→   298→  id          String   @id @default(cuid())
+   299→   299→   299→  providerId  String
+   300→   300→   300→  dayOfWeek   Int                          // 0=Sunday, 1=Monday, ..., 6=Saturday
+   301→   301→   301→  startTime   String                       // HH:mm in clinic local time, e.g., "09:00"
+   302→   302→   302→  endTime     String                       // HH:mm in clinic local time, e.g., "12:00"
+   303→   303→   303→  modality    String   @default("IN_PERSON") // IN_PERSON | VIDEO
+   304→   304→   304→  isActive    Boolean  @default(true)
+   305→   305→   305→  createdAt   DateTime @default(now())
+   306→   306→   306→  updatedAt   DateTime @updatedAt
+   307→   307→   307→
+   308→   308→   308→  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+   309→   309→   309→  slots       Slot[]
+   310→   310→   310→
+   311→   311→   311→  @@unique([providerId, dayOfWeek, startTime, modality])
+   312→   312→   312→  @@index([providerId, isActive])
+   313→   313→   313→}
+   314→   314→   314→
+   315→   315→   315→/// Actual time-slot inventory records stored in UTC.
+   316→   316→   316→model Slot {
+   317→   317→   317→  id          String   @id @default(cuid())
+   318→   318→   318→  clinicId    String
+   319→   319→   319→  providerId  String
+   320→   320→   320→  startTime   DateTime                      // UTC
+   321→   321→   321→  endTime     DateTime                      // UTC
+   322→   322→   322→  modality    String   @default("IN_PERSON") // IN_PERSON | VIDEO
+   323→   323→   323→  status      String   @default("AVAILABLE") // AVAILABLE|LOCKED|BOOKED|BOOKED_EXTERNALLY|BLOCKED|CLOSED
+   324→   324→   324→
+   325→   325→   325→  createdAt   DateTime @default(now())
+   326→   326→   326→  updatedAt   DateTime @updatedAt
+   327→   327→   327→
+   328→   328→   328→  // Relations
+   329→   329→   329→  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   330→   330→   330→  provider    Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+   331→   331→   331→  template    SlotTemplate? @relation(fields: [templateId], references: [id])
+   332→   332→   332→  templateId  String?
+   333→   333→   333→  lock        SlotLock?
+   334→   334→   334→  appointment Appointment?
+   335→   335→   335→
+   336→   336→   336→  @@unique([providerId, startTime])         // Prevent duplicate slot generation
+   337→   337→   337→  @@index([clinicId, status, startTime])    // Primary search index
+   338→   338→   338→  @@index([providerId, status, startTime])  // Provider schedule queries
+   339→   339→   339→  @@index([status, startTime])              // Global availability queries
+   340→   340→   340→}
+   341→   341→   341→
+   342→   342→   342→// =============================================================================
+   343→   343→   343→// SECTION 6: Two-Phase Booking Lock (CRITICAL — Race Condition Protection)
+   344→   344→   344→// =============================================================================
+   345→   345→   345→
+   346→   346→   346→/// Temporary lock on a slot during checkout.
+   347→   347→   347→/// The @@unique([slotId]) constraint is the CORE of the two-phase locking mechanism.
+   348→   348→   348→/// When two concurrent bookings attempt to lock the same slot, the DB unique
+   349→   349→   349→/// constraint catches it (Prisma P2002), and we return "Slot just taken" to the client.
+   350→   350→   350→model SlotLock {
+   351→   351→   351→  id          String   @id @default(cuid())
+   352→   352→   352→  slotId      String   @unique              // ONLY ONE LOCK PER SLOT — ENFORCED BY DB
+   353→   353→   353→  lockKey     String                       // unique identifier of the locking session
+   354→   354→   354→  lockedAt    DateTime @default(now())
+   355→   355→   355→  expiresAt   DateTime                      // lockedAt + lockTtlSeconds from SystemConfig
+   356→   356→   356→
+   357→   357→   357→  slot        Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+   358→   358→   358→
+   359→   359→   359→  @@index([expiresAt])                     // For lock-sweeping background job
+   360→   360→   360→}
+   361→   361→   361→
+   362→   362→   362→// =============================================================================
+   363→   363→   363→// SECTION 7: Appointments & Financials
+   364→   364→   364→// =============================================================================
+   365→   365→   365→
+   366→   366→   366→/// Appointment (booking) records. No patient user accounts — anonymous flow.
+   367→   367→   367→model Appointment {
+   368→   368→   368→  id                  String    @id @default(cuid())
+   369→   369→   369→  slotId              String    @unique              // Each slot can only have one appointment
+   370→   370→   370→  clinicId            String
+   371→   371→   371→  providerId          String
+   372→   372→   372→  specialtyId         String
+   373→   373→   373→  serviceId           String
+   374→   374→   374→
+   375→   375→   375→  // Patient details (stored directly — no User account)
+   376→   376→   376→  patientName         String
+   377→   377→   377→  patientDob          DateTime
+   378→   378→   378→  patientPhone        String
+   379→   379→   379→  patientEmail        String
+   380→   380→   380→  patientType         String    @default("ADULT")    // ADULT | PEDIATRIC
+   381→   381→   381→  guardianName        String?                       // Required for pediatric
+   382→   382→   382→  guardianRelation    String?                       // e.g., "Mother", "Father", "Legal Guardian"
+   383→   383→   383→  reasonForVisit      String
+   384→   384→   384→  insuranceId         String?                       // Null = uninsured
+   385→   385→   385→
+   386→   386→   386→  // Denormalized from slot for fast queries
+   387→   387→   387→  modality            String
+   388→   388→   388→  startTime           DateTime                       // UTC
+   389→   389→   389→  endTime             DateTime                       // UTC
+   390→   390→   390→
+   391→   391→   391→  // Financial flags
+   392→   392→   392→  isDemoInsurance     Boolean   @default(false)
+   393→   393→   393→  depositCents        Int       @default(0)
+   394→   394→   394→  selfPayCents        Int       @default(0)          // Total if self-pay
+   395→   395→   395→  paymentStatus       String    @default("PENDING")  // PENDING|AUTHORIZED|CAPTURED|REFUNDED|FORFEITED
+   396→   396→   396→  paymentMethod       String?                       // STRIPE|CASH_AT_DESK|MANUAL_WAIVER
+   397→   397→   397→
+   398→   398→   398→  // Status state machine
+   399→   399→   399→  status              String    @default("BOOKED")   // BOOKED|CHECKED_IN|COMPLETED|ARCHIVED|CANCELLED|NO_SHOW
+   400→   400→   400→  cancellationReason  String?                       // PATIENT_CANCELLED|CLINIC_CANCELLED|DOUBLE_BOOKING
+   401→   401→   401→  cancelledAt         DateTime?
+   402→   402→   402→  cancelledBy         String?                       // userId or "SYSTEM"
+   403→   403→   403→
+   404→   404→   404→  // Metadata
+   405→   405→   405→  conversionRanking   String?                       // "EARLIEST" | "NEAREST" — from search cookie
+   406→   406→   406→  ipHash              String?                       // hashed IP for fraud detection
+   407→   407→   407→  intakeCompleted     Boolean   @default(false)
+   408→   408→   408→  insuranceVerified   Boolean   @default(false)
+   409→   409→   409→
+   410→   410→   410→  createdAt           DateTime  @default(now())
+   411→   411→   411→  updatedAt           DateTime  @updatedAt
+   412→   412→   412→
+   413→   413→   413→  // Relations
+   414→   414→   414→  slot                Slot      @relation(fields: [slotId], references: [id])
+   415→   415→   415→  clinic              Clinic    @relation(fields: [clinicId], references: [id])
+   416→   416→   416→  provider            Provider  @relation(fields: [providerId], references: [id])
+   417→   417→   417→  specialty           Specialty @relation(fields: [specialtyId], references: [id])
+   418→   418→   418→  service             Service   @relation(fields: [serviceId], references: [id])
+   419→   419→   419→  insurance           Insurance? @relation(fields: [insuranceId], references: [id])
+   420→   420→   420→
+   421→   421→   421→  // One-to-one / one-to-many
+   422→   422→   422→  ledger              AppointmentLedger?
+   423→   423→   423→  tokens              Token[]
+   424→   424→   424→  notes               InternalNote[]
+   425→   425→   425→  review              Review?
+   426→   426→   426→  waitlistEntries     WaitlistEntry[]
+   427→   427→   427→
+   428→   428→   428→  @@index([clinicId, status, startTime])
+   429→   429→   429→  @@index([patientEmail])                           // Conflict detection
+   430→   430→   430→  @@index([patientPhone])                           // Conflict detection
+   431→   431→   431→  @@index([status, startTime])
+   432→   432→   432→  @@index([createdAt])
+   433→   433→   433→}
+   434→   434→   434→
+   435→   435→   435→/// Payment/financial ledger — separated from Appointment per spec.
+   436→   436→   436→model AppointmentLedger {
+   437→   437→   437→  id               String   @id @default(cuid())
+   438→   438→   438→  appointmentId    String   @unique
+   439→   439→   439→  type             String                         // DEPOSIT_AUTH|DEPOSIT_CAPTURE|REFUND|FULL_PAYMENT|BALANCE_PAYMENT
+   440→   440→   440→  amountCents      Int
+   441→   441→   441→  stripePaymentIntentId String?                   // Stripe PI reference
+   442→   442→   442→  stripeChargeId   String?                        // Stripe Charge reference
+   443→   443→   443→  stripeRefundId   String?                        // Stripe Refund reference
+   444→   444→   444→  refundStatus     String?                        // REFUND_PENDING|REFUNDED|REFUND_FAILED|FORFEITED
+   445→   445→   445→  description      String?
+   446→   446→   446→  processedBy      String?                        // userId or "SYSTEM" or "STRIPE_WEBHOOK"
+   447→   447→   447→  createdAt        DateTime @default(now())
+   448→   448→   448→  updatedAt        DateTime @updatedAt
+   449→   449→   449→
+   450→   450→   450→  appointment      Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+   451→   451→   451→
+   452→   452→   452→  @@index([appointmentId])
+   453→   453→   453→  @@index([stripePaymentIntentId])
+   454→   454→   454→}
+   455→   455→   455→
+   456→   456→   456→// =============================================================================
+   457→   457→   457→// SECTION 8: Staff Internal Notes
+   458→   458→   458→// =============================================================================
+   459→   459→   459→
+   460→   460→   460→/// Chronological internal notes attached to appointments by staff.
+   461→   461→   461→model InternalNote {
+   462→   462→   462→  id             String   @id @default(cuid())
+   463→   463→   463→  appointmentId  String
+   464→   464→   464→  authorId       String?                          // User who wrote the note
+   465→   465→   465→  content        String                           // plain text note
+   466→   466→   466→  createdAt      DateTime @default(now())
+   467→   467→   467→
+   468→   468→   468→  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+   469→   469→   469→  author         User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+   470→   470→   470→
+   471→   471→   471→  @@index([appointmentId, createdAt])
+   472→   472→   472→}
+   473→   473→   473→
+   474→   474→   474→// =============================================================================
+   475→   475→   475→// SECTION 9: Secure Patient Tokens
+   476→   476→   476→// =============================================================================
+   477→   477→   477→
+   478→   478→   478→/// Cryptographically secure tokens for anonymous patient self-service access.
+   479→   479→   479→/// Tokens are generated with crypto.randomBytes(32), then HASHED (scrypt) before storage.
+   480→   480→   480→/// The raw token is NEVER stored — only the hash. Validation re-hashes and compares.
+   481→   481→   481→model Token {
+   482→   482→   482→  id            String    @id @default(cuid())
+   483→   483→   483→  tokenHash     String    @unique               // SHA-256 hash of the raw token
+   484→   484→   484→  appointmentId String
+   485→   485→   485→  purpose       String                          // INTAKE|REVIEW|MANAGE|CHECK_IN
+   486→   486→   486→  createdAt     DateTime  @default(now())
+   487→   487→   487→  expiresAt     DateTime                        // appointment.startTime + 7 days
+   488→   488→   488→  consumedAt    DateTime?                       // Set when used (one-time for some purposes)
+   489→   489→   489→
+   490→   490→   490→  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+   491→   491→   491→
+   492→   492→   492→  @@index([tokenHash])
+   493→   493→   493→  @@index([appointmentId, purpose])
+   494→   494→   494→  @@index([expiresAt])                           // For cleanup job
+   495→   495→   495→}
+   496→   496→   496→
+   497→   497→   497→// =============================================================================
+   498→   498→   498→// SECTION 10: Patient Reviews
+   499→   499→   499→// =============================================================================
+   500→   500→   500→
+   501→   501→   501→/// Patient reviews, triggered after staff marks appointment COMPLETED.
+   502→   502→   502→model Review {
+   503→   503→   503→  id               String   @id @default(cuid())
+   504→   504→   504→  appointmentId    String   @unique
+   505→   505→   505→  clinicId         String
+   506→   506→   506→  providerId       String
+   507→   507→   507→  overallRating    Int                            // 1-5
+   508→   508→   508→  waitTimeRating   Int                            // 1-5
+   509→   509→   509→  bedsideRating    Int                            // 1-5
+   510→   510→   510→  staffRating      Int                            // 1-5
+   511→   511→   511→  comment          String?
+   512→   512→   512→  isVerified       Boolean  @default(true)        // Confirmed via secure token link
+   513→   513→   513→  createdAt        DateTime @default(now())
+   514→   514→   514→  updatedAt        DateTime @updatedAt
+   515→   515→   515→
+   516→   516→   516→  appointment      Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+   517→   517→   517→  clinic           Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   518→   518→   518→  provider         Provider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+   519→   519→   519→
+   520→   520→   520→  @@index([clinicId])
+   521→   521→   521→  @@index([providerId])
+   522→   522→   522→  @@index([overallRating])
+   523→   523→   523→}
+   524→   524→   524→
+   525→   525→   525→// =============================================================================
+   526→   526→   526→// SECTION 11: Waitlist Engine
+   527→   527→   527→// =============================================================================
+   528→   528→   528→
+   529→   529→   529→/// Waitlist entries for patients seeking cancelled slots.
+   530→   530→   530→model WaitlistEntry {
+   531→   531→   531→  id              String   @id @default(cuid())
+   532→   532→   532→  appointmentId   String?                        // Null if no original appointment
+   533→   533→   533→  clinicId        String
+   534→   534→   534→  providerId      String
+   535→   535→   535→  serviceId       String
+   536→   536→   536→  patientName     String
+   537→   537→   537→  patientEmail    String
+   538→   538→   538→  patientPhone    String
+   539→   539→   539→  patientType     String   @default("ADULT")
+   540→   540→   540→  dateFrom        DateTime                        // Start of patient's date range
+   541→   541→   541→  dateTo          DateTime                        // End of patient's date range
+   542→   542→   542→  modality        String?                        // Preference: IN_PERSON, VIDEO, or null = any
+   543→   543→   543→  status          String   @default("ACTIVE")    // ACTIVE|OFFERED|FULFILLED|EXPIRED|REMOVED
+   544→   544→   544→  contactCount    Int       @default(0)            // Number of times staff contacted this patient
+   545→   545→   545→  lastContactAt   DateTime?                       // Most recent staff contact attempt
+   546→   546→   546→  offeredAt       DateTime?                       // When a waitlist offer email was sent
+   547→   547→   547→  offerExpiresAt  DateTime?                       // Short-lived hold link expiry
+   548→   548→   548→  createdAt       DateTime @default(now())
+   549→   549→   549→  updatedAt       DateTime @updatedAt
+   550→   550→   550→
+   551→   551→   551→  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+   552→   552→   552→  clinic          Clinic      @relation(fields: [clinicId], references: [id])
+   553→   553→   553→  provider        Provider    @relation(fields: [providerId], references: [id])
+   554→   554→   554→  service         Service     @relation(fields: [serviceId], references: [id])
+   555→   555→   555→
+   556→   556→   556→  @@index([clinicId, serviceId, status, dateFrom])
+   557→   557→   557→  @@index([patientEmail, serviceId, status])      // Cross-booking prevention
+   558→   558→   558→  @@index([status, dateTo])                       // Expiry cleanup
+   559→   559→   559→}
+   560→   560→   560→
+   561→   561→   561→// =============================================================================
+   562→   562→   562→// SECTION 12: Clinic Closures / Holidays
+   563→   563→   563→// =============================================================================
+   564→   564→   564→
+   565→   565→   565→/// Email templates for automated communications.
+   566→   566→   566→/// Safe-Mode WYSIWYG: stores HTML, source code editing is disabled.
+   567→   567→   567→model EmailTemplate {
+   568→   568→   568→  id          String   @id @default(cuid())
+   569→   569→   569→  clinicId    String
+   570→   570→   570→  type        String                        // e.g., BOOKING_CONFIRMATION, CANCELLATION, RESCHEDULE, REMINDER, INTAKE, REVIEW_REQUEST, PAYMENT_REQUEST
+   571→   571→   571→  subject     String                        // email subject line
+   572→   572→   572→  bodyHtml    String                        // HTML body (safe-mode edited)
+   573→   573→   573→  isActive    Boolean  @default(true)
+   574→   574→   574→  createdAt   DateTime @default(now())
+   575→   575→   575→  updatedAt   DateTime @updatedAt
+   576→   576→   576→
+   577→   577→   577→  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   578→   578→   578→
+   579→   579→   579→  @@unique([clinicId, type])
+   580→   580→   580→  @@index([clinicId])
+   581→   581→   581→}
+   582→   582→   582→
+   583→   583→   583→/// One-time-use staff invitation links.
+   584→   584→   584→model StaffInvitation {
+   585→   585→   585→  id          String   @id @default(cuid())
+   586→   586→   586→  clinicId    String
+   587→   587→   587→  email       String                        // invited email
+   588→   588→   588→  tokenHash   String   @unique               // SHA-256 of secure token
+   589→   589→   589→  role        String   @default("CLINIC_RECEPTION") // CLINIC_RECEPTION only for scoped invites
+   590→   590→   590→  expiresAt   DateTime
+   591→   591→   591→  acceptedAt  DateTime?                      // null = pending
+   592→   592→   592→  acceptedBy  String?                        // User ID of who accepted
+   593→   593→   593→  createdAt   DateTime @default(now())
+   594→   594→   594→  updatedAt   DateTime @updatedAt
+   595→   595→   595→
+   596→   596→   596→  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   597→   597→   597→
+   598→   598→   598→  @@index([clinicId, email])
+   599→   599→   599→  @@index([tokenHash])
+   600→   600→   600→  @@index([expiresAt])
+   601→   601→   601→}
+   602→   602→   602→
+   603→   603→   603→/// Clinic closures suppress all generated available slots in the timeframe.
+   604→   604→   604→model ClinicClosure {
+   605→   605→   605→  id          String   @id @default(cuid())
+   606→   606→   606→  clinicId    String
+   607→   607→   607→  title       String                         // e.g., "Christmas Holiday"
+   608→   608→   608→  startDate   DateTime                       // inclusive
+   609→   609→   609→  endDate     DateTime                       // inclusive
+   610→   610→   610→  isRecurring Boolean  @default(false)       // e.g., annual holiday
+   611→   611→   611→  recurrenceRule String?                    // e.g., "YEARLY" for iCal-like recurrence
+   612→   612→   612→  createdAt   DateTime @default(now())
+   613→   613→   613→  updatedAt   DateTime @updatedAt
+   614→   614→   614→
+   615→   615→   615→  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+   616→   616→   616→
+   617→   617→   617→  @@index([clinicId, startDate, endDate])
+   618→   618→   618→}
+   619→   619→   619→
+   620→   620→   620→// =============================================================================
+   621→   621→   621→// SECTION 13: Staff User Accounts (NextAuth JWT)
+   622→   622→   622→// =============================================================================
+   623→   623→   623→
+   624→   624→   624→/// Staff accounts ONLY. No patient user accounts in V1.
+   625→   625→   625→/// Roles: SYSTEM_MANAGER, CLINIC_ADMIN, CLINIC_RECEPTION
+   626→   626→   626→/// Clinic Admin inherits all Reception capabilities — enforced via role hierarchy in middleware.
+   627→   627→   627→model User {
+   628→   628→   628→  id            String   @id @default(cuid())
+   629→   629→   629→  email         String   @unique
+   630→   630→   630→  name          String
+   631→   631→   631→  passwordHash  String                         // bcrypt hash
+   632→   632→   632→  role          String   @default("CLINIC_RECEPTION") // SYSTEM_MANAGER|CLINIC_ADMIN|CLINIC_RECEPTION
+   633→   633→   633→  clinicId      String?                         // Null for SYSTEM_MANAGER
+   634→   634→   634→  isActive      Boolean  @default(true)
+   635→   635→   635→  lastLoginAt   DateTime?
+   636→   636→   636→  createdAt     DateTime @default(now())
+   637→   637→   637→  updatedAt     DateTime @updatedAt
+   638→   638→   638→
+   639→   639→   639→  clinic        Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+   640→   640→   640→  notes         InternalNote[]
+   641→   641→   641→  auditLogs     AuditLog[]
+   642→   642→   642→
+   643→   643→   643→  @@index([role, isActive])
+   644→   644→   644→  @@index([clinicId, role])
+   645→   645→   645→}
+   646→   646→   646→
+   647→   647→   647→// =============================================================================
+   648→   648→   648→// SECTION 14: Audit Logging (Action-Level Only)
+   649→   649→   649→// =============================================================================
+   650→   650→   650→
+   651→   651→   651→/// Action-level audit log. NO before/after text payloads to keep DB size manageable.
+   652→   652→   652→/// Per spec: records userId, action, appointmentId, timestamp.
+   653→   653→   653→model AuditLog {
+   654→   654→   654→  id             String   @id @default(cuid())
+   655→   655→   655→  userId         String?                          // Null for system actions
+   656→   656→   656→  action         String                           // e.g., "BOOKING_CREATED", "SLOT_BLOCKED"
+   657→   657→   657→  targetType     String?                          // e.g., "APPOINTMENT", "SLOT", "CLINIC"
+   658→   658→   658→  targetId       String?                          // ID of the affected entity
+   659→   659→   659→  appointmentId  String?                          // When action relates to an appointment
+   660→   660→   660→  ipAddress      String?                          // Hashed client IP
+   661→   661→   661→  createdAt      DateTime @default(now())
+   662→   662→   662→
+   663→   663→   663→  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+   664→   664→   664→
+   665→   665→   665→  @@index([userId, createdAt])
+   666→   666→   666→  @@index([action, createdAt])
+   667→   667→   667→  @@index([appointmentId])
+   668→   668→   668→  @@index([createdAt])                            // For date-range queries
+   669→   669→   669→}
