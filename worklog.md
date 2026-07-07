@@ -131,3 +131,31 @@ Stage Summary:
 - **ALL 20 FEATURES: FULLY IMPLEMENTED AND VERIFIED**
 - 7 settings pages, 26 new API routes, 3 schema changes, 4 new enum constants
 - Clean lint, clean build, all pages render and interact correctly
+---
+Task ID: 2-a
+Agent: Main Orchestrator
+Task: Verify and complete Staff Onboarding feature (invitation acceptance flow)
+
+Work Log:
+- Audited existing Staff Onboarding implementation: UI (staff settings page), API routes (GET/POST/DELETE/RESEND invitations), Prisma model (StaffInvitation), crypto utilities all existed
+- Identified critical missing piece: `/staff/accept-invitation` page and API for the invited person to set their password and create their account
+- Created `src/app/api/staff/accept-invitation/route.ts` with GET (validate token, return clinic info) and POST (create User with CLINIC_RECEPTION role + clinic binding, mark invitation accepted, invalidate token)
+- Created `src/app/staff/accept-invitation/page.tsx` with full UI: loading state, setup form (name + password + confirm), password strength meter, success/already-used/expired/invalid/error states
+- Updated middleware to redirect authenticated users away from `/staff/accept-invitation` (same as login page behavior)
+- Added `STAFF_INVITATION_CREATED`, `STAFF_INVITATION_ACCEPTED`, `STAFF_INVITATION_REVOKED` to AUDIT_ACTIONS constants
+- Updated invitation creation and revoke APIs to use proper audit actions
+- One-time-use token enforcement: tokenHash is overwritten with `consumed_{timestamp}_{userId}` after acceptance
+
+Stage Summary:
+- **Staff Onboarding feature is now FULLY IMPLEMENTED** (was partially implemented before)
+- New files: `src/app/api/staff/accept-invitation/route.ts`, `src/app/staff/accept-invitation/page.tsx`
+- Modified files: `src/middleware.ts`, `src/lib/constants.ts`, `src/app/api/staff/invitations/route.ts`, `src/app/api/staff/invitations/[id]/route.ts`
+- End-to-end verified via agent-browser:
+  1. Admin creates invitation → link generated with secure token ✓
+  2. Invited person visits link → sees clinic name, email, role info ✓
+  3. Sets name + password → account created ✓
+  4. New user can log in with the credentials ✓
+  5. New user has CLINIC_RECEPTION role bound to the clinic ✓
+  6. New user is correctly blocked from admin-only pages ✓
+  7. Reusing the same token shows "Invalid Invitation" ✓
+  8. Admin sees the accepted staff in the Current Staff table ✓

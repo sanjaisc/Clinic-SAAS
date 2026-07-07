@@ -46,7 +46,7 @@ export async function DELETE(
 
     await createAuditLog({
       userId: session.user.id,
-      action: AUDIT_ACTIONS.CLINIC_UPDATED,
+      action: AUDIT_ACTIONS.STAFF_INVITATION_REVOKED,
       targetType: "STAFF_INVITATION",
       targetId: id,
     });

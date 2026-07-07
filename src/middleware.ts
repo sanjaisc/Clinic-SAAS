@@ -151,9 +151,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // =========================================================================
-  // 3. Staff Login Page — Redirect if already authenticated
+  // 3. Staff Auth Pages — Redirect if already authenticated
   // =========================================================================
-  if (pathname === "/staff/login") {
+  const AUTH_PAGES = ["/staff/login", "/staff/accept-invitation"];
+  if (AUTH_PAGES.some((p) => pathname.startsWith(p))) {
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,

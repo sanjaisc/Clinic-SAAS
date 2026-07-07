@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     const { AUDIT_ACTIONS } = await import("@/lib/constants");
     await createAuditLog({
       userId: session.user.id,
-      action: AUDIT_ACTIONS.CLINIC_UPDATED,
+      action: AUDIT_ACTIONS.STAFF_INVITATION_CREATED,
       targetType: "STAFF_INVITATION",
       targetId: invitation.id,
     });
