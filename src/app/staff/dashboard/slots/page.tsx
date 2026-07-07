@@ -168,13 +168,14 @@ export default function SlotManagementPage() {
     }
   }, [providerId, dateFrom, dateTo, statusFilter, clinicId]);
 
-  // Fetch providers from search API
+  // Fetch providers for this clinic
   useEffect(() => {
+    if (!clinicId) return;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/search/providers?specialty=&patientType=ADULT&lat=40.758&lng=-73.985&radius=50&limit=50`
-        );
+        const params = new URLSearchParams();
+        params.set("clinicId", clinicId);
+        const res = await fetch(`/api/staff/providers?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           const allProviders = (data.providers || []).map(
@@ -195,7 +196,7 @@ export default function SlotManagementPage() {
         // non-critical
       }
     })();
-    }, [providerId]);
+    }, [clinicId]);
 
   // Fetch slots when filters change
   useEffect(() => {

@@ -1134,6 +1134,16 @@ export default function AppointmentsPage() {
               className="h-9 w-36"
             />
           </div>
+
+          {/* Search Button */}
+          <Button
+            size="sm"
+            className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+            onClick={() => { setPage(1); fetchAppointments(); }}
+          >
+            <Search className="size-3.5 mr-1.5" />
+            Search
+          </Button>
         </div>
         )}
       </div>
