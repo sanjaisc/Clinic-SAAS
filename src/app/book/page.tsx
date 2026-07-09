@@ -817,7 +817,7 @@ export default function BookingPage() {
   if (step === 4 && appointmentResult) {
     const confettiColors = [
       "bg-brand", "bg-brand-muted", "bg-amber-400", "bg-amber-300",
-      "bg-brand-subtle", "bg-green-400", "bg-lime-400", "bg-coral-muted",
+      "bg-brand-subtle", "bg-green-400", "bg-lime-400", "bg-lavender-muted",
     ];
 
     return (
@@ -832,7 +832,7 @@ export default function BookingPage() {
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
               <div className="absolute top-20 left-[15%] size-2 rounded-full bg-brand-subtle/40 animate-pulse-subtle" />
               <div className="absolute top-32 right-[20%] size-1.5 rounded-full bg-amber-300/40 animate-pulse-subtle" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute top-44 left-[25%] size-1 rounded-full bg-coral/50 animate-pulse-subtle" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-44 left-[25%] size-1 rounded-full bg-lavender/50 animate-pulse-subtle" style={{ animationDelay: '1s' }} />
               <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-brand/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
             </div>
 

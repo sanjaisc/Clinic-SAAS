@@ -278,7 +278,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
           {/* ===== Hero Section ===== */}
           <Card className="overflow-hidden shadow-md">
             {/* Parallax hero gradient — CSS only */}
-            <div className="h-2 rounded-t-lg bg-gradient-to-r from-brand to-coral bg-[length:200%_200%] bg-gradient-animated" />
+            <div className="h-2 rounded-t-lg bg-gradient-to-r from-brand to-lavender bg-[length:200%_200%] bg-gradient-animated" />
             <CardContent className="p-6 space-y-4">
               <div className="flex flex-col sm:flex-row gap-5">
                 {/* Avatar */}
@@ -404,7 +404,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             {/* Services */}
             {provider.providerServices.length > 0 && (
               <Card className="overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-brand to-coral" />
+                <div className="h-1 bg-gradient-to-r from-brand to-lavender" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Stethoscope className="size-5 text-brand" />
@@ -430,7 +430,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             {/* Languages */}
             {provider.languages.length > 0 && (
               <Card className="overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-brand to-coral" />
+                <div className="h-1 bg-gradient-to-r from-brand to-lavender" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Globe className="size-5 text-brand" />
@@ -456,7 +456,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
           {/* ===== Availability Calendar (Zocdoc-style week view) ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-brand to-coral" />
+            <div className="h-1 bg-gradient-to-r from-brand to-lavender" />
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <CalendarDays className="size-5 text-brand" />
@@ -545,7 +545,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
           {/* ===== Contact Info ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-brand to-coral" />
+            <div className="h-1 bg-gradient-to-r from-brand to-lavender" />
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="size-5 text-brand" />

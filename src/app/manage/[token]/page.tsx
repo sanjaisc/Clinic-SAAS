@@ -508,7 +508,7 @@ export default function ManagePage() {
                 <motion.div {...fadeInUp}>
                   <Card className="border-0 shadow-lg overflow-hidden status-card-gradient-border">
                     {/* Gradient Top Bar */}
-                    <div className="h-2 bg-gradient-to-r from-brand via-coral to-brand" />
+                    <div className="h-2 bg-gradient-to-r from-brand via-lavender to-brand" />
 
                     <CardHeader className="pb-4">
                       <div className="flex items-start gap-4">
@@ -880,7 +880,7 @@ function Header() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-coral-hover flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-lavender-hover flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">

@@ -15,7 +15,7 @@ export default function NotFound() {
       {/* Decorative background elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
         <div className="absolute -top-24 -left-24 size-72 rounded-full bg-brand-subtle/40 blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 size-72 rounded-full bg-coral-muted/30 blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 size-72 rounded-full bg-lavender-muted/30 blur-3xl" />
       </div>
 
       <main className="flex-1 flex items-center justify-center px-4 py-12">

@@ -185,7 +185,7 @@ export function NotificationBell() {
         >
           <Bell className="size-4.5 text-muted-foreground" />
           {displayCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-coral text-[10px] font-bold text-white px-1">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-lavender text-[10px] font-bold text-white px-1">
               {displayCount}
             </span>
           )}

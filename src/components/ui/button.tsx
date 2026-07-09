@@ -13,10 +13,10 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         brand:
           "bg-brand text-brand-foreground shadow-sm hover:bg-brand-hover focus-visible:ring-brand/30 active:bg-brand-hover",
-        coral:
-          "bg-coral text-coral-foreground shadow-sm hover:bg-coral-hover focus-visible:ring-coral/30 active:bg-coral-hover",
-        navy:
-          "bg-navy text-navy-foreground shadow-sm hover:bg-navy-hover focus-visible:ring-navy/30 active:bg-navy-hover",
+        lavender:
+          "bg-lavender text-lavender-foreground shadow-sm hover:bg-lavender-hover focus-visible:ring-lavender/30 active:bg-lavender-hover",
+        indigo:
+          "bg-indigo text-indigo-foreground shadow-sm hover:bg-indigo-hover focus-visible:ring-indigo/30 active:bg-indigo-hover",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:

@@ -44,18 +44,18 @@
   --color-brand-subtle: var(--brand-subtle);
   --color-brand-border: var(--brand-border);
   --shadow-brand: var(--shadow-brand);
-  --color-coral: var(--coral);
-  --color-coral-foreground: var(--coral-foreground);
-  --color-coral-hover: var(--coral-hover);
-  --color-coral-muted: var(--coral-muted);
-  --color-coral-subtle: var(--coral-subtle);
-  --color-coral-border: var(--coral-border);
-  --color-navy: var(--navy);
-  --color-navy-foreground: var(--navy-foreground);
-  --color-navy-hover: var(--navy-hover);
-  --color-navy-muted: var(--navy-muted);
-  --color-navy-subtle: var(--navy-subtle);
-  --color-navy-border: var(--navy-border);
+  --color-lavender: var(--lavender);
+  --color-lavender-foreground: var(--lavender-foreground);
+  --color-lavender-hover: var(--lavender-hover);
+  --color-lavender-muted: var(--lavender-muted);
+  --color-lavender-subtle: var(--lavender-subtle);
+  --color-lavender-border: var(--lavender-border);
+  --color-indigo: var(--indigo);
+  --color-indigo-foreground: var(--indigo-foreground);
+  --color-indigo-hover: var(--indigo-hover);
+  --color-indigo-muted: var(--indigo-muted);
+  --color-indigo-subtle: var(--indigo-subtle);
+  --color-indigo-border: var(--indigo-border);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -105,18 +105,18 @@
   --brand-subtle: oklch(0.925 0.044 163);
   --brand-border: oklch(0.872 0.066 163);
   --shadow-brand: 0 4px 14px -3px oklch(0.527 0.14 163 / 0.25), 0 2px 6px -2px oklch(0.527 0.14 163 / 0.15);
-  --coral: oklch(0.648 0.146 30);
-  --coral-foreground: oklch(0.985 0 0);
-  --coral-hover: oklch(0.585 0.155 28);
-  --coral-muted: oklch(0.955 0.028 30);
-  --coral-subtle: oklch(0.925 0.048 30);
-  --coral-border: oklch(0.855 0.072 30);
-  --navy: oklch(0.457 0.085 253);
-  --navy-foreground: oklch(0.985 0 0);
-  --navy-hover: oklch(0.515 0.09 253);
-  --navy-muted: oklch(0.955 0.015 253);
-  --navy-subtle: oklch(0.925 0.03 253);
-  --navy-border: oklch(0.84 0.048 253);
+  --lavender: oklch(0.65 0.09 290);
+  --lavender-foreground: oklch(0.985 0 0);
+  --lavender-hover: oklch(0.58 0.10 290);
+  --lavender-muted: oklch(0.93 0.025 290);
+  --lavender-subtle: oklch(0.96 0.015 290);
+  --lavender-border: oklch(0.85 0.04 290);
+  --indigo: oklch(0.40 0.145 270);
+  --indigo-foreground: oklch(0.985 0 0);
+  --indigo-hover: oklch(0.47 0.14 270);
+  --indigo-muted: oklch(0.93 0.025 270);
+  --indigo-subtle: oklch(0.96 0.015 270);
+  --indigo-border: oklch(0.78 0.055 270);
 }
 
 .dark {
@@ -161,18 +161,18 @@
   --brand-subtle: oklch(0.27 0.045 163);
   --brand-border: oklch(0.42 0.08 163);
   --shadow-brand: 0 4px 14px -3px oklch(0.527 0.14 163 / 0.15), 0 2px 6px -2px oklch(0.527 0.14 163 / 0.1);
-  --coral: oklch(0.695 0.14 30);
-  --coral-foreground: oklch(0.13 0.02 30);
-  --coral-hover: oklch(0.745 0.135 30);
-  --coral-muted: oklch(0.22 0.028 30);
-  --coral-subtle: oklch(0.28 0.048 30);
-  --coral-border: oklch(0.42 0.072 30);
-  --navy: oklch(0.65 0.09 253);
-  --navy-foreground: oklch(0.13 0.01 253);
-  --navy-hover: oklch(0.7 0.085 253);
-  --navy-muted: oklch(0.22 0.018 253);
-  --navy-subtle: oklch(0.28 0.035 253);
-  --navy-border: oklch(0.42 0.05 253);
+  --lavender: oklch(0.72 0.09 290);
+  --lavender-foreground: oklch(0.15 0.02 290);
+  --lavender-hover: oklch(0.77 0.08 290);
+  --lavender-muted: oklch(0.22 0.03 290);
+  --lavender-subtle: oklch(0.28 0.04 290);
+  --lavender-border: oklch(0.38 0.055 290);
+  --indigo: oklch(0.62 0.12 270);
+  --indigo-foreground: oklch(0.985 0 0);
+  --indigo-hover: oklch(0.67 0.11 270);
+  --indigo-muted: oklch(0.22 0.025 270);
+  --indigo-subtle: oklch(0.28 0.035 270);
+  --indigo-border: oklch(0.42 0.055 270);
 }
 
 @layer base {

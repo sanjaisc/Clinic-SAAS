@@ -176,9 +176,9 @@ export default function AcceptInvitationPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-brand-muted/80 via-background to-coral-muted/40">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-brand-muted/80 via-background to-lavender-muted/40">
       {/* Top accent bar */}
-      <div className="h-1.5 bg-gradient-to-r from-brand via-coral to-brand" />
+      <div className="h-1.5 bg-gradient-to-r from-brand via-lavender to-brand" />
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center px-4 py-12 relative">

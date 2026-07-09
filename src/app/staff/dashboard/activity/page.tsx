@@ -378,7 +378,7 @@ export default function ActivityPage() {
       {/* Activity card */}
       <Card className="border-border/50 shadow-sm">
         {/* Subtle gradient header strip */}
-        <div className="h-1 bg-gradient-to-r from-brand to-coral rounded-t-xl" />
+        <div className="h-1 bg-gradient-to-r from-brand to-lavender rounded-t-xl" />
 
         {/* Filter tabs */}
         <div className="px-4 pt-4">

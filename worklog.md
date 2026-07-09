@@ -469,3 +469,37 @@ Stage Summary:
 - Remaining hardcoded oklch: only in `:root`/`.dark` variable definitions (expected) and `.danger-gradient-border` (red/destructive, not brand)
 - All emerald references eliminated except 2 harmless occurrences (a comment and a QR code hex color data value)
 - Design system is now fully token-based with dark mode support
+
+---
+Task ID: 6
+Agent: Main Orchestrator
+Task: Replace jarring coral/navy palette with soft lavender/indigo complements
+
+Work Log:
+- User found coral (#E07A5F) too jarring against the base green
+- User chose #EDE8F5 (light lavender) and #3D52A0 (deep indigo) as replacement accent colors
+- Replaced all coral token family (6 tokens) → lavender family in globals.css:
+  - Light: `--lavender: oklch(0.65 0.09 290)` (medium purple for text/icons)
+  - `--lavender-muted: oklch(0.93 0.025 290)` ≈ #EDE8F5 (user's chosen pastel)
+  - Full 6-token family: main, foreground, hover, muted, subtle, border
+  - Dark mode: lighter main (0.72), dark-muted variants
+- Replaced all navy token family (6 tokens) → indigo family in globals.css:
+  - Light: `--indigo: oklch(0.40 0.145 270)` ≈ #3D52A0 (user's chosen bold color)
+  - Full 6-token family: main, foreground, hover, muted, subtle, border
+  - Dark mode: lighter main (0.62), dark-muted variants
+- Updated @theme inline: 12 color token registrations (coral→lavender, navy→indigo)
+- Bulk-renamed across 16 files using sed: coral→lavender, navy→indigo
+- Files updated: button.tsx, public-footer.tsx, notification-bell.tsx, search-page.tsx, provider-card.tsx, about/page.tsx, review/[token]/page.tsx, providers/[slug]/page.tsx, not-found.tsx, staff/accept-invitation, staff/dashboard/* (analytics, activity, page, calendar), staff/login, manage/[token], insurance, clinics, intake/[token], clinic/[slug], book/page.tsx
+- Updated button variants: `lavender` and `indigo` (replacing `coral` and `navy`)
+- Verified: 0 remaining coral/navy references in codebase (grep confirmed)
+- Lint: 0 errors
+- CSS variable resolution verified via browser eval: --lavender = lab(58.36% 13.45 -30.79), --indigo = lab(28.53% 17.61 -51.41)
+- Tailwind utility classes verified: bg-indigo → correct color, text-lavender → correct color
+
+Stage Summary:
+- Coral/navy palette fully replaced with lavender/indigo
+- Lavender: medium purple for bold uses (text, icons, gradient endpoints) + soft pastel muted variant (#EDE8F5) for backgrounds
+- Indigo: deep blue-violet for secondary accents (step circles, section headers, specialty cards)
+- Both colors complement the teal-green base harmoniously — cool temperature consistency
+- All 16 affected files updated, zero orphaned references
+- Design system: brand (green) + lavender (soft purple) + indigo (deep blue-violet)
