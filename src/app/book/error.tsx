@@ -19,7 +19,7 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 text-foreground">
@@ -62,7 +62,7 @@ export default function Error({
           <CardFooter className="flex gap-3 justify-center">
             <Button
               onClick={() => reset()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               Try Again
             </Button>

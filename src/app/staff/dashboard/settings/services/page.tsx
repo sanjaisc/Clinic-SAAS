@@ -261,7 +261,7 @@ export default function ServicesSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <DollarSign className="size-5 text-emerald-600" />
+            <DollarSign className="size-5 text-brand" />
             Self-Pay Flat Rate
           </CardTitle>
           <CardDescription>
@@ -291,7 +291,7 @@ export default function ServicesSettingsPage() {
             <Button
               onClick={handleSaveFlatRate}
               disabled={flatRateSaving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {flatRateSaving ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -319,7 +319,7 @@ export default function ServicesSettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Stethoscope className="size-5 text-emerald-600" />
+                <Stethoscope className="size-5 text-brand" />
                 Service Catalog
               </CardTitle>
               <CardDescription className="mt-1">
@@ -351,14 +351,14 @@ export default function ServicesSettingsPage() {
               {filteredSpecialties.map((specialty) => (
                 <div key={specialty.id}>
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-muted" />
                     {specialty.name}
                   </h3>
                   <div className="space-y-3">
                     {specialty.services.map((service) => (
                       <div
                         key={service.id}
-                        className="border border-border rounded-lg p-4 hover:border-emerald-200 transition-colors"
+                        className="border border-border rounded-lg p-4 hover:border-brand-border transition-colors"
                       >
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -529,7 +529,7 @@ export default function ServicesSettingsPage() {
             <Button
               onClick={handleAssign}
               disabled={assignLoading || !selectedProviderId}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {assignLoading ? (
                 <Loader2 className="size-4 animate-spin" />

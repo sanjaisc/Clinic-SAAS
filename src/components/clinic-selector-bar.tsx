@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ClinicOption } from "@/hooks/use-clinic-context";
 
 const STATUS_STYLES: Record<string, string> = {
-  PUBLISHED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  PUBLISHED: "bg-brand-subtle text-brand-hover border-brand-border",
   DRAFT: "bg-gray-100 text-gray-600 border-gray-200",
   PENDING: "bg-amber-100 text-amber-700 border-amber-200",
   SUSPENDED: "bg-red-100 text-red-700 border-red-200",

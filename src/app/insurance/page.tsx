@@ -86,7 +86,7 @@ export default function InsurancePage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       <PublicNavbar showHome />
 
       {/* ===== Main Content ===== */}
@@ -111,8 +111,8 @@ export default function InsurancePage() {
 
           {/* Page Title */}
           <div className="flex items-center gap-3">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
-              <Shield className="size-6 text-emerald-600" />
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+              <Shield className="size-6 text-brand" />
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">
@@ -126,17 +126,17 @@ export default function InsurancePage() {
 
           {/* ===== Accepted Insurance Providers ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Shield className="size-5 text-emerald-600" />
+                <Shield className="size-5 text-brand" />
                 Accepted Insurance Providers
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="size-6 animate-spin text-emerald-600" />
+                  <Loader2 className="size-6 animate-spin text-brand" />
                   <span className="ml-2 text-sm text-muted-foreground">
                     Loading insurance data...
                   </span>
@@ -160,10 +160,10 @@ export default function InsurancePage() {
                   {insurances.map((ins) => (
                     <div
                       key={ins.id}
-                      className="flex items-start gap-3 rounded-lg border border-border p-4 hover:bg-emerald-50/30 transition-colors"
+                      className="flex items-start gap-3 rounded-lg border border-border p-4 hover:bg-brand-muted/30 transition-colors"
                     >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                        <Shield className="size-4 text-emerald-600" />
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-subtle">
+                        <Shield className="size-4 text-brand" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -176,7 +176,7 @@ export default function InsurancePage() {
                             }
                             className={
                               ins.isDemo
-                                ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] font-semibold"
+                                ? "bg-brand-subtle text-brand-hover border-brand-border text-[10px] font-semibold"
                                 : "bg-secondary text-secondary-foreground text-[10px]"
                             }
                           >
@@ -198,19 +198,19 @@ export default function InsurancePage() {
 
           {/* ===== Payment Methods ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <CreditCard className="size-5 text-emerald-600" />
+                <CreditCard className="size-5 text-brand" />
                 Payment Methods
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Credit/Debit */}
-                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-emerald-50/30 transition-colors">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 mb-3">
-                    <CreditCard className="size-5 text-emerald-600" />
+                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-brand-muted/30 transition-colors">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-subtle mb-3">
+                    <CreditCard className="size-5 text-brand" />
                   </div>
                   <h3 className="font-semibold text-foreground text-sm">
                     Credit / Debit Cards
@@ -222,9 +222,9 @@ export default function InsurancePage() {
                 </div>
 
                 {/* Cash */}
-                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-emerald-50/30 transition-colors">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 mb-3">
-                    <Banknote className="size-5 text-emerald-600" />
+                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-brand-muted/30 transition-colors">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-subtle mb-3">
+                    <Banknote className="size-5 text-brand" />
                   </div>
                   <h3 className="font-semibold text-foreground text-sm">
                     Cash at Desk
@@ -236,9 +236,9 @@ export default function InsurancePage() {
                 </div>
 
                 {/* Insurance Co-Pay */}
-                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-emerald-50/30 transition-colors">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 mb-3">
-                    <FileCheck className="size-5 text-emerald-600" />
+                <div className="flex flex-col items-center text-center p-4 rounded-lg border border-border hover:bg-brand-muted/30 transition-colors">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-subtle mb-3">
+                    <FileCheck className="size-5 text-brand" />
                   </div>
                   <h3 className="font-semibold text-foreground text-sm">
                     Insurance Co-Pay
@@ -254,10 +254,10 @@ export default function InsurancePage() {
 
           {/* ===== FAQ ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <HelpCircle className="size-5 text-emerald-600" />
+                <HelpCircle className="size-5 text-brand" />
                 Frequently Asked Questions
               </CardTitle>
             </CardHeader>
@@ -265,7 +265,7 @@ export default function InsurancePage() {
               <div className="divide-y divide-border">
                 {FAQ_ITEMS.map((item, idx) => (
                   <details key={idx} className="group">
-                    <summary className="flex items-center justify-between py-4 text-foreground font-medium cursor-pointer hover:text-emerald-700 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                    <summary className="flex items-center justify-between py-4 text-foreground font-medium cursor-pointer hover:text-brand-hover transition-colors list-none [&::-webkit-details-marker]:hidden">
                       {item.question}
                       <ChevronDown className="size-4 text-muted-foreground shrink-0 transition-transform group-open:rotate-180" />
                     </summary>

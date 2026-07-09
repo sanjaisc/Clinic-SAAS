@@ -113,12 +113,12 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_COLORS: Record<string, string> = {
   SYSTEM_MANAGER: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   CLINIC_ADMIN: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  CLINIC_RECEPTION: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  CLINIC_RECEPTION: "bg-brand-subtle text-brand ",
 };
 
 const INVITATION_STATUS_STYLES: Record<string, string> = {
   Pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  Accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  Accepted: "bg-brand-subtle text-brand ",
   Expired: "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
 };
 
@@ -565,11 +565,11 @@ export default function AdminUsersPage() {
 
               {/* Show invite link after sending */}
               {inviteLink && (
-                <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                <div className="mt-3 p-3 bg-brand-muted border border-brand-border rounded-lg">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                    <CheckCircle2 className="size-4 text-brand mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                      <p className="text-sm font-medium text-brand">
                         Invitation link generated!
                       </p>
                       <div className="flex items-center gap-2 mt-1.5">
@@ -604,8 +604,8 @@ export default function AdminUsersPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                <Users className="size-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="flex items-center justify-center size-9 rounded-lg bg-brand-subtle ">
+                <Users className="size-5 text-brand-hover" />
               </div>
               <div>
                 <CardTitle className="text-lg">Staff Directory</CardTitle>
@@ -683,7 +683,7 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell>
                         {user.isActive ? (
-                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          <Badge variant="secondary" className="bg-brand-subtle text-brand ">
                             Active
                           </Badge>
                         ) : (

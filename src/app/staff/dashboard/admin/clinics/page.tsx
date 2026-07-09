@@ -139,7 +139,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   PUBLISHED: {
     label: "Published",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    className: "bg-brand-muted text-brand-hover border-brand-border  ",
   },
   SUSPENDED: {
     label: "Suspended",

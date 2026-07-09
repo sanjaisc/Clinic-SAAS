@@ -128,7 +128,7 @@ function ModalityBadge({ modality }: { modality: string }) {
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
         isVideo
           ? "bg-blue-100 text-blue-700"
-          : "bg-emerald-100 text-emerald-700"
+          : "bg-brand-subtle text-brand-hover"
       }`}
     >
       {isVideo ? <Video className="size-3" /> : <Building2 className="size-3" />}
@@ -176,14 +176,14 @@ function SlotSummaryCard({ slotData }: { slotData: SlotData }) {
     .join(", ");
 
   return (
-    <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white">
+    <Card className="border-l-4 border-l-brand shadow-sm bg-white">
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="space-y-1.5 min-w-0">
             {/* Provider */}
             <div className="flex items-center gap-2">
-              <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <Stethoscope className="size-4 text-emerald-700" />
+              <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                <Stethoscope className="size-4 text-brand-hover" />
               </div>
               <p className="text-sm font-semibold text-foreground truncate">{providerName}</p>
             </div>
@@ -201,12 +201,12 @@ function SlotSummaryCard({ slotData }: { slotData: SlotData }) {
           <div className="space-y-1.5 sm:text-right shrink-0 sm:pl-4">
             {/* Date */}
             <div className="flex items-center gap-2 sm:justify-end">
-              <Calendar className="size-3.5 text-emerald-600 shrink-0" />
+              <Calendar className="size-3.5 text-brand shrink-0" />
               <p className="text-xs font-medium text-foreground">{formatSlotDate(slotData.slot.startTime)}</p>
             </div>
             {/* Time */}
             <div className="flex items-center gap-2 sm:justify-end">
-              <Clock className="size-3.5 text-emerald-600 shrink-0" />
+              <Clock className="size-3.5 text-brand shrink-0" />
               <p className="text-xs font-medium text-foreground">{formatSlotTimeOnly(slotData.slot.startTime)}</p>
             </div>
             {/* Modality */}
@@ -238,7 +238,7 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
       <div className="absolute left-0 right-0 top-[calc(50%-1px)] mx-auto max-w-2xl hidden sm:block">
         <div className="h-0.5 bg-gray-200 w-full rounded-full" />
         <div
-          className="h-0.5 bg-emerald-600 rounded-full transition-all duration-500 ease-out"
+          className="h-0.5 bg-brand rounded-full transition-all duration-500 ease-out"
           key={`progress-${currentStep}`}
           style={{
             width: `${((Math.min(currentStep, 3)) / 3) * 100}%`,
@@ -262,14 +262,14 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
               <div className="flex flex-col items-center gap-1.5 relative z-10">
                 <div className="relative">
                   {isActive && (
-                    <div className="absolute inset-0 size-10 rounded-full bg-emerald-200/60 animate-ping" style={{ animationDuration: "2s" }} />
+                    <div className="absolute inset-0 size-10 rounded-full bg-brand-subtle/60 animate-ping" style={{ animationDuration: "2s" }} />
                   )}
                   <div
                     className={`relative flex items-center justify-center size-9 rounded-full text-sm font-semibold transition-all duration-300 ${
                       isCompleted
-                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
+                        ? "bg-brand text-white shadow-md"
                         : isActive
-                        ? "bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-lg shadow-emerald-200"
+                        ? "bg-brand text-white ring-4 ring-brand/10 shadow-lg"
                         : "bg-gray-100 text-gray-400 border border-gray-200"
                     }`}
                   >
@@ -284,24 +284,24 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
                   <span
                     className={`block text-[11px] sm:text-xs leading-tight max-w-[72px] flex items-center gap-1 ${
                       isActive
-                        ? "text-emerald-700 font-semibold"
+                        ? "text-brand-hover font-semibold"
                         : isCompleted
-                        ? "text-emerald-600 font-medium"
+                        ? "text-brand font-medium"
                         : "text-muted-foreground"
                     }`}
                   >
                     {stepInfo.title}
                     {isActive && (
                       <span className="relative flex h-1.5 w-1.5 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-muted" />
                       </span>
                     )}
                   </span>
                   <span
                     className={`block text-[10px] leading-tight max-w-[72px] mt-0.5 ${
                       isActive
-                        ? "text-emerald-500"
+                        ? "text-brand"
                         : "text-muted-foreground/60"
                     }`}
                   >
@@ -316,7 +316,7 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
                   <div
                     className={`h-0.5 rounded-full transition-colors duration-300 ${
                       stepNum < currentStep
-                        ? "bg-emerald-600"
+                        ? "bg-brand"
                         : "bg-gray-200"
                     }`}
                   />
@@ -759,11 +759,11 @@ export default function BookingPage() {
   // ===========================================================================
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <PublicNavbar showHome />
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="size-8 animate-spin text-emerald-600" />
+            <Loader2 className="size-8 animate-spin text-brand" />
             <p className="text-sm text-muted-foreground text-shimmer-loading">Loading appointment details...</p>
           </div>
         </div>
@@ -776,7 +776,7 @@ export default function BookingPage() {
   // ===========================================================================
   if (error || !slotData) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <PublicNavbar showHome />
         <div className="flex-1 flex items-center justify-center py-20 px-4">
           <Card className="max-w-md w-full border-red-200 bg-red-50/30 shadow-sm">
@@ -797,7 +797,7 @@ export default function BookingPage() {
                   <RefreshCw className="size-4" />
                   Try Again
                 </Button>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+                <Button asChild className="bg-brand hover:bg-brand-hover text-white cursor-pointer">
                   <Link href="/">
                     <Search className="size-4" />
                     Back to Search
@@ -816,12 +816,12 @@ export default function BookingPage() {
   // ===========================================================================
   if (step === 4 && appointmentResult) {
     const confettiColors = [
-      "bg-emerald-400", "bg-emerald-500", "bg-amber-400", "bg-amber-300",
-      "bg-emerald-300", "bg-green-400", "bg-lime-400", "bg-teal-300",
+      "bg-brand", "bg-brand-muted", "bg-amber-400", "bg-amber-300",
+      "bg-brand-subtle", "bg-green-400", "bg-lime-400", "bg-teal-300",
     ];
 
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <ConfettiStyles />
         <PublicNavbar showHome />
 
@@ -830,10 +830,10 @@ export default function BookingPage() {
           <div className="relative flex flex-col items-center text-center space-y-5 pt-4">
             {/* Decorative sparkles (CSS-only) */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-              <div className="absolute top-20 left-[15%] size-2 rounded-full bg-emerald-300/40 animate-pulse-subtle" />
+              <div className="absolute top-20 left-[15%] size-2 rounded-full bg-brand-subtle/40 animate-pulse-subtle" />
               <div className="absolute top-32 right-[20%] size-1.5 rounded-full bg-amber-300/40 animate-pulse-subtle" style={{ animationDelay: '0.5s' }} />
               <div className="absolute top-44 left-[25%] size-1 rounded-full bg-teal-300/50 animate-pulse-subtle" style={{ animationDelay: '1s' }} />
-              <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-emerald-400/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
+              <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-brand/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
             </div>
 
             {/* Confetti dots */}
@@ -893,11 +893,11 @@ export default function BookingPage() {
           </div>
 
           {/* Appointment Details Card */}
-          <Card className="shadow-sm border-emerald-200/60">
+          <Card className="shadow-sm border-brand-border">
             <CardContent className="p-5 space-y-3.5">
               <div className="flex items-start gap-3">
-                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Calendar className="size-4 text-emerald-700" />
+                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                  <Calendar className="size-4 text-brand-hover" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{formatSlotTime(appointmentResult.startTime)}</p>
@@ -908,8 +908,8 @@ export default function BookingPage() {
               </div>
               <Separator />
               <div className="flex items-start gap-3">
-                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="size-4 text-emerald-700" />
+                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                  <User className="size-4 text-brand-hover" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{appointmentResult.providerName}</p>
@@ -920,8 +920,8 @@ export default function BookingPage() {
               </div>
               <Separator />
               <div className="flex items-start gap-3">
-                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Building2 className="size-4 text-emerald-700" />
+                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                  <Building2 className="size-4 text-brand-hover" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{appointmentResult.clinicName}</p>
@@ -930,8 +930,8 @@ export default function BookingPage() {
               </div>
               <Separator />
               <div className="flex items-start gap-3">
-                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Shield className="size-4 text-emerald-700" />
+                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                  <Shield className="size-4 text-brand-hover" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Patient: <span className="font-medium text-foreground">{maskName(appointmentResult.patientName)}</span>
@@ -943,8 +943,8 @@ export default function BookingPage() {
                 <>
                   <Separator />
                   <div className="flex items-start gap-3">
-                    <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                      <CreditCard className="size-4 text-emerald-700" />
+                    <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                      <CreditCard className="size-4 text-brand-hover" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">
@@ -959,10 +959,10 @@ export default function BookingPage() {
           </Card>
 
           {/* Token Management */}
-          <Card className="border-emerald-200 bg-emerald-50/40 shadow-sm">
+          <Card className="border-brand-border bg-brand-muted/40 shadow-sm">
             <CardContent className="p-5 space-y-4">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Shield className="size-4 text-emerald-600" />
+                <Shield className="size-4 text-brand" />
                 Manage Your Appointment
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -1023,8 +1023,8 @@ export default function BookingPage() {
             <div className="grid gap-3">
               <Card className="shadow-sm">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Mail className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                    <Mail className="size-4 text-brand-hover" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Confirmation Email</p>
@@ -1034,8 +1034,8 @@ export default function BookingPage() {
               </Card>
               <Card className="shadow-sm">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <FileText className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                    <FileText className="size-4 text-brand-hover" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Complete Intake Forms</p>
@@ -1045,8 +1045,8 @@ export default function BookingPage() {
               </Card>
               <Card className="shadow-sm">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Timer className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                    <Timer className="size-4 text-brand-hover" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Arrive Early</p>
@@ -1059,7 +1059,7 @@ export default function BookingPage() {
 
           {/* Book Another */}
           <div className="flex justify-center pt-2 pb-4">
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+            <Button asChild className="bg-brand hover:bg-brand-hover text-white cursor-pointer">
               <Link href="/">
                 <Search className="size-4" />
                 Book Another Appointment
@@ -1075,7 +1075,7 @@ export default function BookingPage() {
   // Steps 1-3 — Wizard with Progress Bar
   // ===========================================================================
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
       <PublicNavbar showHome />
 
       {/* ===== Slot Summary Card (visible on all steps) ===== */}
@@ -1100,7 +1100,7 @@ export default function BookingPage() {
               </p>
             </div>
 
-            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
+            <Card className="shadow-sm input-focus-glow card-glow-brand border-transition">
               <CardContent className="p-5 space-y-5">
                 {/* Reason for Visit */}
                 <div className="space-y-2">
@@ -1232,7 +1232,7 @@ export default function BookingPage() {
                         <SelectItem key={ins.id} value={ins.id} className="cursor-pointer">
                           {ins.name}
                           {ins.isDemo && (
-                            <Badge variant="outline" className="ml-2 text-emerald-600 border-emerald-300 text-[10px] px-1.5 py-0">
+                            <Badge variant="outline" className="ml-2 text-brand border-brand-border text-[10px] px-1.5 py-0">
                               Demo
                             </Badge>
                           )}
@@ -1245,7 +1245,7 @@ export default function BookingPage() {
                   {selectedInsurance && (
                     <div className="animate-in fade-in slide-in-from-top-1 duration-200">
                       {selectedInsurance.isDemo ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-default">
+                        <Badge className="bg-brand-subtle text-brand-hover border-brand-border hover:bg-brand-subtle cursor-default">
                           <CheckCircle2 className="size-3 mr-1" />
                           $0 Copay — Demo Plan
                         </Badge>
@@ -1294,9 +1294,9 @@ export default function BookingPage() {
             </Card>
 
             {/* Payment Summary Preview */}
-            <Card className="shadow-sm border-emerald-200/60 bg-emerald-50/30">
+            <Card className="shadow-sm border-brand-border bg-brand-muted/30">
               <CardContent className="p-4">
-                <h3 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-brand uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <CreditCard className="size-3.5" />
                   Payment Summary
                 </h3>
@@ -1329,14 +1329,14 @@ export default function BookingPage() {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Estimated Cost</span>
-                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
                       {isDemoInsurance ? "Free" : isUninsured ? formatCents(selfPayCents) : costLabel}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Deposit</span>
-                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
                       {isDemoInsurance ? "$0 deposit (Demo)" : depositCents > 0 ? `${formatCents(depositCents)} deposit required` : "No deposit required"}
                     </span>
                   </div>
@@ -1356,7 +1356,7 @@ export default function BookingPage() {
               </p>
             </div>
 
-            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
+            <Card className="shadow-sm input-focus-glow card-glow-brand border-transition">
               <CardContent className="p-5 space-y-4">
                 {/* Patient Name */}
                 <div className="space-y-2">
@@ -1435,8 +1435,8 @@ export default function BookingPage() {
               <CardContent className="p-5 space-y-3.5">
                 {/* Provider */}
                 <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="size-4 text-brand-hover" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">{providerDisplayName}</p>
@@ -1450,8 +1450,8 @@ export default function BookingPage() {
 
                 {/* Clinic */}
                 <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <Building2 className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                    <Building2 className="size-4 text-brand-hover" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">{slotData.clinic.name}</p>
@@ -1463,8 +1463,8 @@ export default function BookingPage() {
 
                 {/* Date / Time / Modality */}
                 <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <Calendar className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                    <Calendar className="size-4 text-brand-hover" />
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm">{formatSlotTime(slotData.slot.startTime)}</p>
@@ -1476,11 +1476,11 @@ export default function BookingPage() {
 
                 {/* Patient Type */}
                 <div className="flex items-center gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
                     {patientType === "PEDIATRIC" ? (
-                      <Baby className="size-4 text-emerald-700" />
+                      <Baby className="size-4 text-brand-hover" />
                     ) : (
-                      <User className="size-4 text-emerald-700" />
+                      <User className="size-4 text-brand-hover" />
                     )}
                   </div>
                   <p className="text-sm">
@@ -1505,8 +1505,8 @@ export default function BookingPage() {
 
                 {/* Reason */}
                 <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <AlertCircle className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertCircle className="size-4 text-brand-hover" />
                   </div>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-medium text-foreground">Reason:</span>{" "}
@@ -1520,8 +1520,8 @@ export default function BookingPage() {
 
                 {/* Patient Name (masked) */}
                 <div className="flex items-center gap-3">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Shield className="size-4 text-emerald-700" />
+                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                    <Shield className="size-4 text-brand-hover" />
                   </div>
                   <p className="text-sm">
                     <span className="text-muted-foreground">Patient:</span>{" "}
@@ -1532,9 +1532,9 @@ export default function BookingPage() {
             </Card>
 
             {/* Cost Breakdown Card */}
-            <Card className="shadow-sm border-emerald-200/60 bg-emerald-50/30">
+            <Card className="shadow-sm border-brand-border bg-brand-muted/30">
               <CardContent className="p-5 space-y-3">
-                <h3 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-brand uppercase tracking-wider flex items-center gap-1.5">
                   <CreditCard className="size-3.5" />
                   Cost Breakdown
                 </h3>
@@ -1570,7 +1570,7 @@ export default function BookingPage() {
                       <DollarSign className="size-3.5" />
                       {isUninsured ? "Self-Pay Rate" : "Copay"}
                     </div>
-                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
                       {isDemoInsurance ? "$25 Copay" : isUninsured ? formatCents(selfPayCents) : "Covered"}
                     </span>
                   </div>
@@ -1583,7 +1583,7 @@ export default function BookingPage() {
                       <CreditCard className="size-3.5" />
                       Deposit
                     </div>
-                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
                       {isDemoInsurance ? "$0 deposit (Demo)" : depositCents > 0 ? `${formatCents(depositCents)} deposit required` : "No deposit required"}
                     </span>
                   </div>
@@ -1659,9 +1659,11 @@ export default function BookingPage() {
 
             {/* Confirm Button */}
             <Button
+              variant="brand"
+              size="cta"
               onClick={handleConfirm}
               disabled={isSubmitting || !agreed}
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold cursor-pointer shadow-md shadow-emerald-200"
+              className="w-full shadow-md"
             >
               {isSubmitting ? (
                 <>
@@ -1700,7 +1702,7 @@ export default function BookingPage() {
                   (step === 1 && !validateStep1()) ||
                   (step === 2 && !validateStep2())
                 }
-                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm btn-icon-slide-next"
+                className="bg-brand hover:bg-brand-hover text-white cursor-pointer shadow-sm btn-icon-slide-next"
               >
                 Continue
                 <ArrowRight className="size-4 icon-slide-right" />

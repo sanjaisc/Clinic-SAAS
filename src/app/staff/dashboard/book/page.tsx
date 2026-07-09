@@ -437,7 +437,7 @@ export default function ManualBookPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-8 text-emerald-600 animate-spin" />
+          <Loader2 className="size-8 text-brand animate-spin" />
           <p className="text-sm text-muted-foreground">Loading booking data...</p>
         </div>
       </div>
@@ -457,7 +457,7 @@ export default function ManualBookPage() {
           <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted rounded-full" />
           {/* Progress fill */}
           <div
-            className="absolute top-4 left-0 h-0.5 bg-emerald-500 rounded-full transition-all duration-500 ease-out"
+            className="absolute top-4 left-0 h-0.5 bg-brand-muted rounded-full transition-all duration-500 ease-out"
             style={{ width: `${((Math.min(step, 4) - 1) / 3) * 100}%` }}
           />
 
@@ -476,9 +476,9 @@ export default function ManualBookPage() {
                   className={cn(
                     "flex items-center justify-center rounded-full transition-all duration-300",
                     isActive
-                      ? "size-9 bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
+                      ? "size-9 bg-brand text-white shadow-lg shadow-brand/25"
                       : isComplete
-                        ? "size-8 bg-emerald-500 text-white"
+                        ? "size-8 bg-brand-muted text-white"
                         : "size-8 bg-muted text-muted-foreground"
                   )}
                 >
@@ -492,9 +492,9 @@ export default function ManualBookPage() {
                   className={cn(
                     "text-xs mt-2 font-medium hidden sm:block",
                     isActive
-                      ? "text-emerald-700"
+                      ? "text-brand-hover"
                       : isComplete
-                        ? "text-emerald-600"
+                        ? "text-brand"
                         : "text-muted-foreground"
                   )}
                 >
@@ -533,16 +533,16 @@ export default function ManualBookPage() {
                 className={cn(
                   "flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
                   isSelected
-                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
-                    : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+                    ? "border-brand bg-brand-muted shadow-sm"
+                    : "border-border hover:border-brand-border hover:bg-brand-muted/50"
                 )}
               >
                 <div
                   className={cn(
                     "size-10 rounded-full flex items-center justify-center shrink-0",
                     isSelected
-                      ? "bg-emerald-600 text-white"
-                      : "bg-emerald-100 text-emerald-700"
+                      ? "bg-brand text-white"
+                      : "bg-brand-subtle text-brand-hover"
                   )}
                 >
                   <Stethoscope className="size-4" />
@@ -563,7 +563,7 @@ export default function ManualBookPage() {
                   </p>
                 </div>
                 {isSelected && (
-                  <Check className="size-5 text-emerald-600 ml-auto shrink-0" />
+                  <Check className="size-5 text-brand ml-auto shrink-0" />
                 )}
               </button>
             );
@@ -628,7 +628,7 @@ export default function ManualBookPage() {
 
             {slotsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-6 text-emerald-600 animate-spin" />
+                <Loader2 className="size-6 text-brand animate-spin" />
               </div>
             ) : slots.length === 0 ? (
               <Card className="shadow-sm">
@@ -650,8 +650,8 @@ export default function ManualBookPage() {
                 {inPersonSlots.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Building2 className="size-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-700">
+                      <Building2 className="size-3.5 text-brand" />
+                      <span className="text-xs font-medium text-brand-hover">
                         In-Person
                       </span>
                     </div>
@@ -665,15 +665,15 @@ export default function ManualBookPage() {
                             className={cn(
                               "flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer",
                               isSelected
-                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
-                                : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+                                ? "border-brand bg-brand-muted shadow-sm"
+                                : "border-border hover:border-brand-border hover:bg-brand-muted/50"
                             )}
                           >
                             <span
                               className={cn(
                                 "text-sm font-semibold",
                                 isSelected
-                                  ? "text-emerald-700"
+                                  ? "text-brand-hover"
                                   : "text-foreground"
                               )}
                             >
@@ -755,10 +755,10 @@ export default function ManualBookPage() {
 
         {/* Selected slot summary */}
         {selectedSlot && selectedProvider && (
-          <Card className="shadow-sm border-l-4 border-l-emerald-500">
+          <Card className="shadow-sm border-l-4 border-l-brand">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <Calendar className="size-4 text-emerald-700" />
+              <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                <Calendar className="size-4 text-brand-hover" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">
@@ -789,14 +789,14 @@ export default function ManualBookPage() {
           >
             <ToggleGroupItem
               value="ADULT"
-              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-brand-subtle data-[state=on]:text-brand-hover cursor-pointer"
             >
               <User className="size-4" />
               Adult
             </ToggleGroupItem>
             <ToggleGroupItem
               value="PEDIATRIC"
-              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-brand-subtle data-[state=on]:text-brand-hover cursor-pointer"
             >
               <Baby className="size-4" />
               Pediatric
@@ -962,15 +962,15 @@ export default function ManualBookPage() {
                     className={cn(
                       "flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
                       isSelected
-                        ? "border-emerald-500 bg-emerald-50 shadow-sm"
-                        : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+                        ? "border-brand bg-brand-muted shadow-sm"
+                        : "border-border hover:border-brand-border hover:bg-brand-muted/50"
                     )}
                   >
                     <div
                       className={cn(
                         "size-8 rounded-full flex items-center justify-center shrink-0",
                         isSelected
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-brand text-white"
                           : "bg-muted text-muted-foreground"
                       )}
                     >
@@ -987,16 +987,16 @@ export default function ManualBookPage() {
                       </p>
                     </div>
                     {isSelected && (
-                      <Check className="size-4 text-emerald-600 ml-auto shrink-0" />
+                      <Check className="size-4 text-brand ml-auto shrink-0" />
                     )}
                   </button>
                 );
               })}
             </div>
           ) : availableServices.length === 1 ? (
-            <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
+            <div className="p-4 rounded-xl border-2 border-brand-border bg-brand-muted/50">
               <div className="flex items-center gap-3">
-                <div className="size-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <div className="size-8 rounded-full bg-brand text-white flex items-center justify-center shrink-0">
                   <ClipboardList className="size-3.5" />
                 </div>
                 <div>
@@ -1046,7 +1046,7 @@ export default function ManualBookPage() {
             </p>
           )}
           {selectedInsurance?.isDemo && (
-            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+            <Badge className="bg-brand-subtle text-brand-hover border-brand-border">
               Demo Plan — $0 Copay
             </Badge>
           )}
@@ -1105,7 +1105,7 @@ export default function ManualBookPage() {
         {/* Provider & Slot */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-hover">
               <Calendar className="size-4" />
               Appointment
             </div>
@@ -1154,7 +1154,7 @@ export default function ManualBookPage() {
         {/* Patient Info */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-hover">
               <User className="size-4" />
               Patient Information
             </div>
@@ -1207,7 +1207,7 @@ export default function ManualBookPage() {
         {/* Visit Details */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-hover">
               <FileText className="size-4" />
               Visit Details
             </div>
@@ -1261,8 +1261,8 @@ export default function ManualBookPage() {
       <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 space-y-6">
         {/* Success header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex size-16 rounded-full bg-emerald-100 items-center justify-center">
-            <CheckCircle2 className="size-8 text-emerald-600" />
+          <div className="inline-flex size-16 rounded-full bg-brand-subtle items-center justify-center">
+            <CheckCircle2 className="size-8 text-brand" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-foreground">
@@ -1277,7 +1277,7 @@ export default function ManualBookPage() {
         {/* Appointment details card */}
         <Card className="shadow-sm rounded-xl">
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-hover">
               <Calendar className="size-4" />
               Appointment Details
             </div>
@@ -1313,9 +1313,9 @@ export default function ManualBookPage() {
         </Card>
 
         {/* Management link */}
-        <Card className="shadow-sm rounded-xl border-emerald-200 bg-emerald-50/30">
+        <Card className="shadow-sm rounded-xl border-brand-border bg-brand-muted/30">
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-hover">
               <Shield className="size-4" />
               Patient Management Link
             </div>
@@ -1332,7 +1332,7 @@ export default function ManualBookPage() {
                 </span>
                 <button
                   onClick={handleCopyToken}
-                  className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium cursor-pointer"
                 >
                   {copied ? (
                     <>
@@ -1388,7 +1388,7 @@ export default function ManualBookPage() {
               });
               setSlots([]);
             }}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 cursor-pointer"
+            className="flex-1 bg-brand hover:bg-brand-hover shadow-md cursor-pointer"
           >
             <CalendarPlus className="size-4 mr-2" />
             Book Another Appointment
@@ -1406,8 +1406,8 @@ export default function ManualBookPage() {
     <div className="max-w-3xl mx-auto space-y-2">
       {/* Page header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-          <CalendarPlus className="size-5 text-emerald-600" />
+        <div className="size-10 rounded-xl bg-brand-subtle flex items-center justify-center">
+          <CalendarPlus className="size-5 text-brand" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Manual Booking</h1>
@@ -1463,7 +1463,7 @@ export default function ManualBookPage() {
           {step < 4 ? (
             <Button
               onClick={handleNext}
-              className="bg-emerald-600 hover:bg-emerald-700 shadow-sm cursor-pointer rounded-xl"
+              className="bg-brand hover:bg-brand-hover shadow-sm cursor-pointer rounded-xl"
             >
               Continue
               <ArrowRight className="size-4 ml-2" />
@@ -1472,7 +1472,7 @@ export default function ManualBookPage() {
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 cursor-pointer rounded-xl"
+              className="bg-brand hover:bg-brand-hover shadow-md cursor-pointer rounded-xl"
             >
               {submitting ? (
                 <>
@@ -1511,7 +1511,7 @@ function ReviewRow({
   return (
     <div className={full ? "sm:col-span-2" : ""}>
       <div className="flex items-start gap-2">
-        <div className="size-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 text-emerald-700">
+        <div className="size-6 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5 text-brand-hover">
           {icon}
         </div>
         <div className="min-w-0">

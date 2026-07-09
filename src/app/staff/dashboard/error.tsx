@@ -23,7 +23,7 @@ export default function Error({
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <svg className="size-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="size-6 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
               <path d="M5.5 8.5 2 2L12 12" />
@@ -62,7 +62,7 @@ export default function Error({
           <CardFooter className="flex gap-3 justify-center">
             <Button
               onClick={() => reset()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               Try Again
             </Button>

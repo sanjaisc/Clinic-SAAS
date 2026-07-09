@@ -368,7 +368,7 @@ function PeriodSelector({
               opt.value === "custom" && value === "custom"
                 ? "bg-amber-500 text-white shadow-sm shadow-amber-500/25"
                 : value === opt.value
-                  ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25"
+                  ? "bg-brand text-white shadow-sm shadow-brand/25"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/60"
             }`}
           >
@@ -428,7 +428,7 @@ function PeriodSelector({
               <Button
                 ref={applyRef}
                 size="sm"
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+                className="text-xs bg-brand hover:bg-brand-hover cursor-pointer"
                 disabled={!from || !to}
                 onClick={handleApply}
               >
@@ -630,8 +630,8 @@ export default function AnalyticsPage() {
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <Activity className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+              <Activity className="size-4 text-brand" />
             </div>
             <div>
               <CardTitle className="text-base">Appointment Volume</CardTitle>
@@ -735,8 +735,8 @@ export default function AnalyticsPage() {
         <Card className="border-border/50 shadow-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
-              <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                <Users className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                <Users className="size-4 text-brand" />
               </div>
               <div>
                 <CardTitle className="text-base">Telehealth vs In-Person</CardTitle>
@@ -911,8 +911,8 @@ export default function AnalyticsPage() {
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <DollarSign className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+              <DollarSign className="size-4 text-brand" />
             </div>
             <div>
               <CardTitle className="text-base">Deposit Capture Volume</CardTitle>
@@ -981,16 +981,16 @@ export default function AnalyticsPage() {
           value={data.summary.totalAppointments}
           subtitle={`${data.summary.avgDaily} per day average`}
           icon={CalendarDays}
-          gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
-          iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+          gradient="bg-gradient-to-r from-brand to-teal-500"
+          iconBg="bg-brand-subtle  text-brand"
         />
         <StatCard
           title="Completion Rate"
           value={`${data.summary.completionRate}%`}
           subtitle={`${data.dailyTrends.reduce((s, d) => s + d.completed, 0)} completed`}
           icon={CheckCircle2}
-          gradient="bg-gradient-to-r from-emerald-500 to-green-500"
-          iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+          gradient="bg-gradient-to-r from-brand to-green-500"
+          iconBg="bg-brand-subtle  text-brand"
         />
         <StatCard
           title="Cancellation Rate"
@@ -1016,8 +1016,8 @@ export default function AnalyticsPage() {
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <Star className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+              <Star className="size-4 text-brand" />
             </div>
             <div>
               <CardTitle className="text-base">Provider Performance</CardTitle>
@@ -1073,8 +1073,8 @@ export default function AnalyticsPage() {
                     >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                            <Users className="size-3.5 text-emerald-700 dark:text-emerald-300" />
+                          <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                            <Users className="size-3.5 text-brand-hover" />
                           </div>
                           <span className="font-medium text-foreground text-sm">
                             {provider.name}
@@ -1087,7 +1087,7 @@ export default function AnalyticsPage() {
                       <td className="text-center py-3 px-3">
                         <Badge
                           variant="outline"
-                          className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-xs"
+                          className="bg-brand-muted text-brand-hover border-brand-border text-xs"
                         >
                           <CheckCircle2 className="size-3 mr-1" />
                           {provider.completed}
@@ -1109,7 +1109,7 @@ export default function AnalyticsPage() {
                               ? "text-red-600 dark:text-red-400"
                               : provider.noShowRate >= 10
                                 ? "text-amber-600 dark:text-amber-400"
-                                : "text-emerald-600 dark:text-emerald-400"
+                                : "text-brand"
                           }`}
                         >
                           {provider.noShowRate}%

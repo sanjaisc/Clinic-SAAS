@@ -114,7 +114,7 @@ export default function SettingsLayout({
                   flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
                   ${
                     isActive
-                      ? "border-emerald-500 text-emerald-700"
+                      ? "border-brand text-brand-hover"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                   }
                 `}

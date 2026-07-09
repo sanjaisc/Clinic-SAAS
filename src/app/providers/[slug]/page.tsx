@@ -130,7 +130,7 @@ function RatingProgressBar({ label, value, max = 5 }: { label: string; value: nu
       <span className="w-28 shrink-0 text-muted-foreground text-right">{label}</span>
       <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
         <div
-          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+          className="h-full rounded-full bg-brand-muted transition-all duration-500"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -249,7 +249,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       <PublicNavbar showHome />
 
       {/* ===== Main Content ===== */}
@@ -278,11 +278,11 @@ export default async function ProviderProfilePage({ params }: PageProps) {
           {/* ===== Hero Section ===== */}
           <Card className="overflow-hidden shadow-md">
             {/* Parallax hero gradient — CSS only */}
-            <div className="h-2 rounded-t-lg bg-gradient-to-r from-emerald-400 to-teal-500 bg-[length:200%_200%] bg-gradient-animated" />
+            <div className="h-2 rounded-t-lg bg-gradient-to-r from-brand to-teal-500 bg-[length:200%_200%] bg-gradient-animated" />
             <CardContent className="p-6 space-y-4">
               <div className="flex flex-col sm:flex-row gap-5">
                 {/* Avatar */}
-                <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-emerald-200 text-emerald-700 text-2xl font-bold">
+                <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-brand-subtle ring-4 ring-brand/20 text-brand-hover text-2xl font-bold">
                   {provider.firstName.charAt(0)}{provider.lastName.charAt(0)}
                 </div>
 
@@ -294,9 +294,9 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                           {displayName}
                         </h1>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50/80 px-2 py-0.5">
-                          <ShieldCheck className="size-3 text-emerald-600" />
-                          <span className="text-[10px] font-medium text-emerald-700 leading-none">Verified</span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-muted/80 px-2 py-0.5">
+                          <ShieldCheck className="size-3 text-brand" />
+                          <span className="text-[10px] font-medium text-brand-hover leading-none">Verified</span>
                         </span>
                       </div>
 
@@ -306,7 +306,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                           {specialtiesList.map((spec) => (
                             <Badge
                               key={spec.id}
-                              className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-default"
+                              className="bg-brand-subtle text-brand-hover border-brand-border hover:bg-brand-subtle cursor-default"
                             >
                               <Stethoscope className="size-3 mr-1" />
                               {spec.name}
@@ -320,7 +320,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                         <Building2 className="size-4 shrink-0" />
                         <Link
                           href={`/clinic/${provider.clinic.slug}`}
-                          className="hover:text-emerald-700 hover:underline transition-colors cursor-pointer"
+                          className="hover:text-brand-hover hover:underline transition-colors cursor-pointer"
                         >
                           {provider.clinic.name}
                         </Link>
@@ -347,8 +347,8 @@ export default async function ProviderProfilePage({ params }: PageProps) {
           <div className="grid grid-cols-3 gap-4">
             <Card className="text-center p-4">
               <div className="flex justify-center mb-2">
-                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Clock className="size-5 text-emerald-600" />
+                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+                  <Clock className="size-5 text-brand" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground">
@@ -358,8 +358,8 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             </Card>
             <Card className="text-center p-4">
               <div className="flex justify-center mb-2">
-                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CalendarCheck className="size-5 text-emerald-600" />
+                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+                  <CalendarCheck className="size-5 text-brand" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground">
@@ -369,8 +369,8 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             </Card>
             <Card className="text-center p-4">
               <div className="flex justify-center mb-2">
-                <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Award className="size-5 text-emerald-600" />
+                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+                  <Award className="size-5 text-brand" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground">
@@ -385,12 +385,12 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="size-5 text-emerald-600" />
+                  <Users className="size-5 text-brand" />
                   About
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border-l-4 border-l-emerald-400 pl-4">
+                <div className="border-l-4 border-l-brand pl-4">
                   <ExpandableText maxLines={3}>
                     {provider.bio}
                   </ExpandableText>
@@ -404,10 +404,10 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             {/* Services */}
             {provider.providerServices.length > 0 && (
               <Card className="overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Stethoscope className="size-5 text-emerald-600" />
+                    <Stethoscope className="size-5 text-brand" />
                     Services
                   </CardTitle>
                 </CardHeader>
@@ -417,7 +417,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                       <Badge
                         key={ps.serviceId}
                         variant="outline"
-                        className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 transition-colors cursor-default"
+                        className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 transition-colors cursor-default"
                       >
                         {ps.service.name}
                       </Badge>
@@ -430,10 +430,10 @@ export default async function ProviderProfilePage({ params }: PageProps) {
             {/* Languages */}
             {provider.languages.length > 0 && (
               <Card className="overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Globe className="size-5 text-emerald-600" />
+                    <Globe className="size-5 text-brand" />
                     Languages
                   </CardTitle>
                 </CardHeader>
@@ -443,7 +443,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                       <Badge
                         key={pl.languageId}
                         variant="outline"
-                        className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 transition-colors cursor-default"
+                        className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 transition-colors cursor-default"
                       >
                         {pl.language.name}
                       </Badge>
@@ -456,10 +456,10 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
           {/* ===== Availability Calendar (Zocdoc-style week view) ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarDays className="size-5 text-emerald-600" />
+                <CalendarDays className="size-5 text-brand" />
                 Available Appointments
               </CardTitle>
             </CardHeader>
@@ -476,13 +476,13 @@ export default async function ProviderProfilePage({ params }: PageProps) {
           {/* ===== Reviews Section ===== */}
           {provider.reviews.length > 0 && (
             <div className="space-y-6">
-              <div className="h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
+              <div className="h-px bg-gradient-to-r from-transparent via-brand-subtle to-transparent" />
 
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Star className="size-5 text-emerald-600 fill-emerald-600" />
+                      <Star className="size-5 text-brand fill-brand" />
                       Patient Reviews
                     </CardTitle>
                     <span className="text-sm text-muted-foreground">
@@ -507,7 +507,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                     {provider.reviews.map((review) => (
                       <div
                         key={review.id}
-                        className="rounded-lg border border-border p-4 space-y-2 hover:bg-muted/20 transition-all duration-200 border-l-2 hover:border-l-4 hover:border-l-emerald-400"
+                        className="rounded-lg border border-border p-4 space-y-2 hover:bg-muted/20 transition-all duration-200 border-l-2 hover:border-l-4 hover:border-l-brand"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
                             {maskPatientName(review.appointment?.patientName ?? "Anonymous")}
                           </span>
                           {review.isVerified && (
-                            <span className="inline-flex items-center gap-0.5 text-emerald-600">
+                            <span className="inline-flex items-center gap-0.5 text-brand">
                               <ShieldCheck className="size-3" />
                               Verified
                             </span>
@@ -545,10 +545,10 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
           {/* ===== Contact Info ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+            <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="size-5 text-emerald-600" />
+                <Building2 className="size-5 text-brand" />
                 Contact Info
               </CardTitle>
             </CardHeader>
@@ -556,19 +556,19 @@ export default async function ProviderProfilePage({ params }: PageProps) {
               {/* Clinic Name */}
               <Link
                 href={`/clinic/${provider.clinic.slug}`}
-                className="font-semibold text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                className="font-semibold text-foreground hover:text-brand-hover transition-colors cursor-pointer"
               >
                 {provider.clinic.name}
               </Link>
 
               {/* Address */}
               <div className="flex items-start gap-3">
-                <MapPin className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                <MapPin className="size-4 text-brand shrink-0 mt-0.5" />
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
                 >
                   {fullAddress}
                   <ExternalLink className="inline size-3 ml-1" />
@@ -577,10 +577,10 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
               {/* Phone */}
               <div className="flex items-center gap-3">
-                <Phone className="size-4 text-emerald-600 shrink-0" />
+                <Phone className="size-4 text-brand shrink-0" />
                 <a
                   href={`tel:${provider.clinic.phoneNumber}`}
-                  className="text-sm text-muted-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
                 >
                   {provider.clinic.phoneNumber}
                 </a>
@@ -594,7 +594,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
               >
                 <Button
                   variant="outline"
-                  className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
+                  className="w-full mt-2 border-brand-border text-brand-hover hover:bg-brand-muted hover:border-brand cursor-pointer"
                 >
                   <MapPin className="size-4 mr-2" />
                   View on Google Maps

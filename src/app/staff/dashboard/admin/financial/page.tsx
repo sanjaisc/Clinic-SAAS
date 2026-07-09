@@ -315,7 +315,7 @@ function PaymentExceptionsTab() {
               </div>
             ) : exceptions.length === 0 ? (
               <div className="p-8 text-center">
-                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+                <CheckCircle2 className="size-8 text-brand mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No exceptions found</p>
               </div>
             ) : (
@@ -348,7 +348,7 @@ function PaymentExceptionsTab() {
                       </TableCell>
                       <TableCell className="text-right">
                         {exc.resolved ? (
-                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+                          <Badge variant="outline" className="text-brand border-brand-border bg-brand-muted ">
                             <CheckCircle2 className="size-3 mr-1" />
                             Resolved
                           </Badge>
@@ -477,7 +477,7 @@ function getActionBadgeColor(action: string) {
     return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200";
   }
   if (action.includes("CREATED") || action.includes("COMPLETED") || action.includes("ACCEPTED") || action.includes("PUBLISHED") || action.includes("SUBMITTED")) {
-    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200";
+    return "bg-brand-subtle text-brand-hover  border-brand-border";
   }
   if (action.includes("UPDATED") || action.includes("RESCHEDULED") || action.includes("RESOLVED") || action.includes("CAPTURED")) {
     return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200";
@@ -876,7 +876,7 @@ function ErrorLogsTab() {
               </div>
             ) : logs.length === 0 ? (
               <div className="p-8 text-center">
-                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+                <CheckCircle2 className="size-8 text-brand mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No error logs found</p>
               </div>
             ) : (
@@ -929,7 +929,7 @@ function ErrorLogsTab() {
                           </TableCell>
                           <TableCell>
                             {log.resolved ? (
-                              <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 text-xs">
+                              <Badge variant="outline" className="text-brand border-brand-border bg-brand-muted text-xs">
                                 <CheckCircle2 className="size-3 mr-1" />
                                 Resolved
                               </Badge>
@@ -983,7 +983,7 @@ function ErrorLogsTab() {
                                   </p>
                                 )}
                                 {log.resolved && log.resolvedAt && (
-                                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                  <p className="text-xs text-brand">
                                     Resolved at: {format(new Date(log.resolvedAt), "MMM d, yyyy HH:mm")}
                                     {log.resolvedBy && ` by ${log.resolvedBy}`}
                                   </p>

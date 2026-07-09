@@ -103,7 +103,7 @@ function ModalityBadge({ modality }: { modality: string }) {
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
         isVideo
           ? "bg-blue-100 text-blue-700"
-          : "bg-emerald-100 text-emerald-700"
+          : "bg-brand-subtle text-brand-hover"
       }`}
     >
       {isVideo ? "Video" : "In-Clinic"}
@@ -180,16 +180,16 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
 
   return (
     <Card
-      className={`w-full max-w-3xl mx-auto transition-all duration-200 hover:scale-[1.005] hover:shadow-lg hover:border-l-4 hover:border-l-emerald-400 hover:bg-gradient-to-br hover:from-white hover:to-emerald-50/40 py-0 gap-0 stagger-fade-in`}
+      className={`w-full max-w-3xl mx-auto transition-all duration-200 hover:scale-[1.005] hover:shadow-lg hover:border-l-4 hover:border-l-brand hover:bg-gradient-to-br hover:from-white hover:to-brand-muted/40 py-0 gap-0 stagger-fade-in`}
       style={{ animationDelay: `${staggerDelay}ms`, animationFillMode: "both" }}
     >
       <CardContent className="p-4 space-y-3">
         {/* Top row: Avatar + Info + Cost Badge */}
         <div className="flex gap-4">
           {/* Avatar with ring */}
-          <Avatar className="size-16 shrink-0 rounded-full bg-emerald-100 ring-2 ring-emerald-200">
+          <Avatar className="size-16 shrink-0 rounded-full bg-brand-subtle ring-2 ring-brand/20">
             {provider.photoUrl && <AvatarImage src={provider.photoUrl} alt={displayName} />}
-            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-base font-semibold rounded-full">
+            <AvatarFallback className="bg-brand-subtle text-brand-hover text-base font-semibold rounded-full">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -201,19 +201,19 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
               <div className="flex items-center gap-1.5 min-w-0">
                 <Link
                   href={`/providers/${provider.slug}`}
-                  className="text-lg font-semibold leading-tight truncate hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="text-lg font-semibold leading-tight truncate hover:text-brand-hover transition-colors cursor-pointer"
                 >
                   {displayName}
                 </Link>
-                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50/80 px-1.5 py-0.5">
-                  <ShieldCheck className="size-3 text-emerald-600" />
-                  <span className="text-[10px] font-medium text-emerald-700 leading-none">Verified</span>
+                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-brand-border bg-brand-muted/80 px-1.5 py-0.5">
+                  <ShieldCheck className="size-3 text-brand" />
+                  <span className="text-[10px] font-medium text-brand-hover leading-none">Verified</span>
                 </span>
               </div>
               {provider.costBadge && (
                 <Badge
                   variant="outline"
-                  className="shrink-0 border-emerald-300 text-sm font-semibold text-emerald-700 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50"
+                  className="shrink-0 border-brand-border text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-muted via-teal-50 to-brand-muted"
                 >
                   {provider.costBadge}
                 </Badge>
@@ -225,13 +225,13 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
               <Building2 className="size-3.5 shrink-0" />
               <Link
                 href={`/clinic/${provider.clinic.slug}`}
-                className="truncate hover:underline hover:text-emerald-700 transition-colors cursor-pointer"
+                className="truncate hover:underline hover:text-brand-hover transition-colors cursor-pointer"
               >
                 {provider.clinic.name}
               </Link>
               <a
                 href={`tel:${provider.clinic.phoneNumber}`}
-                className="shrink-0 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                className="shrink-0 text-brand hover:text-brand-hover transition-colors cursor-pointer"
                 title={`Call ${provider.clinic.name}`}
                 aria-label={`Call ${provider.clinic.name} at ${provider.clinic.phoneNumber}`}
               >
@@ -246,7 +246,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                 {address}
               </span>
               {provider.distance != null && (
-                <span className="shrink-0 font-medium text-emerald-600 whitespace-nowrap">
+                <span className="shrink-0 font-medium text-brand whitespace-nowrap">
                   <span className="mx-1 text-border">·</span>
                   {formatDistance(provider.distance)} away
                 </span>
@@ -283,7 +283,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                       className={`cursor-pointer inline-flex flex-col items-start rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-sm animate-pulse-subtle
                         ${isVideo
                           ? "border-l-4 border-l-blue-400 border-border hover:bg-blue-50 hover:border-blue-300"
-                          : "border-l-4 border-l-emerald-400 border-border hover:bg-emerald-50 hover:border-emerald-300"
+                          : "border-l-4 border-l-brand border-border hover:bg-brand-muted hover:border-brand-border"
                         }`}
                     >
                       <span className="text-xs font-medium text-muted-foreground">
@@ -298,7 +298,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                 })}
                 <Link
                   href={`/providers/${provider.slug}`}
-                  className="cursor-pointer inline-flex items-center gap-1 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-emerald-700 transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-sm"
+                  className="cursor-pointer inline-flex items-center gap-1 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-brand-hover transition-all duration-200 hover:border-brand hover:bg-brand-muted hover:shadow-sm"
                 >
                   MORE
                   <ChevronRight className="size-4" />
@@ -319,7 +319,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
               <Button
                 type="button"
                 variant="outline"
-                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-800 cursor-pointer"
+                className="border-brand-border text-brand-hover hover:bg-brand-muted hover:border-brand hover:text-brand-hover cursor-pointer"
                 onClick={() => setWaitlistOpen(true)}
               >
                 <Bell className="size-4 mr-2" />
@@ -392,7 +392,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
                   !waitlistEmail.trim() ||
                   !waitlistPhone.trim()
                 }
-                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                className="bg-brand hover:bg-brand-hover text-white cursor-pointer"
               >
                 {waitlistSubmitting && <Loader2 className="size-4 animate-spin mr-2" />}
                 Join Waitlist
@@ -404,7 +404,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
         {/* Review Snippet */}
         {provider.reviewSnippet && (
           <>
-            <Separator className="bg-gradient-to-r from-transparent via-emerald-200/60 to-transparent" />
+            <Separator className="bg-gradient-to-r from-transparent via-brand-muted/60 to-transparent" />
             <div className="space-y-1">
               <div className="flex gap-2">
                 <Quote className="size-4 shrink-0 text-muted-foreground/50 mt-0.5" />
@@ -414,7 +414,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
               </div>
               <Link
                 href={`/providers/${provider.slug}`}
-                className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:underline hover:translate-x-0.5 transition-all cursor-pointer pl-6"
+                className="inline-flex items-center gap-1 text-xs text-brand hover:text-brand-hover hover:underline hover:translate-x-0.5 transition-all cursor-pointer pl-6"
               >
                 Read more reviews
                 <ChevronRight className="size-3" />
@@ -426,7 +426,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
         {/* View full profile link */}
         <Link
           href={`/providers/${provider.slug}`}
-          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:translate-x-0.5 transition-all cursor-pointer"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover hover:translate-x-0.5 transition-all cursor-pointer"
         >
           View full profile →
           <ChevronRight className="size-3" />

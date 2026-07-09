@@ -107,7 +107,7 @@ function getRoleBadgeColor(role: string): string {
     case STAFF_ROLE.SYSTEM_MANAGER:
       return "bg-purple-100 text-purple-700 border-purple-200";
     case STAFF_ROLE.CLINIC_ADMIN:
-      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      return "bg-brand-subtle text-brand-hover border-brand-border";
     default:
       return "bg-sky-100 text-sky-700 border-sky-200";
   }
@@ -151,7 +151,7 @@ export default function StaffDashboardLayout({
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-3">
-          <div className="size-10 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+          <div className="size-10 border-3 border-brand-border border-t-brand rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
@@ -180,9 +180,9 @@ export default function StaffDashboardLayout({
       {/* Clinic badge */}
       {user.clinicId && !collapsed && (
         <div className="px-4 pb-3">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100">
-            <Building2 className="size-3.5 text-emerald-600 shrink-0" />
-            <span className="text-xs font-medium text-emerald-700 truncate">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-brand-muted border border-brand-muted">
+            <Building2 className="size-3.5 text-brand shrink-0" />
+            <span className="text-xs font-medium text-brand-hover truncate">
               {user.name.split(" Admin")[0].split(" Reception")[0]}
             </span>
           </div>
@@ -211,18 +211,18 @@ export default function StaffDashboardLayout({
                       transition-all duration-150 cursor-pointer group relative
                       ${
                         isActive
-                          ? "bg-emerald-50 text-emerald-700 shadow-sm"
+                          ? "bg-brand-muted text-brand-hover shadow-sm"
                           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       }
                       ${collapsed ? "justify-center" : ""}
                     `}
                   >
                     {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-emerald-500" />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-brand-muted" />
                     )}
                     <Icon
                       className={`size-4.5 shrink-0 ${
-                        isActive ? "text-emerald-600" : "text-muted-foreground/70 group-hover:text-foreground"
+                        isActive ? "text-brand" : "text-muted-foreground/70 group-hover:text-foreground"
                       }`}
                     />
                     {!collapsed && <span>{item.label}</span>}
@@ -244,8 +244,8 @@ export default function StaffDashboardLayout({
         <Separator className="mb-3 w-auto" />
         {!collapsed ? (
           <div className="flex items-center gap-3 px-2 py-1">
-            <Avatar className="size-9 border-2 border-emerald-200">
-              <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-semibold">
+            <Avatar className="size-9 border-2 border-brand-border">
+              <AvatarFallback className="bg-brand-subtle text-brand-hover text-xs font-semibold">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
@@ -263,8 +263,8 @@ export default function StaffDashboardLayout({
           </div>
         ) : (
           <div className="flex justify-center">
-            <Avatar className="size-9 border-2 border-emerald-200">
-              <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-semibold">
+            <Avatar className="size-9 border-2 border-brand-border">
+              <AvatarFallback className="bg-brand-subtle text-brand-hover text-xs font-semibold">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
@@ -339,7 +339,7 @@ export default function StaffDashboardLayout({
               <Menu className="size-5" />
             </Button>
             <div className="hidden sm:flex items-center gap-2">
-              <ShieldCheck className="size-4 text-emerald-600" />
+              <ShieldCheck className="size-4 text-brand" />
               <span className="text-sm font-medium text-foreground">
                 Staff Portal
               </span>
@@ -349,8 +349,8 @@ export default function StaffDashboardLayout({
             <ThemeToggle />
             <NotificationBell />
             <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/60">
-              <Avatar className="size-7 border border-emerald-200">
-                <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+              <Avatar className="size-7 border border-brand-border">
+                <AvatarFallback className="bg-brand-subtle text-brand-hover text-[10px] font-semibold">
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>

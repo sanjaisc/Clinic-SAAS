@@ -108,7 +108,7 @@ export function QrCodeDisplay({ appointmentId, patientName, manageUrl }: QrCodeD
   // ---- Loading skeleton ----
   if (loading) {
     return (
-      <Card className="border-emerald-200 bg-white">
+      <Card className="border-brand-border bg-white">
         <CardContent className="p-6 flex flex-col items-center gap-4">
           <Skeleton className="size-48 rounded-lg" />
           <Skeleton className="h-4 w-40" />
@@ -142,10 +142,10 @@ export function QrCodeDisplay({ appointmentId, patientName, manageUrl }: QrCodeD
 
   // ---- QR code display ----
   return (
-    <Card className="border-emerald-200 bg-white">
+    <Card className="border-brand-border bg-white">
       <CardContent className="p-6 flex flex-col items-center gap-4">
         {/* QR Code Image */}
-        <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-sm">
+        <div className="p-3 bg-white rounded-xl border border-brand-muted shadow-sm">
           <img
             src={qrData.qrDataUrl}
             alt="Appointment QR Code"
@@ -158,7 +158,7 @@ export function QrCodeDisplay({ appointmentId, patientName, manageUrl }: QrCodeD
         {/* Patient name */}
         {qrData.patientName && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <QrCode className="size-4 text-emerald-600" />
+            <QrCode className="size-4 text-brand" />
             <span>
               {qrData.patientName}
             </span>
@@ -170,7 +170,7 @@ export function QrCodeDisplay({ appointmentId, patientName, manageUrl }: QrCodeD
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
+            className="flex-1 border-brand-border text-brand-hover hover:bg-brand-muted hover:text-brand-hover cursor-pointer"
             onClick={handleDownload}
           >
             {copied ? (
@@ -183,7 +183,7 @@ export function QrCodeDisplay({ appointmentId, patientName, manageUrl }: QrCodeD
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
+            className="flex-1 border-brand-border text-brand-hover hover:bg-brand-muted hover:text-brand-hover cursor-pointer"
             onClick={handleCopyLink}
           >
             {copied ? (

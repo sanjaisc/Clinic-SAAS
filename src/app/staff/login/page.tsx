@@ -65,9 +65,9 @@ export default function StaffLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/40 bg-gradient-animated">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-brand-muted/80 via-background to-teal-50/40 bg-gradient-animated">
       {/* Top accent bar */}
-      <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
+      <div className="h-1.5 bg-gradient-to-r from-brand via-teal-500 to-brand" />
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center px-4 py-12 relative">
@@ -99,11 +99,11 @@ export default function StaffLoginPage() {
           </div>
 
           {/* Login card */}
-          <div className={`relative bg-card rounded-2xl shadow-xl border border-border/60 p-8 transition-shadow duration-300 ${passwordFocused ? 'shadow-emerald-600/10 shadow-2xl shadow-emerald-900/5' : 'shadow-emerald-900/5'} animate-card-mount`}>
+          <div className={`relative bg-card rounded-2xl shadow-xl border border-border/60 p-8 transition-shadow duration-300 ${passwordFocused ? 'shadow-brand/10 shadow-2xl shadow-brand/5' : 'shadow-brand/5'} animate-card-mount`}>
             {/* Card header */}
             <div className="flex items-center gap-3 mb-6">
-              <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <Shield className="size-5 text-emerald-600" />
+              <div className="size-10 rounded-xl bg-brand-subtle flex items-center justify-center">
+                <Shield className="size-5 text-brand" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
@@ -195,7 +195,7 @@ export default function StaffLoginPage() {
                   <button
                     type="button"
                     onClick={() => toast({ title: "Not available", description: "Password reset is not available in the demo" })}
-                    className="text-xs text-muted-foreground hover:text-emerald-600 transition-colors cursor-pointer"
+                    className="text-xs text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -206,7 +206,9 @@ export default function StaffLoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading || !email || !password}
-                className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                variant="brand"
+                size="cta"
+                className="w-full shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 font-medium"
               >
                 {isLoading ? (
                   <span className="inline-flex items-center">

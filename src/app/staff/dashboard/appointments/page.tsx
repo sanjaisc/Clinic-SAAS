@@ -195,7 +195,7 @@ interface WaitlistRow {
 const STATUS_STYLES: Record<string, string> = {
   BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
   CHECKED_IN: "bg-amber-100 text-amber-700 border-amber-200",
-  COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  COMPLETED: "bg-brand-subtle text-brand-hover border-brand-border",
   CANCELLED: "bg-red-100 text-red-700 border-red-200",
   NO_SHOW: "bg-gray-100 text-gray-600 border-gray-200",
   ARCHIVED: "bg-muted text-muted-foreground border-muted",
@@ -486,7 +486,7 @@ export default function AppointmentsPage() {
 
   const SortIcon = ({ field }: { field: string }) => {
     if (sortField !== field) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
-    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-emerald-600" /> : <ArrowDown className="size-3 ml-1 text-emerald-600" />;
+    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-brand" /> : <ArrowDown className="size-3 ml-1 text-brand" />;
   };
 
   // Open detail dialog
@@ -853,7 +853,7 @@ export default function AppointmentsPage() {
       );
     }
     return (
-      <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50">
+      <Badge variant="outline" className="border-brand-border text-brand bg-brand-muted">
         <CalendarDays className="size-3 mr-1" />
         In-Clinic
       </Badge>
@@ -881,9 +881,9 @@ export default function AppointmentsPage() {
   // Waitlist status styles (Feature 10: fixed labels)
   const WL_STATUS_STYLES: Record<string, string> = {
     ACTIVE: "bg-amber-100 text-amber-700 border-amber-200",
-    OFFERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    OFFERED: "bg-brand-subtle text-brand-hover border-brand-border",
     EXPIRED: "bg-gray-100 text-gray-600 border-gray-200",
-    FULFILLED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    FULFILLED: "bg-brand-subtle text-brand-hover border-brand-border",
     REMOVED: "bg-gray-100 text-gray-600 border-gray-200",
   };
 
@@ -941,7 +941,7 @@ export default function AppointmentsPage() {
             onClick={() => handleTransition(apt.id, "COMPLETED")}
             className="cursor-pointer"
           >
-            <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+            <CheckCircle2 className="size-3.5 mr-2 text-brand" />
             Complete
           </DropdownMenuItem>
         )}
@@ -963,7 +963,7 @@ export default function AppointmentsPage() {
             }}
             className="cursor-pointer"
           >
-            <QrCode className="size-3.5 mr-2 text-emerald-600" />
+            <QrCode className="size-3.5 mr-2 text-brand" />
             QR Code
           </DropdownMenuItem>
         )}
@@ -990,13 +990,13 @@ export default function AppointmentsPage() {
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-            <User className="size-4 text-emerald-600" />
+          <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+            <User className="size-4 text-brand" />
           </div>
           <button
             type="button"
             onClick={() => openDetail(apt.id)}
-            className="text-left cursor-pointer hover:text-emerald-700 transition-colors min-w-0"
+            className="text-left cursor-pointer hover:text-brand-hover transition-colors min-w-0"
           >
             <p className={cn("font-medium truncate text-sm", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
               {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
@@ -1063,7 +1063,7 @@ export default function AppointmentsPage() {
                   isActive
                     ? isWl
                       ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-                      : "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                      : "bg-brand text-white border-brand shadow-sm"
                     : "bg-white text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
@@ -1138,7 +1138,7 @@ export default function AppointmentsPage() {
           {/* Search Button */}
           <Button
             size="sm"
-            className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+            className="h-9 px-4 bg-brand hover:bg-brand-hover text-white shrink-0 cursor-pointer"
             onClick={() => { setPage(1); fetchAppointments(); }}
           >
             <Search className="size-3.5 mr-1.5" />
@@ -1168,7 +1168,7 @@ export default function AppointmentsPage() {
               className={cn(
                 "p-1.5 transition-colors cursor-pointer",
                 listView === "table"
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-brand text-white"
                   : "bg-white text-muted-foreground hover:bg-muted/60"
               )}
               title="Table view"
@@ -1180,7 +1180,7 @@ export default function AppointmentsPage() {
               className={cn(
                 "p-1.5 transition-colors cursor-pointer",
                 listView === "grid"
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-brand text-white"
                   : "bg-white text-muted-foreground hover:bg-muted/60"
               )}
               title="Grid view"
@@ -1198,7 +1198,7 @@ export default function AppointmentsPage() {
               setDateFrom(format(new Date(), "yyyy-MM-dd"));
               setDateTo(format(addDays(new Date(), 30), "yyyy-MM-dd"));
             }}
-            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer flex items-center gap-1"
+            className="text-xs text-brand hover:text-brand-hover font-medium cursor-pointer flex items-center gap-1"
           >
             <Filter className="size-3" />
             Clear filters
@@ -1343,7 +1343,7 @@ export default function AppointmentsPage() {
                                 onClick={() => handleWaitlistAction(entry.id, "OFFERED")}
                                 className="cursor-pointer"
                               >
-                                <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+                                <CheckCircle2 className="size-3.5 mr-2 text-brand" />
                                 Mark as Offered
                               </DropdownMenuItem>
                             )}
@@ -1489,7 +1489,7 @@ export default function AppointmentsPage() {
                 sortedAppointments.map((apt, index) => (
                   <tr
                     key={apt.id}
-                    className={`border-b border-border/30 transition-colors hover:bg-emerald-50/30 ${
+                    className={`border-b border-border/30 transition-colors hover:bg-brand-muted/30 ${
                       index % 2 === 0 ? "bg-white" : "bg-muted/15"
                     } ${conflictIds.has(apt.id) ? "bg-orange-50/40" : ""}`}
                   >
@@ -1508,10 +1508,10 @@ export default function AppointmentsPage() {
                       <button
                         type="button"
                         onClick={() => openDetail(apt.id)}
-                        className="flex items-center gap-2 text-left cursor-pointer hover:text-emerald-700 transition-colors w-full"
+                        className="flex items-center gap-2 text-left cursor-pointer hover:text-brand-hover transition-colors w-full"
                       >
-                        <div className="size-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                          <User className="size-3.5 text-emerald-600" />
+                        <div className="size-7 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+                          <User className="size-3.5 text-brand" />
                         </div>
                         <div className="min-w-0">
                           <p className={cn("font-medium truncate", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
@@ -1632,7 +1632,7 @@ export default function AppointmentsPage() {
                     key={pageNum}
                     variant={pageNum === page ? "default" : "outline"}
                     size="icon"
-                    className={`size-8 cursor-pointer ${pageNum === page ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                    className={`size-8 cursor-pointer ${pageNum === page ? "bg-brand hover:bg-brand-hover text-white" : ""}`}
                     onClick={() => setPage(pageNum)}
                   >
                     {pageNum}
@@ -1783,8 +1783,8 @@ export default function AppointmentsPage() {
                             className={cn(
                               "flex flex-col items-center justify-center rounded-lg border p-2.5 text-center transition-all cursor-pointer",
                               isSelected
-                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
-                                : "border-border/60 hover:border-emerald-300 hover:bg-emerald-50/50 text-foreground"
+                                ? "border-brand bg-brand-muted text-brand-hover shadow-sm ring-1 ring-brand/20"
+                                : "border-border/60 hover:border-brand-border hover:bg-brand-muted/50 text-foreground"
                             )}
                           >
                             <span className="text-sm font-medium">
@@ -1803,13 +1803,13 @@ export default function AppointmentsPage() {
 
               {/* Summary when slot selected */}
               {rescheduleSelectedSlotId && (
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-                  <p className="text-xs font-medium text-emerald-800 mb-1">New Appointment Time</p>
+                <div className="rounded-lg bg-brand-muted border border-brand-border p-3">
+                  <p className="text-xs font-medium text-brand mb-1">New Appointment Time</p>
                   {(() => {
                     const selectedSlot = rescheduleSlots.find((s) => s.id === rescheduleSelectedSlotId);
                     if (!selectedSlot) return null;
                     return (
-                      <div className="flex items-center gap-2 text-sm text-emerald-700">
+                      <div className="flex items-center gap-2 text-sm text-brand-hover">
                         <span className="font-medium">
                           {format(parseISO(selectedSlot.startTime), "EEE, MMM d 'at' h:mm a")}
                         </span>
@@ -1868,7 +1868,7 @@ export default function AppointmentsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <QrCode className="size-5 text-emerald-600" />
+              <QrCode className="size-5 text-brand" />
               Appointment QR Code
             </DialogTitle>
             <DialogDescription>
@@ -1970,7 +1970,7 @@ export default function AppointmentsPage() {
                           t === "CANCELLED"
                             ? "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                             : t === "COMPLETED"
-                              ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                              ? "border-brand-border text-brand hover:bg-brand-muted hover:text-brand-hover"
                               : t === "CHECKED_IN"
                                 ? "border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
                                 : ""
@@ -1994,8 +1994,8 @@ export default function AppointmentsPage() {
                   <div className="rounded-lg border border-border/60 p-4 space-y-3">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                          <User className="size-4 text-emerald-600" />
+                        <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center">
+                          <User className="size-4 text-brand" />
                         </div>
                         <div>
                           <p className="font-semibold text-sm">Patient</p>
@@ -2014,7 +2014,7 @@ export default function AppointmentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="size-8 p-0 cursor-pointer text-muted-foreground hover:text-emerald-700"
+                          className="size-8 p-0 cursor-pointer text-muted-foreground hover:text-brand-hover"
                           onClick={() => setEditingPatient(true)}
                           title="Edit patient details"
                         >
@@ -2095,7 +2095,7 @@ export default function AppointmentsPage() {
                         </div>
                         <Button
                           size="sm"
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                          className="w-full bg-brand hover:bg-brand-hover text-white cursor-pointer"
                           disabled={patientSaving || !editName.trim() || !editEmail.trim()}
                           onClick={handleSavePatient}
                         >
@@ -2165,10 +2165,10 @@ export default function AppointmentsPage() {
                           }
                         }}
                         disabled={patientSaving}
-                        className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                        className="data-[state=checked]:bg-brand data-[state=checked]:border-brand"
                       />
                       <div>
-                        <span className="text-sm font-medium text-foreground group-hover:text-emerald-700 transition-colors">
+                        <span className="text-sm font-medium text-foreground group-hover:text-brand-hover transition-colors">
                           Insurance Info Received
                         </span>
                         <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
@@ -2181,8 +2181,8 @@ export default function AppointmentsPage() {
                   {/* Appointment Info Card */}
                   <div className="rounded-lg border border-border/60 p-4 space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <FileText className="size-4 text-emerald-600" />
+                      <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center">
+                        <FileText className="size-4 text-brand" />
                       </div>
                       <div>
                         <p className="font-semibold text-sm">Appointment Info</p>
@@ -2204,7 +2204,7 @@ export default function AppointmentsPage() {
                       <div className="flex items-center gap-2">
                         <ModalityBadge modality={detail.modality} />
                         {detail.intakeCompleted && (
-                          <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+                          <Badge variant="outline" className="border-brand-border text-brand bg-brand-muted text-[10px]">
                             <CheckCircle2 className="size-2.5 mr-0.5" /> Intake Done
                           </Badge>
                         )}
@@ -2255,7 +2255,7 @@ export default function AppointmentsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 text-xs cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700"
+                          className="h-8 text-xs cursor-pointer border-brand-border text-brand hover:bg-brand-subtle hover:text-brand-hover"
                           disabled={videoLinkSending || !editVideoLink.trim()}
                           onClick={handleSendVideoLink}
                         >
@@ -2274,7 +2274,7 @@ export default function AppointmentsPage() {
                 {/* Insurance Info */}
                 <div className="rounded-lg border border-border/60 p-4">
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Shield className="size-4 text-emerald-600" />
+                    <Shield className="size-4 text-brand" />
                     Insurance
                   </h4>
                   {detail.insurance ? (
@@ -2282,14 +2282,14 @@ export default function AppointmentsPage() {
                       <div>
                         <p className="text-sm font-medium">{detail.insurance.name}</p>
                         {detail.isDemoInsurance && (
-                          <Badge variant="outline" className="mt-1 border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+                          <Badge variant="outline" className="mt-1 border-brand-border text-brand bg-brand-muted text-[10px]">
                             Demo Plan
                           </Badge>
                         )}
                       </div>
                       <div className="text-right text-sm">
                         {detail.isDemoInsurance ? (
-                          <span className="text-emerald-600 font-medium">Free</span>
+                          <span className="text-brand font-medium">Free</span>
                         ) : detail.depositCents > 0 ? (
                           <div>
                             <p className="text-muted-foreground">Deposit: {formatCents(detail.depositCents)}</p>
@@ -2311,7 +2311,7 @@ export default function AppointmentsPage() {
                 {detail.ledger && (
                   <div className="rounded-lg border border-border/60 p-4">
                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <CreditCard className="size-4 text-emerald-600" />
+                      <CreditCard className="size-4 text-brand" />
                       Financial Info
                     </h4>
                     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -2373,7 +2373,7 @@ export default function AppointmentsPage() {
                         </div>
                         <Button
                           size="sm"
-                          className="h-8 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                          className="h-8 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
                           disabled={paymentRequestSending || !paymentRequestAmount || parseFloat(paymentRequestAmount) <= 0}
                           onClick={handleSendPaymentRequest}
                         >
@@ -2412,7 +2412,7 @@ export default function AppointmentsPage() {
                 {detail.tokens.length > 0 && (
                   <div className="rounded-lg border border-border/60 p-4">
                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Hash className="size-4 text-emerald-600" />
+                      <Hash className="size-4 text-brand" />
                       Patient Management Token
                     </h4>
                     <div className="space-y-1.5">
@@ -2459,7 +2459,7 @@ export default function AppointmentsPage() {
                 {/* Internal Notes */}
                 <div className="rounded-lg border border-border/60 p-4">
                   <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <StickyNote className="size-4 text-emerald-600" />
+                    <StickyNote className="size-4 text-brand" />
                     Internal Notes
                     {detail.notes.length > 0 && (
                       <Badge variant="secondary" className="text-[10px] ml-1">
@@ -2478,7 +2478,7 @@ export default function AppointmentsPage() {
                         <div key={note.id} className="flex gap-2.5">
                           {/* Author avatar */}
                           <div className="shrink-0 mt-0.5">
-                            <div className="size-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-semibold text-emerald-700">
+                            <div className="size-6 rounded-full bg-brand-subtle flex items-center justify-center text-[10px] font-semibold text-brand-hover">
                               {note.author?.name?.charAt(0)?.toUpperCase() || "?"}
                             </div>
                           </div>
@@ -2516,7 +2516,7 @@ export default function AppointmentsPage() {
                     />
                     <Button
                       size="icon"
-                      className="size-9 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer self-end"
+                      className="size-9 shrink-0 bg-brand hover:bg-brand-hover text-white cursor-pointer self-end"
                       disabled={!noteContent.trim() || noteSubmitting}
                       onClick={handleAddNote}
                     >

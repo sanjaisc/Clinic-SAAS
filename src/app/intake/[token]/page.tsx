@@ -128,9 +128,9 @@ function IntakeSection({
   return (
     <motion.div {...fadeInUp}>
       <div className="border border-border rounded-lg overflow-hidden">
-        <div className="border-l-4 border-l-emerald-500">
+        <div className="border-l-4 border-l-brand">
           <div className="flex items-center gap-2.5 px-5 py-3.5 bg-muted/30">
-            <div className="w-7 h-7 rounded-md bg-emerald-100 flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-md bg-brand-subtle flex items-center justify-center shrink-0">
               {icon}
             </div>
             <h3 className="font-semibold text-foreground text-sm">
@@ -314,7 +314,7 @@ export default function IntakeFormPage() {
 
   if (pageState === "loading") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
         <main className="flex-1 py-8 px-4">
           <LoadingSkeleton />
@@ -333,7 +333,7 @@ export default function IntakeFormPage() {
     pageState === "error"
   ) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full" {...fadeInUp}>
@@ -369,8 +369,8 @@ export default function IntakeFormPage() {
 
                 {pageState === "already_submitted" && (
                   <>
-                    <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
-                      <CheckCircle2 className="size-8 text-emerald-500" />
+                    <div className="w-16 h-16 rounded-full bg-brand-muted flex items-center justify-center mx-auto mb-5">
+                      <CheckCircle2 className="size-8 text-brand" />
                     </div>
                     <h2 className="text-xl font-semibold text-foreground mb-2">
                       Already Submitted
@@ -410,20 +410,20 @@ export default function IntakeFormPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full text-center" {...fadeInUp}>
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-10 pb-8 px-8">
                 <motion.div
-                  className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5"
+                  className="w-20 h-20 rounded-full bg-brand-subtle flex items-center justify-center mx-auto mb-5"
                   variants={checkmarkVariants}
                   initial="initial"
                   animate="animate"
                 >
                   <motion.svg
-                    className="size-10 text-emerald-600"
+                    className="size-10 text-brand"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -464,15 +464,15 @@ export default function IntakeFormPage() {
     const providerName = `${data.appointment.provider.firstName} ${data.appointment.provider.lastName}${data.appointment.provider.credentials ? `, ${data.appointment.provider.credentials}` : ""}`;
 
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
 
         <main className="flex-1 py-6 px-4">
           <div className="max-w-2xl mx-auto space-y-5">
             {/* Page Header */}
             <motion.div className="text-center" {...fadeInUp}>
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100 mb-3">
-                <FileText className="size-6 text-emerald-600" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-subtle mb-3">
+                <FileText className="size-6 text-brand" />
               </div>
               <h1 className="text-2xl font-bold text-foreground">
                 Pre-Visit Intake Form
@@ -485,17 +485,17 @@ export default function IntakeFormPage() {
             {/* Appointment Summary Card */}
             <motion.div {...fadeInUp}>
               <Card className="border-0 shadow-lg overflow-hidden">
-                <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+                <div className="h-1.5 bg-gradient-to-r from-brand via-brand to-teal-500" />
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
-                    <Calendar className="size-4 text-emerald-600" />
+                    <Calendar className="size-4 text-brand" />
                     Appointment Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
-                      <Calendar className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <Calendar className="size-4 text-brand mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Date &amp; Time</p>
                         <p className="text-sm font-medium text-foreground mt-0.5">
@@ -504,14 +504,14 @@ export default function IntakeFormPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
-                      <User className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <User className="size-4 text-brand mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Provider</p>
                         <p className="text-sm font-medium text-foreground mt-0.5">{providerName}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
-                      <Building2 className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <Building2 className="size-4 text-brand mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Clinic</p>
                         <p className="text-sm font-medium text-foreground mt-0.5">{data.appointment.clinic.name}</p>
@@ -522,7 +522,7 @@ export default function IntakeFormPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
-                      <Stethoscope className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <Stethoscope className="size-4 text-brand mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">Service</p>
                         <p className="text-sm font-medium text-foreground mt-0.5">
@@ -536,7 +536,7 @@ export default function IntakeFormPage() {
                   {/* Insurance badge */}
                   {data.appointment.insurance && (
                     <div className="flex items-center gap-2 pt-1">
-                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 px-3 py-1 text-sm">
+                      <Badge className="bg-brand-subtle text-brand border-brand-border hover:bg-brand-subtle px-3 py-1 text-sm">
                         <Shield className="size-3.5 mr-1.5" />
                         {data.appointment.insurance.name}
                       </Badge>
@@ -566,7 +566,7 @@ export default function IntakeFormPage() {
               {/* Chief Complaint */}
               <IntakeSection
                 title="Chief Complaint"
-                icon={<Stethoscope className="size-3.5 text-emerald-700" />}
+                icon={<Stethoscope className="size-3.5 text-brand-hover" />}
                 required
               >
                 <div className="space-y-2">
@@ -591,7 +591,7 @@ export default function IntakeFormPage() {
               {/* Current Medications */}
               <IntakeSection
                 title="Current Medications"
-                icon={<Pill className="size-3.5 text-emerald-700" />}
+                icon={<Pill className="size-3.5 text-brand-hover" />}
               >
                 <div className="space-y-2">
                   <Label htmlFor="medications" className="text-sm font-medium">
@@ -614,7 +614,7 @@ export default function IntakeFormPage() {
               {/* Allergies */}
               <IntakeSection
                 title="Allergies"
-                icon={<AlertTriangle className="size-3.5 text-emerald-700" />}
+                icon={<AlertTriangle className="size-3.5 text-brand-hover" />}
               >
                 <div className="space-y-2">
                   <Label htmlFor="allergies" className="text-sm font-medium">
@@ -637,7 +637,7 @@ export default function IntakeFormPage() {
               {/* Medical History */}
               <IntakeSection
                 title="Medical History"
-                icon={<History className="size-3.5 text-emerald-700" />}
+                icon={<History className="size-3.5 text-brand-hover" />}
               >
                 <div className="space-y-2">
                   <Label htmlFor="medicalHistory" className="text-sm font-medium">
@@ -660,7 +660,7 @@ export default function IntakeFormPage() {
               {/* Family History */}
               <IntakeSection
                 title="Family History"
-                icon={<Users className="size-3.5 text-emerald-700" />}
+                icon={<Users className="size-3.5 text-brand-hover" />}
               >
                 <div className="space-y-2">
                   <Label htmlFor="familyHistory" className="text-sm font-medium">
@@ -681,7 +681,7 @@ export default function IntakeFormPage() {
               {/* Emergency Contact */}
               <IntakeSection
                 title="Emergency Contact"
-                icon={<Phone className="size-3.5 text-emerald-700" />}
+                icon={<Phone className="size-3.5 text-brand-hover" />}
               >
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
@@ -723,7 +723,7 @@ export default function IntakeFormPage() {
               {/* Additional Notes */}
               <IntakeSection
                 title="Additional Notes"
-                icon={<StickyNote className="size-3.5 text-emerald-700" />}
+                icon={<StickyNote className="size-3.5 text-brand-hover" />}
               >
                 <div className="space-y-2">
                   <Label htmlFor="additionalNotes" className="text-sm font-medium">
@@ -745,8 +745,9 @@ export default function IntakeFormPage() {
             {/* Submit Button */}
             <motion.div {...fadeInUp}>
               <Button
-                size="lg"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg sm:w-auto sm:px-10"
+                variant="brand"
+                size="cta"
+                className="w-full sm:w-auto sm:px-10"
                 disabled={submitting}
                 onClick={handleSubmit}
               >
@@ -766,7 +767,7 @@ export default function IntakeFormPage() {
 
             {/* Privacy note */}
             <motion.p {...fadeInUp} className="text-center text-xs text-muted-foreground pb-2">
-              <Shield className="size-3 inline mr-1 text-emerald-600" />
+              <Shield className="size-3 inline mr-1 text-brand" />
               Your information is encrypted and securely transmitted. It will only be shared
               with your healthcare provider.
             </motion.p>
@@ -789,7 +790,7 @@ function Header() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-teal-600 flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">
@@ -797,7 +798,7 @@ function Header() {
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Shield className="size-3.5 text-emerald-600" />
+          <Shield className="size-3.5 text-brand" />
           <span>Patient Intake Portal</span>
         </div>
       </div>

@@ -91,7 +91,7 @@ interface ProviderRow {
 const PROVIDER_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   ACTIVE: {
     label: "Active",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    className: "bg-brand-muted text-brand-hover border-brand-border  ",
   },
   INACTIVE: {
     label: "Inactive",
@@ -106,7 +106,7 @@ const PROVIDER_STATUS_CONFIG: Record<string, { label: string; className: string 
 const CLINIC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PUBLISHED: {
     label: "Published",
-    className: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    className: "bg-brand-muted text-brand border-brand-border  ",
   },
   DRAFT: {
     label: "Draft",

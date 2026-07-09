@@ -68,14 +68,14 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  CLINIC_ADMIN: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
+  CLINIC_ADMIN: "bg-brand-subtle text-brand ",
   CLINIC_RECEPTION: "bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300",
   SYSTEM_MANAGER: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
-  Accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
+  Accepted: "bg-brand-subtle text-brand ",
   Expired: "bg-muted text-muted-foreground",
 };
 
@@ -211,8 +211,8 @@ export default function StaffPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
-              <Users className="size-5 text-emerald-600" />
+            <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
+              <Users className="size-5 text-brand" />
             </div>
             <div>
               <CardTitle className="text-lg">Current Staff</CardTitle>
@@ -253,8 +253,8 @@ export default function StaffPage() {
                     <tr key={inv.id} className="py-3">
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
-                          <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-                            <Shield className="size-3.5 text-emerald-600" />
+                          <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center">
+                            <Shield className="size-3.5 text-brand" />
                           </div>
                           <span className="font-medium">
                             {inv.acceptedByName || inv.email.split("@")[0]}
@@ -354,10 +354,10 @@ export default function StaffPage() {
 
           {/* Show invitation link on success */}
           {inviteResult && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-4 space-y-3">
+            <div className="rounded-lg border border-brand-border bg-brand-muted/50 p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <BadgeCheck className="size-5 text-emerald-600" />
-                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                <BadgeCheck className="size-5 text-brand" />
+                <p className="text-sm font-medium text-brand">
                   Invitation link generated! Share this with the new staff member.
                 </p>
               </div>
@@ -431,7 +431,7 @@ export default function StaffPage() {
                           status === "Pending"
                             ? "bg-amber-500"
                             : status === "Accepted"
-                              ? "bg-emerald-500"
+                              ? "bg-brand-muted"
                               : "bg-muted-foreground/30"
                         }`}
                       />

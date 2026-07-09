@@ -130,7 +130,7 @@ function StarSelector({
           </span>
         </div>
         {value > 0 && (
-          <span className="text-sm font-medium text-emerald-700">
+          <span className="text-sm font-medium text-brand-hover">
             {RATING_LABELS[value]}
           </span>
         )}
@@ -141,7 +141,7 @@ function StarSelector({
           <button
             key={star}
             type="button"
-            className="p-0.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-sm"
+            className="p-0.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-sm"
             onMouseEnter={() => setHovered(star)}
             onMouseLeave={() => setHovered(0)}
             onClick={() => onChange(star)}
@@ -266,7 +266,7 @@ export default function ReviewPage() {
 
   if (pageState === "loading") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <ReviewHeader />
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="max-w-2xl w-full space-y-6">
@@ -284,7 +284,7 @@ export default function ReviewPage() {
 
   if (pageState === "invalid") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <ReviewHeader />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full" {...fadeInUp}>
@@ -320,7 +320,7 @@ export default function ReviewPage() {
 
   if (pageState === "error") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <ReviewHeader />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full" {...fadeInUp}>
@@ -356,21 +356,21 @@ export default function ReviewPage() {
 
   if (pageState === "submitted") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <ReviewHeader />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full" {...fadeInUp}>
             <Card className="text-center border-0 shadow-lg overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+              <div className="h-2 bg-gradient-to-r from-brand via-brand to-teal-500" />
               <CardContent className="pt-10 pb-10 px-8">
                 <motion.div
-                  className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6"
+                  className="w-20 h-20 rounded-full bg-brand-subtle flex items-center justify-center mx-auto mb-6"
                   variants={checkmarkVariants}
                   initial="initial"
                   animate="animate"
                 >
                   <motion.svg
-                    className="size-10 text-emerald-600"
+                    className="size-10 text-brand"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -396,7 +396,7 @@ export default function ReviewPage() {
                 </p>
                 <Button
                   size="lg"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg"
+                  className="bg-brand hover:bg-brand-hover text-white font-semibold rounded-lg"
                   onClick={() => router.push("/")}
                 >
                   Back to Home
@@ -413,7 +413,7 @@ export default function ReviewPage() {
   // ---- Render: Valid — Review Form ----
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
       <ReviewHeader />
 
       <main className="flex-1 py-6 px-4">
@@ -440,8 +440,8 @@ export default function ReviewPage() {
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
-                        <User className="size-6 text-emerald-600" />
+                      <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center shrink-0 border border-brand-border">
+                        <User className="size-6 text-brand" />
                       </div>
                       <div className="min-w-0 flex-1 space-y-2">
                         <div>
@@ -477,10 +477,10 @@ export default function ReviewPage() {
             {/* Rating Form Card */}
             <motion.div {...fadeInUp}>
               <Card className="border-0 shadow-lg overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+                <div className="h-2 bg-gradient-to-r from-brand via-brand to-teal-500" />
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Star className="size-5 text-emerald-600" />
+                    <Star className="size-5 text-brand" />
                     Your Ratings
                   </CardTitle>
                 </CardHeader>
@@ -568,8 +568,9 @@ export default function ReviewPage() {
 
                   {/* Submit Button */}
                   <Button
-                    size="lg"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="brand"
+                    size="cta"
+                    className="w-full disabled:cursor-not-allowed"
                     disabled={!canSubmit}
                     onClick={handleSubmit}
                   >
@@ -609,7 +610,7 @@ function ReviewHeader() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-teal-600 flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">
@@ -617,7 +618,7 @@ function ReviewHeader() {
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Shield className="size-3.5 text-emerald-600" />
+          <Shield className="size-3.5 text-brand" />
           <span>Patient Review Portal</span>
         </div>
       </div>

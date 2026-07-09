@@ -43,7 +43,7 @@ export function ExpandableText({ children, maxLines = 3 }: ExpandableTextProps) 
         <button
           type="button"
           onClick={toggle}
-          className="cursor-pointer mt-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+          className="cursor-pointer mt-2 text-sm font-medium text-brand hover:text-brand-hover transition-colors"
         >
           {expanded ? "Show less" : "Read more"}
         </button>

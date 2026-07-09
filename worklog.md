@@ -430,3 +430,42 @@ Stage Summary:
 - **Additional fix**: Removed `| tee dev.log` from dev script to prevent Turbopack cache corruption
 - Login verified working for SYSTEM_MANAGER role
 - All three demo accounts (sysadmin, admin, reception) have valid password hashes in the database
+
+---
+Task ID: 12
+Agent: Main Orchestrator
+Task: Priority 5 Design System Audit — CSS variable cleanup + hook fix
+
+Work Log:
+- **Priority 5a**: Removed `disableTransitionOnChange` from `ThemeProvider` in `src/components/providers.tsx` — theme transitions now animate smoothly
+- **Priority 5b**: Replaced ~20 hardcoded `oklch()` values in `src/app/globals.css` utility classes with CSS variable references using `color-mix(in oklch, var(--brand) X%, transparent/white)`:
+  - `.input-focus-glow` — uses `color-mix(in oklch, var(--brand) 25%, transparent)`
+  - `.card-hover-lift:hover` — uses `color-mix(in oklch, var(--foreground) 8%, transparent)`
+  - `.shimmer-text` + `.dark .shimmer-text` — uses `var(--brand)`, `var(--brand-border)`, `color-mix()` variants
+  - `.results-fade::after` — uses `color-mix(in oklch, var(--background) 90%, transparent)` (auto dark mode)
+  - `.card-glow-brand` (renamed) — uses `color-mix(in oklch, var(--brand) 30%/40%, transparent)`
+  - `.text-gradient-brand` (renamed) — uses `var(--brand)` → `var(--brand-hover)` gradient
+  - `.underline-animated::after` — uses `var(--brand)`
+  - `@keyframes pulse-ring` — uses `color-mix(in oklch, var(--brand) 40%, transparent)`
+  - `.time-slot-ripple::after` — uses `color-mix(in oklch, var(--brand) 30%, transparent)`
+  - `.section-glow-border` — uses `var(--brand-border)` and `var(--brand)`
+  - `@keyframes checkin-pulse-glow` — uses `color-mix(in oklch, var(--brand) 40%, transparent)`
+  - `.status-card-gradient-border::before` — uses `var(--brand-border)`, `var(--brand-hover)`, `var(--brand)`
+  - `.custom-scrollbar::-webkit-scrollbar-thumb` — uses `var(--brand-border)` / `var(--brand)`
+  - `.dark .custom-scrollbar::-webkit-scrollbar-thumb` — uses `color-mix(in oklch, var(--brand) 40%, var(--background))`
+  - `.skeleton-shimmer` — fixed `hsl()` to `var(--muted)` + `color-mix()` (was broken with oklch vars)
+  - `.text-shimmer-loading` — uses `var(--muted-foreground)` + `color-mix()`
+- **Priority 5c**: Renamed `card-glow-emerald` → `card-glow-brand` and `text-gradient-emerald` → `text-gradient-brand` in CSS and tsx files
+- **Bug fix**: Fixed `use-clinic-context.ts` — moved `useEffect`/`useCallback` hooks above early return to resolve `react-hooks/rules-of-hooks` lint errors (3 errors → 0)
+- **Verification**: ESLint 0 errors, browser verification passed (homepage, about, search, booking — all render correctly, no console errors, theme toggle works with smooth transitions)
+
+Stage Summary:
+- **All 5 priorities of the design system audit are now COMPLETE**
+  - P1: bg-white → semantic tokens ✅
+  - P2: gray-* → semantic tokens ✅
+  - P3: emerald-* → brand-* tokens (798 replacements) ✅
+  - P4: radius/shadow/sizing standardization ✅
+  - P5: CSS variable cleanup + theme transition fix ✅
+- Remaining hardcoded oklch: only in `:root`/`.dark` variable definitions (expected) and `.danger-gradient-border` (red/destructive, not brand)
+- All emerald references eliminated except 2 harmless occurrences (a comment and a QR code hex color data value)
+- Design system is now fully token-based with dark mode support

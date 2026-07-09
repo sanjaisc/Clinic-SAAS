@@ -361,8 +361,8 @@ export default function CommunicationsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
-                <MessageSquare className="size-5 text-emerald-600" />
+              <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
+                <MessageSquare className="size-5 text-brand" />
               </div>
               <div>
                 <CardTitle className="text-lg">Common Instructions Block</CardTitle>
@@ -559,7 +559,7 @@ export default function CommunicationsPage() {
                     size="sm"
                     className={
                       selectedTemplateId === t.id
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        ? "bg-brand hover:bg-brand-hover text-white"
                         : ""
                     }
                     onClick={() => handleTemplateSelect(t.id)}

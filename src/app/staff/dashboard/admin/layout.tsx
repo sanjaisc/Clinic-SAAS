@@ -58,7 +58,7 @@ export default function AdminLayout({
       {/* Page Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-purple-600 to-emerald-500">
+          <div className="flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-purple-600 to-brand">
             <Shield className="size-5 text-white" />
           </div>
           <div>
@@ -70,7 +70,7 @@ export default function AdminLayout({
             </p>
           </div>
         </div>
-        <div className="mt-4 h-1 rounded-full bg-gradient-to-r from-purple-500 via-emerald-400 to-emerald-500 w-48" />
+        <div className="mt-4 h-1 rounded-full bg-gradient-to-r from-purple-500 via-brand to-brand w-48" />
       </div>
 
       {/* Tab Navigation */}

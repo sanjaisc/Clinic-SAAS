@@ -48,8 +48,8 @@ const ACTION_CONFIG: Record<
 > = {
   BOOKING_CREATED: {
     icon: CalendarPlus,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-100",
+    color: "text-brand",
+    bgColor: "bg-brand-subtle",
     label: "New booking",
   },
   BOOKING_CANCELLED: {
@@ -185,7 +185,7 @@ export function NotificationBell() {
         >
           <Bell className="size-4.5 text-muted-foreground" />
           {displayCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white px-1">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-brand-muted text-[10px] font-bold text-white px-1">
               {displayCount}
             </span>
           )}
@@ -202,7 +202,7 @@ export function NotificationBell() {
           {data && data.unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
-              className="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
+              className="text-xs font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer"
             >
               Mark all read
             </button>
@@ -240,7 +240,7 @@ export function NotificationBell() {
                       w-full flex items-start gap-3 px-4 py-3 text-left
                       transition-colors cursor-pointer
                       hover:bg-muted/50
-                      ${unread ? "border-l-2 border-l-emerald-500" : "border-l-2 border-l-transparent"}
+                      ${unread ? "border-l-2 border-l-brand" : "border-l-2 border-l-transparent"}
                     `}
                   >
                     <div

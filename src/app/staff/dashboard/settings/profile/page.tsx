@@ -243,7 +243,7 @@ function ImageCropUploader({
       {/* Preview / Upload Area */}
       <div className="flex items-start gap-4">
         <div
-          className="relative flex-shrink-0 rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden flex items-center justify-center bg-muted/30 cursor-pointer hover:border-emerald-500/50 transition-colors"
+          className="relative flex-shrink-0 rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden flex items-center justify-center bg-muted/30 cursor-pointer hover:border-brand/50 transition-colors"
           style={{ width: previewW, height: previewH }}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -283,7 +283,7 @@ function ImageCropUploader({
               size="sm"
               onClick={handleUpload}
               disabled={uploading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {uploading ? (
                 <Loader2 className="size-3.5 mr-1.5 animate-spin" />
@@ -399,7 +399,7 @@ function MapPlaceholder({ lat, long, address }: { lat: number; long: number; add
   return (
     <div className="relative w-full h-48 rounded-lg overflow-hidden border border-border bg-muted/30">
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-        <MapPin className="size-8 text-emerald-500/60" />
+        <MapPin className="size-8 text-brand/60" />
         <p className="text-sm font-medium text-foreground/70">{lat.toFixed(4)}, {long.toFixed(4)}</p>
         <p className="text-xs text-muted-foreground text-center max-w-xs px-4">{address}</p>
       </div>
@@ -684,7 +684,7 @@ export default function ProfileSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="size-5 text-emerald-600" />
+            <Building2 className="size-5 text-brand" />
             Core Details
           </CardTitle>
           <CardDescription>
@@ -758,7 +758,7 @@ export default function ProfileSettingsPage() {
             <Button
               onClick={handleSaveCore}
               disabled={savingCore}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {savingCore ? (
                 <Loader2 className="size-4 mr-2 animate-spin" />
@@ -775,7 +775,7 @@ export default function ProfileSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="size-5 text-emerald-600" />
+            <Building2 className="size-5 text-brand" />
             About Content
           </CardTitle>
           <CardDescription>
@@ -792,7 +792,7 @@ export default function ProfileSettingsPage() {
             <Button
               onClick={handleSaveAbout}
               disabled={savingAbout}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {savingAbout ? (
                 <Loader2 className="size-4 mr-2 animate-spin" />
@@ -809,7 +809,7 @@ export default function ProfileSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <MapPin className="size-5 text-emerald-600" />
+            <MapPin className="size-5 text-brand" />
             Location
           </CardTitle>
           <CardDescription>
@@ -900,7 +900,7 @@ export default function ProfileSettingsPage() {
             <Button
               onClick={handleSaveLocation}
               disabled={savingLocation}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {savingLocation ? (
                 <Loader2 className="size-4 mr-2 animate-spin" />
@@ -917,7 +917,7 @@ export default function ProfileSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ImageIcon className="size-5 text-emerald-600" />
+            <ImageIcon className="size-5 text-brand" />
             Media & Branding
           </CardTitle>
           <CardDescription>
@@ -1000,7 +1000,7 @@ export default function ProfileSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Star className="size-5 text-emerald-600" />
+            <Star className="size-5 text-brand" />
             Patient Experience
           </CardTitle>
           <CardDescription>
@@ -1011,7 +1011,7 @@ export default function ProfileSettingsPage() {
           {/* Parking Instructions */}
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5 text-sm font-medium">
-              <Car className="size-4 text-emerald-600" />
+              <Car className="size-4 text-brand" />
               Parking Instructions
             </Label>
             <MarkdownEditor
@@ -1026,7 +1026,7 @@ export default function ProfileSettingsPage() {
           {/* Visit / Arrival Instructions */}
           <div className="space-y-2">
             <Label className="flex items-center gap-1.5 text-sm font-medium">
-              <Footprints className="size-4 text-emerald-600" />
+              <Footprints className="size-4 text-brand" />
               Visit / Arrival Instructions
             </Label>
             <MarkdownEditor
@@ -1041,7 +1041,7 @@ export default function ProfileSettingsPage() {
           {/* FAQ */}
           <div className="space-y-3">
             <Label className="flex items-center gap-1.5 text-sm font-medium">
-              <HelpCircle className="size-4 text-emerald-600" />
+              <HelpCircle className="size-4 text-brand" />
               Frequently Asked Questions
             </Label>
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
@@ -1071,7 +1071,7 @@ export default function ProfileSettingsPage() {
           {/* Amenities */}
           <div className="space-y-3">
             <Label className="flex items-center gap-1.5 text-sm font-medium">
-              <Star className="size-4 text-emerald-600" />
+              <Star className="size-4 text-brand" />
               Amenities
             </Label>
             {experience && experience.allAmenities.length > 0 ? (
@@ -1081,8 +1081,8 @@ export default function ProfileSettingsPage() {
                     key={amenity.id}
                     className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                       selectedAmenityIds.includes(amenity.id)
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
-                        : "border-border hover:border-emerald-300"
+                        ? "border-brand bg-brand-muted "
+                        : "border-border hover:border-brand-border"
                     }`}
                   >
                     <Checkbox
@@ -1106,7 +1106,7 @@ export default function ProfileSettingsPage() {
               <Separator />
               <div className="space-y-3">
                 <Label className="flex items-center gap-1.5 text-sm font-medium">
-                  <Languages className="size-4 text-emerald-600" />
+                  <Languages className="size-4 text-brand" />
                   Languages Spoken by Providers
                 </Label>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -1155,7 +1155,7 @@ export default function ProfileSettingsPage() {
             <Button
               onClick={handleSaveExperience}
               disabled={savingExperience}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {savingExperience ? (
                 <Loader2 className="size-4 mr-2 animate-spin" />

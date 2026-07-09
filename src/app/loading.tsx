@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       {/* Header Skeleton */}
       <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -35,7 +35,7 @@ export default function Loading() {
               key={i}
               className="rounded-2xl border bg-white shadow-sm overflow-hidden animate-pulse"
             >
-              <Skeleton className="h-2 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+              <Skeleton className="h-2 w-full bg-gradient-to-r from-brand to-brand" />
               <div className="p-5 space-y-4">
                 {/* Avatar + Name */}
                 <div className="flex items-center gap-3">

@@ -134,7 +134,7 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
     BOOKED: { label: "Booked", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200" },
     CHECKED_IN: { label: "Checked In", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200" },
-    COMPLETED: { label: "Completed", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+    COMPLETED: { label: "Completed", className: "bg-brand-subtle text-brand  border-brand-border" },
     ARCHIVED: { label: "Archived", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200" },
     CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200" },
     NO_SHOW: { label: "No Show", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200" },
@@ -145,7 +145,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function WaitlistStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    ACTIVE: { label: "Active", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+    ACTIVE: { label: "Active", className: "bg-brand-subtle text-brand  border-brand-border" },
     OFFERED: { label: "Offered", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200" },
     FULFILLED: { label: "Fulfilled", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200" },
     EXPIRED: { label: "Expired", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200" },
@@ -555,7 +555,7 @@ function GlobalAppointmentsTab({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="size-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                  className="size-7 text-brand hover:text-brand-hover hover:bg-brand-muted "
                                   title="Complete"
                                   onClick={() => handleStatusOverride(apt.id, "COMPLETED")}
                                 >
@@ -985,12 +985,12 @@ function PatientMatchesTab() {
                       <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${
                         group.matchType === "email"
                           ? "bg-blue-100 dark:bg-blue-900/40"
-                          : "bg-emerald-100 dark:bg-emerald-900/40"
+                          : "bg-brand-subtle "
                       }`}>
                         {group.matchType === "email" ? (
                           <Mail className="size-4 text-blue-600 dark:text-blue-400" />
                         ) : (
-                          <Phone className="size-4 text-emerald-600 dark:text-emerald-400" />
+                          <Phone className="size-4 text-brand" />
                         )}
                       </div>
                       <div className="min-w-0">

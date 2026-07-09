@@ -37,6 +37,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-border: var(--brand-border);
+  --shadow-brand: var(--shadow-brand);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -78,6 +85,16 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+:root {
+  --brand: oklch(0.527 0.14 163);
+  --brand-foreground: oklch(0.985 0 0);
+  --brand-hover: oklch(0.478 0.154 163);
+  --brand-muted: oklch(0.962 0.022 163);
+  --brand-subtle: oklch(0.925 0.044 163);
+  --brand-border: oklch(0.872 0.066 163);
+  --shadow-brand: 0 4px 14px -3px oklch(0.527 0.14 163 / 0.25), 0 2px 6px -2px oklch(0.527 0.14 163 / 0.15);
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -110,6 +127,16 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+.dark {
+  --brand: oklch(0.596 0.145 163);
+  --brand-foreground: oklch(0.13 0.02 163);
+  --brand-hover: oklch(0.645 0.145 163);
+  --brand-muted: oklch(0.21 0.025 163);
+  --brand-subtle: oklch(0.27 0.045 163);
+  --brand-border: oklch(0.42 0.08 163);
+  --shadow-brand: 0 4px 14px -3px oklch(0.527 0.14 163 / 0.15), 0 2px 6px -2px oklch(0.527 0.14 163 / 0.1);
 }
 
 @layer base {
@@ -185,9 +212,9 @@
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    hsl(var(--muted)) 25%,
-    hsl(var(--muted) / 0.5) 50%,
-    hsl(var(--muted)) 75%
+    var(--muted) 25%,
+    color-mix(in oklch, var(--muted) 50%, transparent) 50%,
+    var(--muted) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
@@ -201,11 +228,11 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: oklch(0.85 0.01 160);
+  background-color: var(--brand-border);
   border-radius: 3px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: oklch(0.75 0.02 160);
+  background-color: var(--brand);
 }
 
 /* Page transitions */
@@ -252,9 +279,9 @@
   animation: card-mount 0.35s ease-out;
 }
 
-/* Utility: emerald input focus glow */
+/* Utility: brand input focus glow */
 .input-focus-glow:focus-within {
-  box-shadow: 0 0 0 3px oklch(0.85 0.08 160 / 0.25);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand) 25%, transparent);
 }
 
 /* Utility: card hover lift */
@@ -263,18 +290,18 @@
 }
 .card-hover-lift:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.08);
+  box-shadow: 0 4px 12px color-mix(in oklch, var(--foreground) 8%, transparent);
 }
 
 /* Utility: shimmer text (gradient text shimmer) */
 .shimmer-text {
   background: linear-gradient(
     110deg,
-    oklch(0.7 0.17 162) 0%,
-    oklch(0.75 0.15 155) 25%,
-    oklch(0.8 0.18 150) 50%,
-    oklch(0.75 0.15 155) 75%,
-    oklch(0.7 0.17 162) 100%
+    var(--brand-border) 0%,
+    color-mix(in oklch, var(--brand) 75%, white) 25%,
+    var(--brand) 50%,
+    color-mix(in oklch, var(--brand) 75%, white) 75%,
+    var(--brand-border) 100%
   );
   background-size: 250% 100%;
   -webkit-background-clip: text;
@@ -335,9 +362,9 @@
   animation: gradient-shift 12s ease infinite;
 }
 
-/* Improved scrollbar: emerald tint on hover */
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: oklch(0.65 0.1 160) !important;
+/* Improved scrollbar: brand tint on hover (dark mode) */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brand) !important;
 }
 
 /* Gradient fade at bottom for results list */
@@ -345,34 +372,31 @@
   content: '';
   display: block;
   height: 48px;
-  background: linear-gradient(to bottom, transparent, oklch(1 0 0 / 0.9));
+  background: linear-gradient(to bottom, transparent, color-mix(in oklch, var(--background) 90%, transparent));
   pointer-events: none;
   margin-top: -48px;
   position: relative;
   z-index: 1;
 }
-.dark .results-fade::after {
-  background: linear-gradient(to bottom, transparent, oklch(0.145 0 0 / 0.9));
-}
 
 /* ========== 9c: Dark Mode Refinements ========== */
 
 .dark .card-hover-lift:hover {
-  box-shadow: 0 4px 16px oklch(0.4 0.1 160 / 0.15), 0 2px 6px oklch(0 0 0 / 0.3);
+  box-shadow: 0 4px 16px color-mix(in oklch, var(--brand) 15%, transparent), 0 2px 6px color-mix(in oklch, var(--foreground) 30%, transparent);
 }
 
 .dark .input-focus-glow:focus-within {
-  box-shadow: 0 0 0 3px oklch(0.5 0.1 160 / 0.2);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand) 20%, transparent);
 }
 
 .dark .shimmer-text {
   background: linear-gradient(
     110deg,
-    oklch(0.55 0.12 162) 0%,
-    oklch(0.6 0.1 155) 25%,
-    oklch(0.65 0.14 150) 50%,
-    oklch(0.6 0.1 155) 75%,
-    oklch(0.55 0.12 162) 100%
+    color-mix(in oklch, var(--brand) 55%, white) 0%,
+    color-mix(in oklch, var(--brand) 65%, white) 25%,
+    color-mix(in oklch, var(--brand) 80%, white) 50%,
+    color-mix(in oklch, var(--brand) 65%, white) 75%,
+    color-mix(in oklch, var(--brand) 55%, white) 100%
   );
   background-size: 250% 100%;
   -webkit-background-clip: text;
@@ -387,24 +411,24 @@
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: oklch(0.4 0.08 160);
+  background-color: color-mix(in oklch, var(--brand) 40%, var(--background));
 }
 
 /* ========== 9c: Global Utility Classes & Animations ========== */
 
 /* Glow effect for active/focused cards */
-.card-glow-emerald {
-  box-shadow: 0 0 0 1px oklch(0.7 0.17 162 / 0.3), 0 0 20px oklch(0.7 0.17 162 / 0.1);
+.card-glow-brand {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--brand) 30%, transparent), 0 0 20px color-mix(in oklch, var(--brand) 10%, transparent);
 }
 
 /* Dark mode card glow */
-.dark .card-glow-emerald {
-  box-shadow: 0 0 0 1px oklch(0.5 0.12 162 / 0.4), 0 0 20px oklch(0.5 0.12 162 / 0.15);
+.dark .card-glow-brand {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--brand) 40%, transparent), 0 0 20px color-mix(in oklch, var(--brand) 15%, transparent);
 }
 
 /* Subtle text gradient for headings */
-.text-gradient-emerald {
-  background: linear-gradient(135deg, oklch(0.5 0.15 160), oklch(0.55 0.12 180));
+.text-gradient-brand {
+  background: linear-gradient(135deg, var(--brand), var(--brand-hover));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -421,7 +445,7 @@
   left: 0;
   width: 0;
   height: 2px;
-  background: oklch(0.6 0.15 160);
+  background: var(--brand);
   transition: width 0.3s ease;
   border-radius: 1px;
 }
@@ -432,9 +456,9 @@
 
 /* Pulse ring for status dots */
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 oklch(0.6 0.2 145 / 0.4); }
-  70% { box-shadow: 0 0 0 6px oklch(0.6 0.2 145 / 0); }
-  100% { box-shadow: 0 0 0 0 oklch(0.6 0.2 145 / 0); }
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 40%, transparent); }
+  70% { box-shadow: 0 0 0 6px color-mix(in oklch, var(--brand) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 0%, transparent); }
 }
 .pulse-ring {
   animation: pulse-ring 2s ease-in-out infinite;
@@ -504,7 +528,7 @@
   position: absolute;
   width: 20px;
   height: 20px;
-  background: oklch(0.7 0.17 162 / 0.3);
+  background: color-mix(in oklch, var(--brand) 30%, transparent);
   border-radius: 50%;
   transform: scale(0);
   opacity: 0;
@@ -523,9 +547,9 @@
 .text-shimmer-loading {
   background: linear-gradient(
     90deg,
-    oklch(0.7 0 0) 25%,
-    oklch(0.85 0 0) 50%,
-    oklch(0.7 0 0) 75%
+    var(--muted-foreground) 25%,
+    color-mix(in oklch, var(--muted-foreground) 50%, var(--muted)) 50%,
+    var(--muted-foreground) 75%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
@@ -536,12 +560,12 @@
 
 /* Section glow border on hover */
 .section-glow-border {
-  border-left: 3px solid oklch(0.7 0.12 160);
+  border-left: 3px solid var(--brand-border);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .section-glow-border:hover {
-  border-left-color: oklch(0.6 0.17 160);
-  box-shadow: inset 3px 0 8px oklch(0.7 0.15 160 / 0.1);
+  border-left-color: var(--brand);
+  box-shadow: inset 3px 0 8px color-mix(in oklch, var(--brand) 10%, transparent);
 }
 
 /* Danger zone gradient border */
@@ -557,8 +581,8 @@
 
 /* Pulsing glow for available check-in button */
 @keyframes checkin-pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.6 0.17 160 / 0.4); }
-  50% { box-shadow: 0 0 0 8px oklch(0.6 0.17 160 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 40%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in oklch, var(--brand) 0%, transparent); }
 }
 .checkin-pulse-glow {
   animation: checkin-pulse-glow 2s ease-in-out infinite;
@@ -575,7 +599,7 @@
   inset: 0;
   border-radius: inherit;
   padding: 1.5px;
-  background: linear-gradient(135deg, oklch(0.7 0.17 162), oklch(0.6 0.12 180), oklch(0.65 0.1 160));
+  background: linear-gradient(135deg, var(--brand-border), var(--brand-hover), var(--brand));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

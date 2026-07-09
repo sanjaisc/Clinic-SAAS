@@ -744,7 +744,7 @@ function StatusBadge({ active }: { active: boolean }) {
       variant={active ? "default" : "secondary"}
       className={
         active
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+          ? "bg-brand-subtle text-brand-hover  border-brand-border "
           : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
       }
     >
@@ -871,7 +871,7 @@ function ServiceTable({
                   variant={item.isBookable ? "default" : "secondary"}
                   className={
                     item.isBookable
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                      ? "bg-brand-subtle text-brand-hover  border-brand-border "
                       : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
                   }
                 >

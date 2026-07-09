@@ -74,7 +74,7 @@ function ModalityBadge({ modality }: { modality: string }) {
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
         isVideo
           ? "bg-blue-100 text-blue-700"
-          : "bg-emerald-100 text-emerald-700"
+          : "bg-brand-subtle text-brand-hover"
       }`}
     >
       {isVideo ? "Video" : "In-Clinic"}
@@ -112,7 +112,7 @@ export function ClinicProviderRow({
         {/* Provider info row */}
         <div className="flex items-start gap-3">
           {/* Avatar with initials */}
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-emerald-200 text-emerald-700 font-semibold text-sm">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-subtle ring-2 ring-brand/20 text-brand-hover font-semibold text-sm">
             {initials}
           </div>
 
@@ -121,14 +121,14 @@ export function ClinicProviderRow({
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href={`/providers/${provider.slug}`}
-                className="text-lg font-semibold leading-tight text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-2 transition-colors cursor-pointer"
+                className="text-lg font-semibold leading-tight text-brand-hover hover:text-brand-hover hover:underline underline-offset-2 transition-colors cursor-pointer"
               >
                 {displayName}
               </Link>
               {provider.specialty && (
                 <Badge
                   variant="outline"
-                  className="border-emerald-200 text-emerald-600 bg-emerald-50/50 text-[11px] font-medium shrink-0 cursor-default"
+                  className="border-brand-border text-brand bg-brand-muted/50 text-[11px] font-medium shrink-0 cursor-default"
                 >
                   {provider.specialty}
                 </Badge>
@@ -145,7 +145,7 @@ export function ClinicProviderRow({
               {provider.reviewCount > 0 && (
                 <Link
                   href={`/providers/${provider.slug}`}
-                  className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="text-xs text-brand hover:text-brand-hover transition-colors cursor-pointer"
                 >
                   View reviews
                 </Link>
@@ -155,7 +155,7 @@ export function ClinicProviderRow({
             <div>
               <Link
                 href={`/providers/${provider.slug}`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:translate-x-0.5 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover hover:translate-x-0.5 transition-all cursor-pointer"
               >
                 View full profile
                 <ChevronRight className="size-3" />
@@ -166,7 +166,7 @@ export function ClinicProviderRow({
           {/* Slot duration badge */}
           <Badge
             variant="outline"
-            className="shrink-0 border-emerald-300 text-emerald-700 bg-emerald-50/50"
+            className="shrink-0 border-brand-border text-brand-hover bg-brand-muted/50"
           >
             {provider.slotDurationMinutes} min
           </Badge>
@@ -191,7 +191,7 @@ export function ClinicProviderRow({
                       className={`cursor-pointer group inline-flex items-center gap-3 rounded-lg border border-border overflow-hidden text-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-sm ${
                         isVideo
                           ? "hover:bg-blue-50/60 hover:border-blue-300"
-                          : "hover:bg-emerald-50 hover:border-emerald-300"
+                          : "hover:bg-brand-muted hover:border-brand-border"
                       }`}
                     >
                       {/* Left color accent */}
@@ -199,14 +199,14 @@ export function ClinicProviderRow({
                         className={`w-1 self-stretch shrink-0 ${
                           isVideo
                             ? "bg-blue-400 group-hover:bg-blue-500"
-                            : "bg-emerald-400 group-hover:bg-emerald-500"
+                            : "bg-brand group-hover:bg-brand-muted"
                         } transition-colors`}
                       />
                       {/* Content */}
                       <div className="flex items-center gap-2 px-3 py-2">
                         <Calendar
                           className={`size-4 shrink-0 ${
-                            isVideo ? "text-blue-500" : "text-emerald-500"
+                            isVideo ? "text-blue-500" : "text-brand"
                           }`}
                         />
                         <span className="text-foreground whitespace-nowrap">
@@ -216,7 +216,7 @@ export function ClinicProviderRow({
                           className={`text-xs font-medium transition-opacity ${
                             isVideo
                               ? "text-blue-500 opacity-0 group-hover:opacity-100"
-                              : "text-emerald-600 opacity-0 group-hover:opacity-100"
+                              : "text-brand opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           Book
@@ -231,7 +231,7 @@ export function ClinicProviderRow({
                 })}
                 <Link
                   href={`/providers/${provider.slug}`}
-                  className="cursor-pointer inline-flex items-center gap-1.5 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-emerald-700 transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-sm"
+                  className="cursor-pointer inline-flex items-center gap-1.5 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-brand-hover transition-all duration-200 hover:border-brand hover:bg-brand-muted hover:shadow-sm"
                 >
                   <CalendarPlus className="size-4" />
                   MORE

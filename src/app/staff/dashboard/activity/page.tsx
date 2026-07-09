@@ -69,9 +69,9 @@ const ACTION_CONFIG: Record<
 > = {
   [AUDIT_ACTIONS.BOOKING_CREATED]: {
     icon: CalendarPlus,
-    circleBg: "bg-emerald-100",
-    circleColor: "text-emerald-600",
-    borderColor: "border-l-emerald-500",
+    circleBg: "bg-brand-subtle",
+    circleColor: "text-brand",
+    borderColor: "border-l-brand",
     label: "New booking",
   },
   [AUDIT_ACTIONS.BOOKING_CANCELLED]: {
@@ -342,10 +342,10 @@ export default function ActivityPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-brand">
             <span className="relative flex size-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+              <span className="relative inline-flex rounded-full size-2 bg-brand-muted" />
             </span>
             Live
           </span>
@@ -378,7 +378,7 @@ export default function ActivityPage() {
       {/* Activity card */}
       <Card className="border-border/50 shadow-sm">
         {/* Subtle gradient header strip */}
-        <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-t-xl" />
+        <div className="h-1 bg-gradient-to-r from-brand to-teal-500 rounded-t-xl" />
 
         {/* Filter tabs */}
         <div className="px-4 pt-4">

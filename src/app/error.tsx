@@ -50,7 +50,7 @@ export default function Error({
         <CardFooter className="flex gap-3 justify-center">
           <Button
             onClick={() => reset()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-brand hover:bg-brand-hover text-white"
           >
             Try Again
           </Button>

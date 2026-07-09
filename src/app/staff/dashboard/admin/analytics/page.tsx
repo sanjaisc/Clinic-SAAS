@@ -391,7 +391,7 @@ export default function AdminAnalyticsPage() {
           sub={`Last ${analytics.period.days} days`}
         />
         <StatCard
-          icon={<CheckCircle2 className="size-5 text-emerald-500" />}
+          icon={<CheckCircle2 className="size-5 text-brand" />}
           label="Completed"
           value={analytics.summaryStats.completedAppointments.toLocaleString()}
           sub={
@@ -486,7 +486,7 @@ export default function AdminAnalyticsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Activity className="size-4 text-emerald-500" />
+              <Activity className="size-4 text-brand" />
               Modality Split
             </CardTitle>
           </CardHeader>
@@ -533,7 +533,7 @@ export default function AdminAnalyticsPage() {
                       strokeWidth="3"
                       strokeDasharray={`${analytics.modalitySplit.videoPct} ${100 - analytics.modalitySplit.videoPct}`}
                       strokeDashoffset={`${-analytics.modalitySplit.inPersonPct}`}
-                      className="text-emerald-500"
+                      className="text-brand"
                       style={{
                         transition: "stroke-dasharray 0.6s ease",
                       }}
@@ -577,7 +577,7 @@ export default function AdminAnalyticsPage() {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="size-3 rounded-full bg-emerald-500" />
+                        <div className="size-3 rounded-full bg-brand-muted" />
                         <span className="text-sm font-medium">Video</span>
                       </div>
                       <div className="text-right">
@@ -591,7 +591,7 @@ export default function AdminAnalyticsPage() {
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                        className="h-full bg-brand-muted rounded-full transition-all duration-500"
                         style={{
                           width: `${analytics.modalitySplit.videoPct}%`,
                         }}
@@ -657,7 +657,7 @@ export default function AdminAnalyticsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <DollarSign className="size-4 text-emerald-500" />
+              <DollarSign className="size-4 text-brand" />
               Deposit Capture
             </CardTitle>
           </CardHeader>
@@ -682,7 +682,7 @@ export default function AdminAnalyticsPage() {
                     {
                       label: "Captured",
                       value: analytics.depositCapture.capturedCents,
-                      color: "bg-emerald-500",
+                      color: "bg-brand-muted",
                     },
                     {
                       label: "Forfeited",
@@ -724,7 +724,7 @@ export default function AdminAnalyticsPage() {
                     value={fmtCents(analytics.depositCapture.totalDepositCents)}
                   />
                   <DepositLegendItem
-                    color="bg-emerald-500"
+                    color="bg-brand-muted"
                     label="Captured"
                     value={fmtCents(analytics.depositCapture.capturedCents)}
                   />
@@ -794,7 +794,7 @@ export default function AdminAnalyticsPage() {
                       <td className="py-2.5 pr-4 text-right tabular-nums">
                         {clinic.appointments}
                       </td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums text-emerald-600">
+                      <td className="py-2.5 pr-4 text-right tabular-nums text-brand">
                         {clinic.completed}
                       </td>
                       <td className="py-2.5 pr-4 text-right tabular-nums text-amber-600">
@@ -889,7 +889,7 @@ export default function AdminAnalyticsPage() {
                   label: "Booking Completes",
                   count: conversion.funnel.bookingCompletes,
                   unique: conversion.uniqueSessions.bookingCompletes,
-                  color: "bg-emerald-500",
+                  color: "bg-brand-muted",
                   rate: conversion.conversionRates.bookingStartToComplete,
                   pct:
                     conversion.funnel.totalSearches > 0
@@ -956,11 +956,11 @@ export default function AdminAnalyticsPage() {
             </div>
 
             {/* Recommendation Acceptance */}
-            <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center justify-between bg-brand-muted rounded-lg p-4 border border-brand-border ">
               <div className="flex items-center gap-3">
-                <ThumbsUp className="size-5 text-emerald-600 dark:text-emerald-400" />
+                <ThumbsUp className="size-5 text-brand" />
                 <div>
-                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                  <p className="text-sm font-medium text-brand-hover">
                     Recommendation Acceptance Rate
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -968,7 +968,7 @@ export default function AdminAnalyticsPage() {
                   </p>
                 </div>
               </div>
-              <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="text-2xl font-bold text-brand">
                 {conversion.recommendationAcceptRate}%
               </span>
             </div>
@@ -977,7 +977,7 @@ export default function AdminAnalyticsPage() {
       </Card>
 
       {/* Revenue highlight */}
-      <Card className="bg-gradient-to-r from-purple-600 to-emerald-500 border-0">
+      <Card className="bg-gradient-to-r from-purple-600 to-brand border-0">
         <CardContent className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-full bg-white/20 flex items-center justify-center">

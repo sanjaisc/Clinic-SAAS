@@ -10,7 +10,7 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-emerald-50/50 to-white p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-brand-muted/50 to-white p-4">
           <div className="max-w-md w-full text-center space-y-6">
             {/* Heart icon with error state */}
             <div className="relative inline-flex">
@@ -38,7 +38,7 @@ export default function GlobalError({
             </div>
             <button
               onClick={() => reset()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand-hover transition-colors shadow-sm"
             >
               Try again
             </button>

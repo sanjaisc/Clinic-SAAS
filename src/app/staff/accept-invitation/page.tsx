@@ -176,9 +176,9 @@ export default function AcceptInvitationPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/40">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-brand-muted/80 via-background to-teal-50/40">
       {/* Top accent bar */}
-      <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
+      <div className="h-1.5 bg-gradient-to-r from-brand via-teal-500 to-brand" />
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center px-4 py-12 relative">
@@ -228,7 +228,7 @@ export default function AcceptInvitationPage() {
           {view === "loading" && (
             <div className="relative bg-card rounded-2xl shadow-xl border border-border/60 p-8 animate-card-mount">
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="size-8 text-emerald-600 animate-spin mb-4" />
+                <Loader2 className="size-8 text-brand animate-spin mb-4" />
                 <p className="text-sm text-muted-foreground">
                   Validating your invitation...
                 </p>
@@ -241,8 +241,8 @@ export default function AcceptInvitationPage() {
             <div className="relative bg-card rounded-2xl shadow-xl border border-border/60 p-8 animate-card-mount">
               {/* Header */}
               <div className="flex items-center gap-3 mb-2">
-                <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-                  <Shield className="size-5 text-emerald-600" />
+                <div className="size-10 rounded-xl bg-brand-subtle flex items-center justify-center">
+                  <Shield className="size-5 text-brand" />
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold text-foreground">
@@ -252,18 +252,18 @@ export default function AcceptInvitationPage() {
               </div>
 
               {/* Clinic info banner */}
-              <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-950/30 dark:border-emerald-900/50">
+              <div className="mb-6 p-3.5 rounded-xl bg-brand-muted border border-brand-border ">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <Building2 className="size-4 text-emerald-600" />
-                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                  <Building2 className="size-4 text-brand" />
+                  <p className="text-sm font-medium text-brand">
                     {invitationInfo.clinicName}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                <div className="flex items-center gap-2 text-xs text-brand-hover/80/80">
                   <Mail className="size-3" />
                   <span>{invitationInfo.email}</span>
                 </div>
-                <p className="text-xs text-emerald-700/60 dark:text-emerald-400/60 mt-1">
+                <p className="text-xs text-brand-hover/60/60 mt-1">
                   You&apos;ll be added as a Receptionist to this clinic.
                 </p>
               </div>
@@ -392,7 +392,7 @@ export default function AcceptInvitationPage() {
                         confirmPassword.length > 0 && !passwordsMatch
                           ? "border-red-300 dark:border-red-800 focus-visible:ring-red-500/30"
                           : confirmPassword.length > 0 && passwordsMatch
-                            ? "border-emerald-300 dark:border-emerald-800"
+                            ? "border-brand-border "
                             : ""
                       }`}
                     />
@@ -417,7 +417,7 @@ export default function AcceptInvitationPage() {
                     </button>
                   </div>
                   {confirmPassword.length > 0 && passwordsMatch && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    <p className="text-xs text-brand">
                       Passwords match
                     </p>
                   )}
@@ -433,7 +433,9 @@ export default function AcceptInvitationPage() {
                     !confirmPassword ||
                     !passwordsMatch
                   }
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                  variant="brand"
+                  size="cta"
+                  className="w-full shadow-md shadow-brand/20 hover:shadow-lg hover:shadow-brand/30 font-medium"
                 >
                   {isSubmitting ? (
                     <span className="inline-flex items-center">
@@ -468,8 +470,9 @@ export default function AcceptInvitationPage() {
                   {errorMessage}
                 </p>
                 <Button
+                  variant="brand"
                   onClick={() => router.push("/staff/login")}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium cursor-pointer"
+                  className="font-medium"
                 >
                   Go to Sign In
                 </Button>
@@ -531,8 +534,8 @@ export default function AcceptInvitationPage() {
           {view === "success" && (
             <div className="relative bg-card rounded-2xl shadow-xl border border-border/60 p-8 animate-card-mount">
               <div className="flex flex-col items-center text-center py-6">
-                <div className="size-14 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mb-4 animate-in zoom-in-0 duration-500">
-                  <CheckCircle2 className="size-7 text-emerald-600" />
+                <div className="size-14 rounded-full bg-brand-subtle flex items-center justify-center mb-4 animate-in zoom-in-0 duration-500">
+                  <CheckCircle2 className="size-7 text-brand" />
                 </div>
                 <h2 className="text-lg font-semibold mb-2">
                   Account Created Successfully!
@@ -549,8 +552,9 @@ export default function AcceptInvitationPage() {
                   </p>
                 )}
                 <Button
+                  variant="brand"
                   onClick={() => router.push("/staff/login")}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-md shadow-emerald-600/20 cursor-pointer"
+                  className="shadow-md shadow-brand/20 font-medium"
                 >
                   Go to Sign In
                 </Button>
@@ -628,13 +632,13 @@ function getPasswordStrength(
     return {
       score,
       label: "Good",
-      color: "bg-emerald-500",
-      textColor: "text-emerald-500",
+      color: "bg-brand-muted",
+      textColor: "text-brand",
     };
   return {
     score,
     label: "Strong",
-    color: "bg-emerald-600",
-    textColor: "text-emerald-600",
+    color: "bg-brand",
+    textColor: "text-brand",
   };
 }

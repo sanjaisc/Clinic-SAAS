@@ -48,31 +48,12 @@ export function useClinicContext(): ClinicContextValue {
   // Session-provided clinicId (CLINIC_ADMIN / CLINIC_RECEPTION)
   const sessionClinicId = user?.clinicId ?? null;
 
-  // SYSTEM_MANAGER selected clinic
+  // SYSTEM_MANAGER selected clinic (always called, only used when isSystemManager)
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [clinics, setClinics] = useState<ClinicOption[]>([]);
   const [clinicsLoading, setClinicsLoading] = useState(false);
 
-  // ---------------------------------------------------------------------------
-  // Non-SYSTEM_MANAGER: just use session clinicId
-  // ---------------------------------------------------------------------------
-  if (!isSystemManager) {
-    return {
-      clinicId: sessionClinicId,
-      isSystemManager: false,
-      clinicsLoading: false,
-      clinics: [],
-      selectedClinic: null,
-      setClinicId: () => {},
-      ready: !!sessionClinicId,
-    };
-  }
-
-  // ---------------------------------------------------------------------------
-  // SYSTEM_MANAGER: fetch clinics & manage selection
-  // ---------------------------------------------------------------------------
-
-  // Fetch clinics list
+  // Fetch clinics list (no-op when not SYSTEM_MANAGER)
   useEffect(() => {
     if (authStatus !== "authenticated" || !isSystemManager) return;
     let cancelled = false;
@@ -102,8 +83,9 @@ export function useClinicContext(): ClinicContextValue {
     return () => { cancelled = true; };
   }, [authStatus, isSystemManager]);
 
-  // Restore persisted selection from localStorage
+  // Restore persisted selection from localStorage (no-op when not SYSTEM_MANAGER)
   useEffect(() => {
+    if (!isSystemManager) return;
     if (clinics.length > 0 && !selectedId) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored && clinics.some((c) => c.id === stored)) {
@@ -117,12 +99,27 @@ export function useClinicContext(): ClinicContextValue {
         }
       }
     }
-  }, [clinics, selectedId]);
+  }, [clinics, selectedId, isSystemManager]);
 
   const setClinicId = useCallback((id: string) => {
     setSelectedId(id);
     localStorage.setItem(STORAGE_KEY, id);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Non-SYSTEM_MANAGER: just use session clinicId
+  // ---------------------------------------------------------------------------
+  if (!isSystemManager) {
+    return {
+      clinicId: sessionClinicId,
+      isSystemManager: false,
+      clinicsLoading: false,
+      clinics: [],
+      selectedClinic: null,
+      setClinicId: () => {},
+      ready: !!sessionClinicId,
+    };
+  }
 
   const selectedClinic = clinics.find((c) => c.id === selectedId) ?? null;
 

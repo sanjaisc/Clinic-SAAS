@@ -145,8 +145,8 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
 
   if (days > 0) {
     return (
-      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
-        <Timer className="size-5 text-emerald-600" />
+      <div className="flex items-center gap-2 text-brand-hover bg-brand-muted rounded-lg px-4 py-3">
+        <Timer className="size-5 text-brand" />
         <span className="font-semibold text-lg">
           {days} day{days !== 1 ? "s" : ""} and {hours} hour{hours !== 1 ? "s" : ""} until your appointment
         </span>
@@ -157,8 +157,8 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
   if (hours > 0) {
     const mins = differenceInMinutes(targetDate, now) % 60;
     return (
-      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
-        <Timer className="size-5 text-emerald-600" />
+      <div className="flex items-center gap-2 text-brand-hover bg-brand-muted rounded-lg px-4 py-3">
+        <Timer className="size-5 text-brand" />
         <span className="font-semibold text-lg">
           {hours} hour{hours !== 1 ? "s" : ""} and {mins} minute{mins !== 1 ? "s" : ""} until your appointment
         </span>
@@ -269,7 +269,7 @@ export default function ManagePage() {
 
   if (pageState === "loading") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div
@@ -277,7 +277,7 @@ export default function ManagePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <Loader2 className="size-10 text-emerald-600 animate-spin mx-auto mb-4" />
+            <Loader2 className="size-10 text-brand animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground text-lg">Loading your appointment details…</p>
           </motion.div>
         </main>
@@ -290,7 +290,7 @@ export default function ManagePage() {
 
   if (pageState === "not_found" || pageState === "expired" || pageState === "cancelled" || pageState === "error" || pageState === "check_in_early") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div
@@ -369,7 +369,7 @@ export default function ManagePage() {
                     Need help? Please call the clinic directly:
                   </p>
                   <div className="flex items-center justify-center gap-2 mt-2">
-                    <Phone className="size-4 text-emerald-600" />
+                    <Phone className="size-4 text-brand" />
                     <span className="font-semibold text-foreground text-lg">
                       {data?.clinic?.phoneNumber || "(555) 123-4567"}
                     </span>
@@ -399,12 +399,12 @@ export default function ManagePage() {
     const getPaymentDisplay = () => {
       if (data.appointment.isDemoInsurance || data.insurance) {
         if (data.appointment.isDemoInsurance) {
-          return { label: "Demo Insurance", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+          return { label: "Demo Insurance", sublabel: "No payment required", color: "bg-brand-subtle text-brand" };
         }
         if (data.ledger?.amountCents && data.ledger.amountCents > 0) {
           return { label: `Insurance + ${formatCents(data.ledger.amountCents)} deposit`, sublabel: "Deposit will be applied to your copay", color: "bg-blue-100 text-blue-800" };
         }
-        return { label: "Insurance", sublabel: "Please bring your insurance card", color: "bg-emerald-100 text-emerald-800" };
+        return { label: "Insurance", sublabel: "Please bring your insurance card", color: "bg-brand-subtle text-brand" };
       }
 
       if (data.appointment.selfPayCents > 0) {
@@ -415,13 +415,13 @@ export default function ManagePage() {
         return { label: `Deposit: ${formatCents(data.appointment.depositCents)}`, sublabel: "Remaining balance due at visit", color: "bg-amber-100 text-amber-800" };
       }
 
-      return { label: "Free Visit", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+      return { label: "Free Visit", sublabel: "No payment required", color: "bg-brand-subtle text-brand" };
     };
 
     const paymentInfo = getPaymentDisplay();
 
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-muted/50 to-white">
         <Header />
 
         <main className="flex-1 py-6 px-4">
@@ -435,7 +435,7 @@ export default function ManagePage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="mb-2"
                 >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-700 text-white overflow-hidden">
+                  <Card className="border-0 shadow-lg bg-gradient-to-br from-brand to-brand-hover text-white overflow-hidden">
                     <CardContent className="pt-8 pb-8 px-8 text-center">
                       <motion.div
                         className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-5"
@@ -461,17 +461,17 @@ export default function ManagePage() {
                         </motion.svg>
                       </motion.div>
                       <h2 className="text-2xl font-bold mb-2">You&apos;re Checked In!</h2>
-                      <p className="text-emerald-100 text-lg mb-1">
+                      <p className="text-brand-muted text-lg mb-1">
                         {data.clinic.name}
                       </p>
-                      <p className="text-emerald-100/80">
+                      <p className="text-brand-muted/80">
                         {format(startTime, "EEEE, MMMM d, yyyy")} at {format(startTime, "h:mm a")}
                       </p>
                       {isVideo && data.clinic.videoVisitLink && (
                         <div className="mt-5">
                           <Button
                             size="lg"
-                            className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold rounded-lg"
+                            className="bg-white text-brand-hover hover:bg-brand-muted font-semibold rounded-lg"
                             asChild
                           >
                             <a href={data.clinic.videoVisitLink} target="_blank" rel="noopener noreferrer">
@@ -497,9 +497,9 @@ export default function ManagePage() {
                 {/* Status Banner */}
                 {(isCheckedIn || justCheckedIn) && !justCheckedIn && (
                   <motion.div {...fadeInUp}>
-                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
-                      <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-                      <span className="text-emerald-800 font-medium">You are checked in for this appointment</span>
+                    <div className="flex items-center gap-2 bg-brand-muted border border-brand-border rounded-lg px-4 py-3">
+                      <CheckCircle2 className="size-5 text-brand shrink-0" />
+                      <span className="text-brand font-medium">You are checked in for this appointment</span>
                     </div>
                   </motion.div>
                 )}
@@ -508,12 +508,12 @@ export default function ManagePage() {
                 <motion.div {...fadeInUp}>
                   <Card className="border-0 shadow-lg overflow-hidden status-card-gradient-border">
                     {/* Gradient Top Bar */}
-                    <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+                    <div className="h-2 bg-gradient-to-r from-brand via-brand to-teal-500" />
 
                     <CardHeader className="pb-4">
                       <div className="flex items-start gap-4">
                         {/* Clinic Logo/Placeholder */}
-                        <div className="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+                        <div className="w-14 h-14 rounded-xl bg-brand-subtle flex items-center justify-center shrink-0 border border-brand-border">
                           {data.clinic.logoUrl ? (
                             <img
                               src={data.clinic.logoUrl}
@@ -521,7 +521,7 @@ export default function ManagePage() {
                               className="w-10 h-10 rounded-lg object-cover"
                             />
                           ) : (
-                            <Building2 className="size-6 text-emerald-600" />
+                            <Building2 className="size-6 text-brand" />
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -541,7 +541,7 @@ export default function ManagePage() {
                       {/* Appointment Date/Time + Modality */}
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
-                          <Calendar className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+                          <Calendar className="size-5 text-brand mt-0.5 shrink-0" />
                           <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                               Date
@@ -552,7 +552,7 @@ export default function ManagePage() {
                           </div>
                         </div>
                         <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
-                          <Clock className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+                          <Clock className="size-5 text-brand mt-0.5 shrink-0" />
                           <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                               Time
@@ -572,7 +572,7 @@ export default function ManagePage() {
                             Video Visit
                           </Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 gap-1.5 px-3 py-1 text-sm">
+                          <Badge className="bg-brand-subtle text-brand border-brand-border hover:bg-brand-subtle gap-1.5 px-3 py-1 text-sm">
                             <Building2 className="size-3.5" />
                             In-Clinic
                           </Badge>
@@ -604,7 +604,7 @@ export default function ManagePage() {
 
                       {/* Provider Info */}
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+                        <div className="w-12 h-12 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 border border-brand-border">
                           {data.provider.photoUrl ? (
                             <img
                               src={data.provider.photoUrl}
@@ -612,7 +612,7 @@ export default function ManagePage() {
                               className="w-full h-full rounded-full object-cover"
                             />
                           ) : (
-                            <User className="size-5 text-emerald-600" />
+                            <User className="size-5 text-brand" />
                           )}
                         </div>
                         <div>
@@ -658,8 +658,9 @@ export default function ManagePage() {
                     {showCheckInButton() && (
                       <CardFooter className="pt-0">
                         <Button
-                          size="lg"
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg checkin-pulse-glow"
+                          variant="brand"
+                          size="cta"
+                          className="w-full checkin-pulse-glow"
                           disabled={checkInLoading}
                           onClick={async () => {
                             setCheckInLoading(true);
@@ -695,10 +696,10 @@ export default function ManagePage() {
                 {/* ---- QR Code Section (BOOKED or CONFIRMED only) ---- */}
                 {(data.appointment.status === "BOOKED" || data.appointment.status === "CONFIRMED") && (
                   <motion.div {...fadeInUp}>
-                    <Card className="border-emerald-200 shadow-md bg-white">
+                    <Card className="border-brand-border shadow-md bg-white">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2">
-                          <QrCode className="size-5 text-emerald-600" />
+                          <QrCode className="size-5 text-brand" />
                           Your Appointment QR Code
                         </CardTitle>
                         <CardDescription className="text-sm">
@@ -721,14 +722,14 @@ export default function ManagePage() {
                   <Card className="border-0 shadow-md card-hover-lift">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <FileText className="size-5 text-emerald-600" />
+                        <FileText className="size-5 text-brand" />
                         What to Know Before Your Visit
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <Clock className="size-3.5 text-emerald-700" />
+                        <div className="w-6 h-6 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                          <Clock className="size-3.5 text-brand-hover" />
                         </div>
                         <div>
                           <p className="font-medium text-foreground text-sm">
@@ -743,8 +744,8 @@ export default function ManagePage() {
                       </div>
 
                       <div className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <CreditCard className="size-3.5 text-emerald-700" />
+                        <div className="w-6 h-6 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                          <CreditCard className="size-3.5 text-brand-hover" />
                         </div>
                         <div>
                           <p className="font-medium text-foreground text-sm">
@@ -760,8 +761,8 @@ export default function ManagePage() {
 
                       {isVideo && (
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <Video className="size-3.5 text-emerald-700" />
+                          <div className="w-6 h-6 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                            <Video className="size-3.5 text-brand-hover" />
                           </div>
                           <div>
                             <p className="font-medium text-foreground text-sm">
@@ -776,8 +777,8 @@ export default function ManagePage() {
 
                       {!data.appointment.intakeCompleted && (
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <FileText className="size-3.5 text-emerald-700" />
+                          <div className="w-6 h-6 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+                            <FileText className="size-3.5 text-brand-hover" />
                           </div>
                           <div>
                             <p className="font-medium text-foreground text-sm">
@@ -799,7 +800,7 @@ export default function ManagePage() {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 font-semibold text-base h-12 rounded-lg"
+                      className="w-full border-brand-border text-brand-hover hover:bg-brand-muted hover:text-brand-hover font-semibold text-base h-12 rounded-lg"
                       asChild
                     >
                       <Link href={`/intake/${token}`}>
@@ -832,8 +833,9 @@ export default function ManagePage() {
                 {data.appointment.status === "COMPLETED" && (
                   <motion.div {...fadeInUp}>
                     <Button
-                      size="lg"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg"
+                      variant="brand"
+                      size="cta"
+                      className="w-full"
                       asChild
                     >
                       <a href={`/review/${token}`}>
@@ -850,7 +852,7 @@ export default function ManagePage() {
                     <p className="text-sm text-muted-foreground mb-2">Questions about your appointment?</p>
                     <a
                       href={`tel:${data.clinic.phoneNumber}`}
-                      className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 font-medium transition-colors"
+                      className="inline-flex items-center gap-2 text-brand-hover hover:text-brand-hover font-medium transition-colors"
                     >
                       <Phone className="size-4" />
                       {data.clinic.phoneNumber}
@@ -878,7 +880,7 @@ function Header() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-teal-600 flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">
@@ -886,7 +888,7 @@ function Header() {
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Shield className="size-3.5 text-emerald-600" />
+          <Shield className="size-3.5 text-brand" />
           <span>Secure Patient Portal</span>
         </div>
       </div>

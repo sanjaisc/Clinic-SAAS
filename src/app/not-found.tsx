@@ -11,22 +11,22 @@ import {
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       {/* Decorative background elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute -top-24 -left-24 size-72 rounded-full bg-emerald-100/40 blur-3xl" />
+        <div className="absolute -top-24 -left-24 size-72 rounded-full bg-brand-subtle/40 blur-3xl" />
         <div className="absolute -bottom-24 -right-24 size-72 rounded-full bg-teal-100/30 blur-3xl" />
       </div>
 
       <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <Card className="max-w-md w-full border-emerald-200/60 shadow-lg">
+        <Card className="max-w-md w-full border-brand-border shadow-lg">
           <CardHeader className="text-center pb-2">
             {/* Large 404 */}
             <div className="relative mx-auto mb-2 w-fit">
-              <span className="text-8xl font-black text-emerald-100 select-none">
+              <span className="text-8xl font-black text-brand-muted select-none">
                 404
               </span>
-              <Search className="size-8 text-emerald-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <Search className="size-8 text-brand absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
             <CardTitle className="text-xl text-gray-900">
               Page not found
@@ -39,7 +39,7 @@ export default function NotFound() {
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button asChild className="bg-brand hover:bg-brand-hover text-white">
               <Link href="/">Go Home</Link>
             </Button>
           </CardFooter>

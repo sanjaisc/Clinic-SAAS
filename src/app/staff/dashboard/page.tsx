@@ -100,8 +100,8 @@ function StatCard({
             )}
             {trend && (
               <div className="flex items-center gap-1 text-xs font-medium">
-                <TrendingUp className="size-3 text-emerald-600" />
-                <span className="text-emerald-600">{trend}</span>
+                <TrendingUp className="size-3 text-brand" />
+                <span className="text-brand">{trend}</span>
               </div>
             )}
           </div>
@@ -154,7 +154,7 @@ function AppointmentRow({
           className={`text-[10px] px-2 py-0.5 ${
             apt.modality === "VIDEO"
               ? "bg-blue-50 text-blue-600 border-blue-200"
-              : "bg-emerald-50 text-emerald-600 border-emerald-200"
+              : "bg-brand-muted text-brand border-brand-border"
           }`}
         >
           {apt.modality === "VIDEO" ? (
@@ -208,7 +208,7 @@ interface ActivityNotification {
 }
 
 const ACTIVITY_ICON_MAP: Record<string, { icon: React.ElementType; color: string; bg: string; borderColor: string }> = {
-  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-emerald-600", bg: "bg-emerald-100", borderColor: "border-l-emerald-500" },
+  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-brand", bg: "bg-brand-subtle", borderColor: "border-l-brand" },
   [AUDIT_ACTIONS.BOOKING_CANCELLED]: { icon: XCircle, color: "text-red-500", bg: "bg-red-100", borderColor: "border-l-red-500" },
   [AUDIT_ACTIONS.BOOKING_CHECKED_IN]: { icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-100", borderColor: "border-l-blue-500" },
   [AUDIT_ACTIONS.BOOKING_COMPLETED]: { icon: CheckCheck, color: "text-green-600", bg: "bg-green-100", borderColor: "border-l-green-500" },
@@ -251,12 +251,12 @@ function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
       {/* Subtle gradient header strip */}
-      <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+      <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <Bell className="size-4 text-emerald-600" />
+            <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+              <Bell className="size-4 text-brand" />
             </div>
             <div>
               <CardTitle className="text-base">Recent Activity</CardTitle>
@@ -322,7 +322,7 @@ function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
             })}
             <Link
               href="/staff/dashboard/activity"
-              className="w-full flex items-center justify-center gap-1 pt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+              className="w-full flex items-center justify-center gap-1 pt-2 text-xs font-medium text-brand hover:text-brand-hover transition-colors"
             >
               View all
               <ArrowRight className="size-3" />
@@ -425,7 +425,7 @@ export default function DashboardPage() {
           </Button>
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 cursor-pointer"
+            className="bg-brand hover:bg-brand-hover text-white shadow-sm shadow-brand/20 cursor-pointer"
             onClick={() => router.push("/staff/dashboard/book")}
           >
             <CalendarPlus className="size-3.5 mr-2" />
@@ -441,8 +441,8 @@ export default function DashboardPage() {
           value={data.stats.todayAppointments}
           subtitle={`${data.stats.bookedToday} of ${data.stats.totalSlotsToday} slots filled`}
           icon={CalendarDays}
-          gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
-          iconBg="bg-emerald-100 text-emerald-600"
+          gradient="bg-gradient-to-r from-brand to-teal-500"
+          iconBg="bg-brand-subtle text-brand"
           trend={`${data.stats.utilizationPercent}% utilization`}
         />
         <StatCard
@@ -472,7 +472,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Gradient divider */}
-      <div className="h-px bg-gradient-to-r from-emerald-200/30 via-emerald-200/50 to-transparent" />
+      <div className="h-px bg-gradient-to-r from-brand-subtle/30 via-brand-muted/50 to-transparent" />
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -481,16 +481,16 @@ export default function DashboardPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <Activity className="size-4 text-emerald-600" />
+                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                  <Activity className="size-4 text-brand" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base">Today&apos;s Schedule</CardTitle>
                     {data.stats.upcomingCount > 0 && (
                       <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-muted" />
                       </span>
                     )}
                   </div>
@@ -539,8 +539,8 @@ export default function DashboardPage() {
           <Card className="border-border/50 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="size-4 text-emerald-600" />
+                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                  <TrendingUp className="size-4 text-brand" />
                 </div>
                 Quick Actions
               </CardTitle>
@@ -548,16 +548,16 @@ export default function DashboardPage() {
             <CardContent className="space-y-2 px-4 pb-4">
               <button
                 onClick={() => router.push("/staff/dashboard/book")}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 transition-all text-left cursor-pointer group"
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-brand-muted hover:bg-brand-subtle border border-brand-border transition-all text-left cursor-pointer group"
               >
-                <div className="size-9 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <div className="size-9 rounded-lg bg-brand flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <CalendarPlus className="size-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-emerald-900">New Booking</p>
-                  <p className="text-xs text-emerald-700/70">Book for a phone-in patient</p>
+                  <p className="text-sm font-medium text-brand">New Booking</p>
+                  <p className="text-xs text-brand-hover/70">Book for a phone-in patient</p>
                 </div>
-                <ArrowRight className="size-4 text-emerald-400 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+                <ArrowRight className="size-4 text-brand ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
               </button>
 
               <button
@@ -594,8 +594,8 @@ export default function DashboardPage() {
           <Card className="border-border/50 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <BarChart3 className="size-4 text-emerald-600" />
+                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                  <BarChart3 className="size-4 text-brand" />
                 </div>
                 Performance
               </CardTitle>
@@ -612,7 +612,7 @@ export default function DashboardPage() {
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${
                         data.stats.utilizationPercent >= 80
-                          ? "bg-emerald-500"
+                          ? "bg-brand-muted"
                           : data.stats.utilizationPercent >= 50
                           ? "bg-amber-500"
                           : "bg-red-400"
@@ -623,12 +623,12 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                  <div className="p-3 rounded-xl bg-brand-muted/60 border border-brand-muted">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <CheckCircle2 className="size-3.5 text-emerald-600" />
-                      <span className="text-xs text-emerald-700 font-medium">Completed</span>
+                      <CheckCircle2 className="size-3.5 text-brand" />
+                      <span className="text-xs text-brand-hover font-medium">Completed</span>
                     </div>
-                    <p className="text-xl font-bold text-emerald-800">{data.stats.completedCount}</p>
+                    <p className="text-xl font-bold text-brand">{data.stats.completedCount}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-red-50/60 border border-red-100">
                     <div className="flex items-center gap-1.5 mb-1">

@@ -378,7 +378,7 @@ export default function InfrastructurePage() {
                   <>
                     <div className="flex items-center gap-2">
                       {integrations?.stripe.configured ? (
-                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+                        <Badge variant="default" className="bg-brand hover:bg-brand-hover">Configured</Badge>
                       ) : (
                         <Badge variant="secondary">Not Configured</Badge>
                       )}
@@ -393,7 +393,7 @@ export default function InfrastructurePage() {
                     {testResults.stripe && (
                       <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
                         testResults.stripe.success
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                          ? "bg-brand-muted text-brand-hover "
                           : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                       }`}>
                         {testResults.stripe.success
@@ -426,8 +426,8 @@ export default function InfrastructurePage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                    <Key className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="flex items-center justify-center size-9 rounded-lg bg-brand-subtle ">
+                    <Key className="size-4 text-brand" />
                   </div>
                   <div>
                     <CardTitle className="text-base">JWT Secret</CardTitle>
@@ -442,7 +442,7 @@ export default function InfrastructurePage() {
                   <>
                     <div className="flex items-center gap-2">
                       {integrations?.jwt.configured ? (
-                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+                        <Badge variant="default" className="bg-brand hover:bg-brand-hover">Configured</Badge>
                       ) : (
                         <Badge variant="secondary">Not Configured</Badge>
                       )}
@@ -457,7 +457,7 @@ export default function InfrastructurePage() {
                     {testResults.jwt && (
                       <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
                         testResults.jwt.success
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                          ? "bg-brand-muted text-brand-hover "
                           : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                       }`}>
                         {testResults.jwt.success
@@ -583,7 +583,7 @@ export default function InfrastructurePage() {
                       {result && (
                         <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
                           result.success
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                            ? "bg-brand-muted text-brand-hover "
                             : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                         }`}>
                           {result.success

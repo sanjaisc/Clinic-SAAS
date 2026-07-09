@@ -144,7 +144,7 @@ interface ProviderFull extends ProviderListItem {
 const CREDENTIALS_OPTIONS = ["MD", "DO", "NP", "PA-C", "RN", "PharmD", "Other"];
 const SLOT_DURATION_OPTIONS = [15, 30, 45, 60];
 const STATUS_OPTIONS = [
-  { value: PROVIDER_STATUS.ACTIVE, label: "Active", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+  { value: PROVIDER_STATUS.ACTIVE, label: "Active", color: "bg-brand-subtle text-brand " },
   { value: PROVIDER_STATUS.INACTIVE, label: "Inactive", color: "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400" },
   { value: PROVIDER_STATUS.SUSPENDED, label: "Suspended", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
 ];
@@ -583,7 +583,7 @@ export default function ProvidersPage() {
             Manage your providers, schedules, and service assignments
           </p>
         </div>
-        <Button onClick={openAddDialog} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button onClick={openAddDialog} className="bg-brand hover:bg-brand-hover text-white">
           <UserPlus className="size-4 mr-2" />
           Add Provider
         </Button>
@@ -640,7 +640,7 @@ export default function ProvidersPage() {
                   {provider.photoUrl ? (
                     <AvatarImage src={provider.photoUrl} alt={`${provider.firstName} ${provider.lastName}`} />
                   ) : null}
-                  <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-sm font-medium">
+                  <AvatarFallback className="bg-brand-subtle text-brand-hover text-sm font-medium">
                     {getInitials(provider.firstName, provider.lastName)}
                   </AvatarFallback>
                 </Avatar>
@@ -892,7 +892,7 @@ export default function ProvidersPage() {
             <Button
               onClick={handleSaveProvider}
               disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {saving
                 ? "Saving..."
@@ -986,7 +986,7 @@ export default function ProvidersPage() {
             <Button
               onClick={handleSaveTemplate}
               disabled={templateSaving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand hover:bg-brand-hover text-white"
             >
               {templateSaving
                 ? "Saving..."
@@ -1103,7 +1103,7 @@ function ProviderDetail({
             <p className="text-sm text-muted-foreground">
               {provider.slotTemplates.length} schedule template{provider.slotTemplates.length !== 1 ? "s" : ""} configured
             </p>
-            <Button size="sm" onClick={onAddTemplate} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button size="sm" onClick={onAddTemplate} className="bg-brand hover:bg-brand-hover text-white">
               <Plus className="size-3.5 mr-1.5" />
               Add Template
             </Button>
@@ -1141,7 +1141,7 @@ function ProviderDetail({
                                 <Video className="size-3 text-blue-500" />
                               )}
                               {template.modality === SLOT_MODALITY.IN_PERSON && (
-                                <Building2 className="size-3 text-emerald-500" />
+                                <Building2 className="size-3 text-brand" />
                               )}
                               <span className="font-medium">
                                 {formatTime(template.startTime)} – {formatTime(template.endTime)}
@@ -1217,7 +1217,7 @@ function ProviderDetail({
                                 <Video className="size-3 text-blue-500" />
                               )}
                               {template.modality === SLOT_MODALITY.IN_PERSON && (
-                                <Building2 className="size-3 text-emerald-500" />
+                                <Building2 className="size-3 text-brand" />
                               )}
                               <span className="font-medium">
                                 {formatTime(template.startTime)} – {formatTime(template.endTime)}
@@ -1287,18 +1287,18 @@ function ProviderDetail({
                 {provider.providerServices.map((ps) => (
                   <div
                     key={ps.id}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 pl-3 pr-1.5 py-1"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-muted border border-brand-border pl-3 pr-1.5 py-1"
                   >
-                    <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                    <span className="text-xs font-medium text-brand">
                       {ps.service.name}
                     </span>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                    <span className="text-[10px] text-brand">
                       ({ps.service.specialty.name})
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-800/40"
+                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle "
                       onClick={() => onToggleService(ps.serviceId, false)}
                     >
                       <X className="size-3" />
@@ -1351,7 +1351,7 @@ function ProviderDetail({
                                 key={service.id}
                                 className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                                   assigned
-                                    ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-900/10"
+                                    ? "border-brand-border bg-brand-muted/50  "
                                     : "border-border hover:bg-accent/30"
                                 }`}
                               >

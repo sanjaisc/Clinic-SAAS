@@ -316,8 +316,8 @@ export default function HoursPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
-                <Clock className="size-5 text-emerald-600" />
+              <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
+                <Clock className="size-5 text-brand" />
               </div>
               <div>
                 <CardTitle className="text-lg">Weekly Operating Hours</CardTitle>

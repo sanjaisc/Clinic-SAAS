@@ -231,7 +231,7 @@ export function ProviderAvailabilityCalendar({
 
           <button
             onClick={goToThisWeek}
-            className="text-sm font-semibold text-foreground hover:text-emerald-700 transition-colors min-w-[180px] text-center cursor-pointer"
+            className="text-sm font-semibold text-foreground hover:text-brand-hover transition-colors min-w-[180px] text-center cursor-pointer"
             aria-label="Go to this week"
           >
             <Calendar className="inline size-3.5 mr-1 -mt-0.5" />
@@ -263,7 +263,7 @@ export function ProviderAvailabilityCalendar({
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                   modalityFilter === opt.value
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-brand text-white"
                     : "bg-background text-muted-foreground hover:bg-muted"
                 )}
               >
@@ -348,18 +348,18 @@ export function ProviderAvailabilityCalendar({
                 key={day.date}
                 className={cn(
                   "py-2.5 px-1 text-center border-r border-border last:border-r-0",
-                  day.isToday && "bg-emerald-50/80"
+                  day.isToday && "bg-brand-muted/80"
                 )}
               >
                 <p className={cn(
                   "text-[10px] font-medium uppercase tracking-wider",
-                  day.isToday ? "text-emerald-700" : "text-muted-foreground"
+                  day.isToday ? "text-brand-hover" : "text-muted-foreground"
                 )}>
                   {day.dayName}
                 </p>
                 <p className={cn(
                   "text-sm font-bold mt-0.5",
-                  day.isToday ? "text-emerald-700" : "text-foreground"
+                  day.isToday ? "text-brand-hover" : "text-foreground"
                 )}>
                   {day.monthDay}
                 </p>
@@ -374,7 +374,7 @@ export function ProviderAvailabilityCalendar({
                 key={day.date}
                 className={cn(
                   "p-1.5 border-r border-border last:border-r-0 space-y-1.5",
-                  day.isToday && "bg-emerald-50/30",
+                  day.isToday && "bg-brand-muted/30",
                   day.isPast && "bg-muted/20"
                 )}
               >
@@ -393,17 +393,17 @@ export function ProviderAvailabilityCalendar({
                       onClick={() => handleSlotClick(slot)}
                       className={cn(
                         "w-full group relative rounded-lg border text-left transition-all duration-150 cursor-pointer",
-                        "hover:shadow-md hover:scale-[1.02] hover:border-emerald-400",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1",
+                        "hover:shadow-md hover:scale-[1.02] hover:border-brand",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1",
                         slot.modality === "VIDEO"
                           ? "border-blue-200 bg-blue-50/60 hover:bg-blue-50"
-                          : "border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50"
+                          : "border-brand-border bg-brand-muted/60 hover:bg-brand-muted"
                       )}
                     >
                       <div className="px-2 py-1.5">
                         <p className={cn(
                           "text-xs font-semibold leading-tight",
-                          slot.modality === "VIDEO" ? "text-blue-800" : "text-emerald-800"
+                          slot.modality === "VIDEO" ? "text-blue-800" : "text-brand"
                         )}>
                           {slot.timeLabel}
                         </p>
@@ -411,11 +411,11 @@ export function ProviderAvailabilityCalendar({
                           {slot.modality === "VIDEO" ? (
                             <Video className="size-2.5 text-blue-500" />
                           ) : (
-                            <Building2 className="size-2.5 text-emerald-500" />
+                            <Building2 className="size-2.5 text-brand" />
                           )}
                           <span className={cn(
                             "text-[9px] leading-none",
-                            slot.modality === "VIDEO" ? "text-blue-500" : "text-emerald-500"
+                            slot.modality === "VIDEO" ? "text-blue-500" : "text-brand"
                           )}>
                             {slot.modality === "VIDEO" ? "Video" : "In-Clinic"}
                           </span>

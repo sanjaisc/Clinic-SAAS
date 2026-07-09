@@ -227,7 +227,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       <PublicNavbar showHome />
 
       {/* ===== Main Content ===== */}
@@ -257,16 +257,16 @@ export default async function ClinicDetailPage({ params }: PageProps) {
             {/* Subtle gradient overlay on header */}
             <div className="absolute inset-0 h-24 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10 rounded-t-lg" />
             {/* Gradient strip */}
-            <div className="h-2 rounded-t-lg bg-gradient-to-r from-emerald-400 to-teal-500 bg-[length:200%_200%] bg-gradient-animated relative" />
+            <div className="h-2 rounded-t-lg bg-gradient-to-r from-brand to-teal-500 bg-[length:200%_200%] bg-gradient-animated relative" />
             <CardContent className="p-6 space-y-4">
               {/* Name + Verified Badge + Tagline */}
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Building2 className="size-6 text-emerald-600 shrink-0" />
+                  <Building2 className="size-6 text-brand shrink-0" />
                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                     {clinic.name}
                   </h1>
-                  <span className="inline-flex items-center gap-1 text-emerald-600">
+                  <span className="inline-flex items-center gap-1 text-brand">
                     <Shield className="size-4" />
                     <span className="text-xs font-medium">Verified Clinic</span>
                   </span>
@@ -284,8 +284,8 @@ export default async function ClinicDetailPage({ params }: PageProps) {
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Address */}
                 <div className="flex items-start gap-3 rounded-lg border border-border p-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-md cursor-default">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                    <MapPin className="size-4 text-emerald-600" />
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+                    <MapPin className="size-4 text-brand" />
                   </div>
                   <span className="text-sm text-foreground leading-snug">
                     {fullAddress}
@@ -295,12 +295,12 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 {/* Phone */}
                 {clinic.phoneNumber && (
                   <div className="flex items-center gap-3 rounded-lg border border-border p-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-md">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                      <Phone className="size-4 text-emerald-600" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+                      <Phone className="size-4 text-brand" />
                     </div>
                     <a
                       href={`tel:${clinic.phoneNumber}`}
-                      className="text-sm text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                      className="text-sm text-foreground hover:text-brand-hover transition-colors cursor-pointer"
                     >
                       {clinic.phoneNumber}
                     </a>
@@ -310,12 +310,12 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 {/* Email */}
                 {clinic.email && (
                   <div className="flex items-center gap-3 rounded-lg border border-border p-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-md">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                      <Mail className="size-4 text-emerald-600" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+                      <Mail className="size-4 text-brand" />
                     </div>
                     <a
                       href={`mailto:${clinic.email}`}
-                      className="text-sm text-foreground hover:text-emerald-700 transition-colors cursor-pointer"
+                      className="text-sm text-foreground hover:text-brand-hover transition-colors cursor-pointer"
                     >
                       {clinic.email}
                     </a>
@@ -325,14 +325,14 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 {/* Website */}
                 {clinic.website && (
                   <div className="flex items-center gap-3 rounded-lg border border-border p-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-md">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                      <Globe className="size-4 text-emerald-600" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+                      <Globe className="size-4 text-brand" />
                     </div>
                     <a
                       href={clinic.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-foreground hover:text-emerald-700 transition-colors truncate cursor-pointer"
+                      className="text-sm text-foreground hover:text-brand-hover transition-colors truncate cursor-pointer"
                     >
                       {clinic.website
                         .replace(/^https?:\/\//, "")
@@ -349,12 +349,12 @@ export default async function ClinicDetailPage({ params }: PageProps) {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Building2 className="size-5 text-emerald-600" />
+                  <Building2 className="size-5 text-brand" />
                   About
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border-l-4 border-l-emerald-400 pl-4">
+                <div className="border-l-4 border-l-brand pl-4">
                   <AboutText text={clinic.about} />
                 </div>
               </CardContent>
@@ -367,7 +367,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Clock className="size-5 text-emerald-600" />
+                    <Clock className="size-5 text-brand" />
                     Hours of Operation
                   </CardTitle>
                   {todayHasHours && (
@@ -402,7 +402,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                         key={dayKey}
                         className={`flex items-center justify-between text-sm px-4 py-2.5 ${
                           isToday
-                            ? "bg-emerald-50/80"
+                            ? "bg-brand-muted/80"
                             : index % 2 === 1
                               ? "bg-muted/30"
                               : ""
@@ -412,7 +412,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                       >
                         <span className="font-medium text-foreground min-w-[90px] flex items-center gap-2">
                           {isToday && (
-                            <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="size-1.5 rounded-full bg-brand-muted shrink-0" />
                           )}
                           {DAY_LABELS[dayKey]}
                         </span>
@@ -441,11 +441,11 @@ export default async function ClinicDetailPage({ params }: PageProps) {
               {/* Insurance Accepted */}
               {clinic.insurances.length > 0 && (
                 <Card className="overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                  <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <Shield className="size-5 text-emerald-600" />
+                        <Shield className="size-5 text-brand" />
                         Insurance Accepted
                       </CardTitle>
                       <span className="text-xs text-muted-foreground font-medium">
@@ -463,7 +463,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                         <Badge
                           key={ci.insuranceId}
                           variant="outline"
-                          className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 hover:scale-105 transition-all cursor-default"
+                          className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 hover:scale-105 transition-all cursor-default"
                         >
                           {ci.insurance.name}
                         </Badge>
@@ -476,11 +476,11 @@ export default async function ClinicDetailPage({ params }: PageProps) {
               {/* Amenities */}
               {clinic.amenities.length > 0 && (
                 <Card className="overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                  <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <Star className="size-5 text-emerald-600" />
+                        <Star className="size-5 text-brand" />
                         Amenities
                       </CardTitle>
                       <span className="text-xs text-muted-foreground font-medium">
@@ -497,7 +497,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                         <Badge
                           key={ca.amenityId}
                           variant="outline"
-                          className="border-emerald-300 text-emerald-700 bg-emerald-50/50 px-3 py-1 text-sm hover:bg-emerald-100/60 hover:scale-105 transition-all cursor-default"
+                          className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 hover:scale-105 transition-all cursor-default"
                         >
                           {ca.amenity.name}
                         </Badge>
@@ -513,12 +513,12 @@ export default async function ClinicDetailPage({ params }: PageProps) {
           {providers.length > 0 && (
             <div className="space-y-6">
               {/* Gradient divider */}
-              <div className="h-px bg-gradient-to-r from-transparent via-emerald-300 to-transparent" />
+              <div className="h-px bg-gradient-to-r from-transparent via-brand-subtle to-transparent" />
 
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                    <Users className="size-5 text-emerald-600" />
+                    <Users className="size-5 text-brand" />
                     {providers.length}{" "}
                     {providers.length === 1 ? "provider" : "providers"} at this clinic
                   </h2>
@@ -528,7 +528,7 @@ export default async function ClinicDetailPage({ params }: PageProps) {
                 </div>
                 <Link
                   href="/"
-                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer shrink-0"
+                  className="text-sm font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer shrink-0"
                 >
                   View all providers →
                 </Link>

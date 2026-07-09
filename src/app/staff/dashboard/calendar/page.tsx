@@ -126,10 +126,10 @@ function getStatusColor(appointmentStatus: string) {
   switch (appointmentStatus) {
     case APPOINTMENT_STATUS.BOOKED:
       return {
-        bg: "bg-emerald-50",
-        border: "border-emerald-300 border-l-emerald-500",
-        text: "text-emerald-700",
-        dot: "bg-emerald-500",
+        bg: "bg-brand-muted",
+        border: "border-brand-border border-l-brand",
+        text: "text-brand-hover",
+        dot: "bg-brand-muted",
       };
     case APPOINTMENT_STATUS.CHECKED_IN:
       return {
@@ -197,7 +197,7 @@ function AppointmentCard({ slot }: { slot: SlotInfo }) {
     >
       <div className="flex items-center gap-1 font-semibold">
         <span className="tabular-nums">{time}</span>
-        {isVideo && <Video className="size-3 shrink-0 text-emerald-600" />}
+        {isVideo && <Video className="size-3 shrink-0 text-brand" />}
       </div>
       <div className="truncate font-medium">{appt.patientName}</div>
       <div className="truncate text-[10px] opacity-75">
@@ -245,7 +245,7 @@ function SlotCell({
 
   return (
     <div
-      className="space-y-1.5 cursor-pointer rounded-md hover:ring-2 hover:ring-emerald-200 transition-all p-1 -m-1"
+      className="space-y-1.5 cursor-pointer rounded-md hover:ring-2 hover:ring-brand/20 transition-all p-1 -m-1"
       onClick={() => onBlockSlots(providerId, dateStr)}
     >
       {visibleSlots.map((slot) => (
@@ -253,7 +253,7 @@ function SlotCell({
       ))}
       {remaining > 0 && (
         <button
-          className="text-[11px] font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
+          className="text-[11px] font-medium text-brand hover:text-brand-hover hover:underline cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
           }}
@@ -673,7 +673,7 @@ export default function CalendarPage() {
           <Button
             variant="outline"
             size="icon"
-            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+            className="size-9 cursor-pointer hover:bg-brand-muted hover:text-brand-hover hover:border-brand-border"
             onClick={goToPrevWeek}
           >
             <ChevronLeft className="size-4" />
@@ -688,7 +688,7 @@ export default function CalendarPage() {
           <Button
             variant="outline"
             size="icon"
-            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+            className="size-9 cursor-pointer hover:bg-brand-muted hover:text-brand-hover hover:border-brand-border"
             onClick={goToNextWeek}
           >
             <ChevronRight className="size-4" />
@@ -699,7 +699,7 @@ export default function CalendarPage() {
               variant="outline"
               size="sm"
               onClick={goToToday}
-              className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-emerald-700 border-emerald-200"
+              className="cursor-pointer hover:bg-brand-muted hover:text-brand-hover hover:border-brand-border text-brand-hover border-brand-border"
             >
               Today
             </Button>
@@ -711,7 +711,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-2 sm:ml-auto">
             <Users className="size-4 text-muted-foreground shrink-0" />
             <Select value={providerFilter} onValueChange={setProviderFilter}>
-              <SelectTrigger className="w-[220px] cursor-pointer hover:border-emerald-300">
+              <SelectTrigger className="w-[220px] cursor-pointer hover:border-brand-border">
                 <SelectValue placeholder="All Providers" />
               </SelectTrigger>
               <SelectContent>
@@ -729,15 +729,15 @@ export default function CalendarPage() {
 
       {/* ---- Summary Cards ---- */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+        <Card className="border-brand-muted bg-gradient-to-br from-brand-muted to-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <div className="size-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="size-3.5 text-emerald-600" />
+              <div className="size-7 rounded-lg bg-brand-subtle flex items-center justify-center">
+                <CheckCircle2 className="size-3.5 text-brand" />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Booked</span>
             </div>
-            <p className="text-2xl font-bold text-emerald-700">{weekSummary.booked}</p>
+            <p className="text-2xl font-bold text-brand-hover">{weekSummary.booked}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
           </CardContent>
         </Card>
@@ -802,7 +802,7 @@ export default function CalendarPage() {
                       key={idx}
                       className={cn(
                         "p-3 text-center border-r last:border-r-0",
-                        today && "bg-emerald-50"
+                        today && "bg-brand-muted"
                       )}
                     >
                       <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -811,13 +811,13 @@ export default function CalendarPage() {
                       <div
                         className={cn(
                           "text-lg font-bold tabular-nums mt-0.5",
-                          today ? "text-emerald-700" : "text-foreground"
+                          today ? "text-brand-hover" : "text-foreground"
                         )}
                       >
                         {format(day, "d")}
                       </div>
                       {today && (
-                        <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 mt-1 hover:bg-emerald-600">
+                        <Badge className="bg-brand text-white text-[9px] px-1.5 py-0 mt-1 hover:bg-brand">
                           Today
                         </Badge>
                       )}
@@ -865,7 +865,7 @@ export default function CalendarPage() {
                         key={dIdx}
                         className={cn(
                           "p-2 border-r last:border-r-0 min-h-[80px]",
-                          today && "bg-emerald-50/30"
+                          today && "bg-brand-muted/30"
                         )}
                         onClick={() => openBlockModal(provider.id, dateStr)}
                       >
@@ -887,7 +887,7 @@ export default function CalendarPage() {
       {/* ---- Legend ---- */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground pb-2">
         <div className="flex items-center gap-1.5">
-          <div className="size-3 rounded-sm border-l-3 border-l-emerald-500 bg-emerald-50 border border-emerald-300" />
+          <div className="size-3 rounded-sm border-l-3 border-l-brand bg-brand-muted border border-brand-border" />
           <span>Booked</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -903,7 +903,7 @@ export default function CalendarPage() {
           <span>Cancelled</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Video className="size-3 text-emerald-600" />
+          <Video className="size-3 text-brand" />
           <span>Video Visit</span>
         </div>
       </div>

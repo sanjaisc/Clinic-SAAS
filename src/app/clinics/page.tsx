@@ -82,7 +82,7 @@ function SkeletonCards() {
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-          <Skeleton className="h-2 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+          <Skeleton className="h-2 w-full bg-gradient-to-r from-brand to-brand" />
           <div className="p-5 space-y-4">
             <Skeleton className="h-6 w-3/4" />
             <Skeleton className="h-4 w-full" />
@@ -110,7 +110,7 @@ function SkeletonCards() {
 function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: number; isFeatured?: boolean }) {
   return (
     <div
-      className={`group rounded-2xl border bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative ${isFeatured ? 'ring-1 ring-emerald-200' : ''}`}
+      className={`group rounded-2xl border bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative ${isFeatured ? 'ring-1 ring-brand/20' : ''}`}
       style={{
         animation: `fadeInUp 0.4s ease-out ${index * 0.06}s both`,
       }}
@@ -118,22 +118,22 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
       {/* Featured Badge */}
       {isFeatured && (
         <div className="absolute top-3 right-3 z-10">
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
+          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand to-teal-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
             <Sparkles className="size-3" />
             Featured
           </span>
         </div>
       )}
       {/* Gradient accent strip */}
-      <div className="h-2 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+      <div className="h-2 w-full bg-gradient-to-r from-brand to-brand" />
 
       <div className="p-5 flex flex-col gap-3">
         {/* Clinic name + link */}
         <Link
           href={`/clinic/${clinic.slug}`}
-          className="hover:text-emerald-700 transition-colors"
+          className="hover:text-brand-hover transition-colors"
         >
-          <h3 className="text-lg font-semibold text-gray-900 leading-snug group-hover:text-emerald-700 transition-colors">
+          <h3 className="text-lg font-semibold text-gray-900 leading-snug group-hover:text-brand-hover transition-colors">
             {clinic.name}
           </h3>
         </Link>
@@ -147,19 +147,19 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
 
         {/* Address */}
         <div className="flex items-start gap-1.5 text-sm text-gray-600">
-          <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+          <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-brand" />
           <span className="line-clamp-1 flex-1">
             {clinic.streetAddress}, {clinic.city}, {clinic.state} {clinic.zipCode}
           </span>
-          <span title="View on map"><Compass className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" /></span>
+          <span title="View on map"><Compass className="h-3.5 w-3.5 shrink-0 text-brand mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" /></span>
         </div>
 
         {/* Phone */}
         <div className="flex items-center gap-1.5 text-sm text-gray-600">
-          <Phone className="h-4 w-4 shrink-0 text-emerald-600" />
+          <Phone className="h-4 w-4 shrink-0 text-brand" />
           <a
             href={`tel:${clinic.phoneNumber}`}
-            className="hover:text-emerald-700 transition-colors"
+            className="hover:text-brand-hover transition-colors"
           >
             {clinic.phoneNumber}
           </a>
@@ -172,7 +172,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
               <Badge
                 key={s}
                 variant="secondary"
-                className="text-xs font-normal bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:scale-105 transition-transform border-emerald-200/60"
+                className="text-xs font-normal bg-brand-muted text-brand-hover hover:bg-brand-subtle hover:scale-105 transition-transform border-brand-border"
               >
                 {s}
               </Badge>
@@ -187,7 +187,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
               <Link
                 key={p.slug}
                 href={`/providers/${p.slug}`}
-                className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-xs font-medium text-emerald-700 hover:text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-full bg-brand-muted border border-brand-border px-2.5 py-0.5 text-xs font-medium text-brand-hover hover:text-brand-hover hover:bg-brand-subtle/80 hover:border-brand-border transition-colors cursor-pointer"
               >
                 {p.firstName} {p.lastName.charAt(0)}.
               </Link>
@@ -199,7 +199,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 pt-1">
           {/* Provider count with badge */}
           <span className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-muted border border-brand-border px-2 py-0.5 text-xs font-medium text-brand-hover">
               <Users className="h-3 w-3" />
               {clinic.providerCount}{" "}
               {clinic.providerCount === 1 ? "provider" : "providers"}
@@ -218,8 +218,8 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
 
           {/* Available slots */}
           <span className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-emerald-600 font-medium">
+            <Clock className="h-3.5 w-3.5 text-brand" />
+            <span className="text-brand font-medium">
               {clinic.availableSlotsCount} available this week
             </span>
           </span>
@@ -230,7 +230,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
           <Link href={`/clinic/${clinic.slug}`}>
             <Button
               size="sm"
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white border-0 shadow-sm transition-all"
+              className="w-full bg-gradient-to-r from-brand to-teal-600 hover:from-brand-hover hover:to-teal-700 text-white border-0 shadow-sm transition-all"
             >
               View Clinic
               <ChevronRight className="ml-1 h-4 w-4" />
@@ -361,7 +361,7 @@ export default function ClinicsDirectoryPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-muted/30">
       <PublicNavbar showHome />
 
       {/* Main Content */}
@@ -379,7 +379,7 @@ export default function ClinicsDirectoryPage() {
             placeholder="Search by clinic name or city..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 bg-white border-gray-200 focus:border-emerald-400 focus:ring-emerald-400/20 rounded-xl text-base"
+            className="pl-10 h-11 bg-white border-gray-200 focus:border-brand focus:ring-brand/20 rounded-xl text-base"
           />
           {searchQuery && (
             <button
@@ -476,7 +476,7 @@ export default function ClinicsDirectoryPage() {
             <div className="relative">
               <div className="relative inline-block">
                 <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <Compass className="h-5 w-5 text-emerald-300 absolute -top-1 -right-1" />
+                <Compass className="h-5 w-5 text-brand absolute -top-1 -right-1" />
               </div>
               <h3 className="text-lg font-medium text-gray-700 mb-2">
                 No clinics match your filters
@@ -488,7 +488,7 @@ export default function ClinicsDirectoryPage() {
                 <Button
                   variant="outline"
                   onClick={clearFilters}
-                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  className="border-brand-border text-brand-hover hover:bg-brand-muted"
                 >
                   Clear all filters
                 </Button>

@@ -274,7 +274,7 @@ export default function FinancialSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <DollarSign className="size-5 text-emerald-600" />
+            <DollarSign className="size-5 text-brand" />
             Deposit Configuration
           </CardTitle>
           <CardDescription>
@@ -351,7 +351,7 @@ export default function FinancialSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Clock className="size-5 text-emerald-600" />
+            <Clock className="size-5 text-brand" />
             Cancellation Policies
           </CardTitle>
           <CardDescription>
@@ -428,7 +428,7 @@ export default function FinancialSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <RefreshCw className="size-5 text-emerald-600" />
+            <RefreshCw className="size-5 text-brand" />
             Reschedule Policy
           </CardTitle>
           <CardDescription>
@@ -462,7 +462,7 @@ export default function FinancialSettingsPage() {
                 const Icon = opt.icon;
                 return (
                   <div key={opt.value} className="flex items-start gap-2.5">
-                    <Icon className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <Icon className="size-4 text-brand mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-foreground">{opt.label}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -481,7 +481,7 @@ export default function FinancialSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="size-5 text-emerald-600" />
+            <CreditCard className="size-5 text-brand" />
             Self-Pay Payment Type
           </CardTitle>
           <CardDescription>
@@ -501,7 +501,7 @@ export default function FinancialSettingsPage() {
               {data.services.map((svc) => (
                 <div
                   key={svc.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-border hover:border-emerald-200 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-border hover:border-brand-border transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">
@@ -547,7 +547,7 @@ export default function FinancialSettingsPage() {
         <Button
           onClick={handleSaveAll}
           disabled={saving}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-8"
+          className="bg-brand hover:bg-brand-hover text-white px-8"
           size="lg"
         >
           {saving ? (

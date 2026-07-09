@@ -72,7 +72,7 @@ interface ProviderOption {
 // =============================================================================
 
 const SLOT_STATUS_STYLES: Record<string, string> = {
-  AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  AVAILABLE: "bg-brand-subtle text-brand-hover border-brand-border",
   LOCKED: "bg-amber-100 text-amber-700 border-amber-200",
   BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
   BOOKED_EXTERNALLY: "bg-purple-100 text-purple-700 border-purple-200",
@@ -378,12 +378,12 @@ export default function SlotManagementPage() {
 
       {/* Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
-          <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+        <div className="bg-brand-muted border border-brand-border rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+          <div className="flex items-center gap-2 text-sm font-medium text-brand">
             <CheckSquare className="size-4" />
             {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""} selected
           </div>
-          <div className="h-5 w-px bg-emerald-200" />
+          <div className="h-5 w-px bg-brand-subtle" />
           <Button
             variant="outline"
             size="sm"
@@ -397,7 +397,7 @@ export default function SlotManagementPage() {
           <Button
             variant="outline"
             size="sm"
-            className="cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+            className="cursor-pointer border-brand-border text-brand hover:bg-brand-muted hover:text-brand-hover"
             disabled={!hasBlocked}
             onClick={() => setConfirmAction("UNBLOCK")}
           >
@@ -508,12 +508,12 @@ export default function SlotManagementPage() {
                     ) : (
                       <ChevronRight className="size-4 text-muted-foreground" />
                     )}
-                    <Calendar className="size-4 text-emerald-600" />
+                    <Calendar className="size-4 text-brand" />
                     <span className="text-sm font-semibold">
                       {format(dateObj, "EEEE, MMMM d, yyyy")}
                     </span>
                     {isToday && (
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+                      <Badge className="bg-brand-subtle text-brand-hover border-brand-border text-[10px]">
                         Today
                       </Badge>
                     )}
@@ -560,7 +560,7 @@ export default function SlotManagementPage() {
                             onClick={() => isSelectable && toggleSlot(slot.id)}
                             className={`
                               relative rounded-lg border p-3 transition-all cursor-pointer
-                              ${isSelected ? "ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50" : "border-border/50 hover:border-emerald-200 hover:bg-emerald-50/20"}
+                              ${isSelected ? "ring-2 ring-brand border-brand-border bg-brand-muted/50" : "border-border/50 hover:border-brand-border hover:bg-brand-muted/20"}
                               ${!isSelectable ? "opacity-70 cursor-default" : ""}
                             `}
                           >
@@ -568,7 +568,7 @@ export default function SlotManagementPage() {
                             {isSelectable && (
                               <div className="absolute top-2 right-2">
                                 {isSelected ? (
-                                  <CheckSquare className="size-4 text-emerald-600" />
+                                  <CheckSquare className="size-4 text-brand" />
                                 ) : (
                                   <Square className="size-4 text-muted-foreground/40" />
                                 )}
@@ -591,7 +591,7 @@ export default function SlotManagementPage() {
                                   Video
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+                                <Badge variant="outline" className="border-brand-border text-brand bg-brand-muted text-[10px]">
                                   <CalendarDays className="size-2.5 mr-0.5" />
                                   In-Clinic
                                 </Badge>
@@ -649,7 +649,7 @@ export default function SlotManagementPage() {
               )}
               {confirmAction === "UNBLOCK" && (
                 <>
-                  You are about to <span className="font-semibold text-emerald-600">unblock</span>{" "}
+                  You are about to <span className="font-semibold text-brand">unblock</span>{" "}
                   {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""}. These slots will become
                   available for patient booking.
                 </>
@@ -681,7 +681,7 @@ export default function SlotManagementPage() {
                 confirmAction === "BLOCK"
                   ? "bg-red-600 hover:bg-red-700"
                   : confirmAction === "UNBLOCK"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    ? "bg-brand hover:bg-brand-hover"
                     : "bg-purple-600 hover:bg-purple-700"
               } text-white`}
             >

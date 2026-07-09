@@ -477,7 +477,7 @@ export function SearchPage() {
       <PublicNavbar />
 
       {/* ===== Hero Section ===== */}
-      <section className="relative bg-gradient-to-br from-emerald-50 via-white to-teal-50/30 pb-8 pt-12 md:pt-16 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-brand-muted via-white to-teal-50/30 pb-8 pt-12 md:pt-16 overflow-hidden">
         {/* Dot pattern background */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -491,16 +491,16 @@ export function SearchPage() {
         {/* Decorative background elements */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
           {/* Large gradient blob — top right */}
-          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-emerald-100/40 blur-3xl animate-float-slow" />
+          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-subtle/40 blur-3xl animate-float-slow" />
           {/* Small circle — bottom left */}
           <div className="absolute bottom-0 -left-10 w-48 h-48 rounded-full bg-teal-100/30 blur-2xl" style={{ animation: "float-slow 8s ease-in-out infinite reverse" }} />
           {/* Tiny dot accents */}
-          <div className="absolute top-12 left-[15%] w-2 h-2 rounded-full bg-emerald-300/40" />
-          <div className="absolute top-24 right-[20%] w-1.5 h-1.5 rounded-full bg-emerald-400/30" />
+          <div className="absolute top-12 left-[15%] w-2 h-2 rounded-full bg-brand-subtle/40" />
+          <div className="absolute top-24 right-[20%] w-1.5 h-1.5 rounded-full bg-brand/30" />
           <div className="absolute bottom-16 left-[30%] w-1 h-1 rounded-full bg-teal-400/40" />
           {/* Heartbeat line */}
           <svg
-            className="absolute bottom-4 left-0 w-full h-6 text-emerald-200/50 animate-heartbeat"
+            className="absolute bottom-4 left-0 w-full h-6 text-brand-subtle/50 animate-heartbeat"
             viewBox="0 0 1200 24"
             preserveAspectRatio="none"
             fill="none"
@@ -515,7 +515,7 @@ export function SearchPage() {
           </svg>
           {/* Medical cross icon — decorative */}
           <div className="absolute top-8 right-[10%] opacity-[0.07]">
-            <Cross className="size-16 text-emerald-700 animate-heartbeat" />
+            <Cross className="size-16 text-brand-hover animate-heartbeat" />
           </div>
         </div>
 
@@ -531,22 +531,22 @@ export function SearchPage() {
             {/* Trust Indicators */}
             <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 pt-2">
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
-                <CheckCircle2 className="size-3.5 text-emerald-500" />
+                <CheckCircle2 className="size-3.5 text-brand" />
                 Trusted by 10,000+ patients
               </span>
               <span className="text-muted-foreground/30">·</span>
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
-                <Building2 className="size-3.5 text-emerald-500" />
+                <Building2 className="size-3.5 text-brand" />
                 6 clinics
               </span>
               <span className="text-muted-foreground/30">·</span>
-              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-medium underline-offset-4 decoration-emerald-300 hover:decoration-emerald-500 decoration-2 hover:underline transition-colors cursor-pointer">
+              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-brand hover:text-brand-hover font-medium underline-offset-4 decoration-brand-border hover:decoration-brand decoration-2 hover:underline transition-colors cursor-pointer">
                 <MapPin className="size-3.5" />
                 Browse all clinics
               </Link>
               <span className="text-muted-foreground/30">·</span>
               <span className="inline-flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
-                <Stethoscope className="size-3.5 text-emerald-500" />
+                <Stethoscope className="size-3.5 text-brand" />
                 {providerCount > 0 ? `${providerCount} providers` : "Providers"}
               </span>
               <span className="text-muted-foreground/30">·</span>
@@ -558,8 +558,8 @@ export function SearchPage() {
 
           {/* Search Form — Card Wrapper with animated gradient border */}
           <form onSubmit={onFormSubmit} className="text-left">
-            <div className="p-[1px] rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite]">
-            <div className="rounded-[15px] border-0 bg-white/90 backdrop-blur-sm shadow-lg shadow-emerald-900/5 p-4 md:p-6 space-y-4">
+            <div className="p-[1px] rounded-2xl bg-gradient-to-r from-brand via-teal-400 to-brand bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite]">
+            <div className="rounded-[15px] border-0 bg-white/90 backdrop-blur-sm shadow-lg shadow-brand/5 p-4 md:p-6 space-y-4">
               {/* Row 1: Search Input */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground pointer-events-none" />
@@ -607,7 +607,7 @@ export function SearchPage() {
                   {/* Checkmark indicator when specialty is selected */}
                   {specialtyId && (
                     <div className="absolute -top-1.5 -right-1.5 z-10 animate-in fade-in-0 zoom-in-95">
-                      <div className="bg-emerald-500 rounded-full p-0.5">
+                      <div className="bg-brand-muted rounded-full p-0.5">
                         <CheckCircle2 className="size-3 text-white" />
                       </div>
                     </div>
@@ -723,7 +723,7 @@ export function SearchPage() {
                     />
                     {zipStatus === "resolved" && (
                       <CheckCircle2
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-emerald-500 cursor-pointer"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-brand cursor-pointer"
                         onClick={clearZip}
                         title="Clear location"
                       />
@@ -749,9 +749,9 @@ export function SearchPage() {
                 {/* Radius Slider */}
                 <div className="flex items-center gap-3 flex-1 min-w-[200px]">
                   {(geoStatus === "granted" && zipStatus !== "idle" && zipStatus !== "error") ? (
-                    <span title="ZIP code location"><MapPin className="size-4 text-emerald-600 shrink-0" /></span>
+                    <span title="ZIP code location"><MapPin className="size-4 text-brand shrink-0" /></span>
                   ) : geoStatus === "granted" ? (
-                    <span title="Location detected"><LocateFixed className="size-4 text-emerald-600 shrink-0" /></span>
+                    <span title="Location detected"><LocateFixed className="size-4 text-brand shrink-0" /></span>
                   ) : (
                     <span title="Enter ZIP or allow location for distance sorting"><MapPin className="size-4 text-muted-foreground shrink-0" /></span>
                   )}
@@ -776,7 +776,7 @@ export function SearchPage() {
                     size="sm"
                     onClick={requestGeoLocation}
                     disabled={geoStatus === "requesting"}
-                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer shrink-0"
+                    className="text-brand hover:text-brand-hover hover:bg-brand-muted cursor-pointer shrink-0"
                   >
                     {geoStatus === "requesting" ? (
                       <Loader2 className="size-3.5 animate-spin" />
@@ -819,7 +819,9 @@ export function SearchPage() {
                 <Button
                   type="submit"
                   disabled={!specialtyId || loading}
-                  className="h-12 px-10 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer text-base font-semibold shadow-lg shadow-emerald-600/25 hover:shadow-xl hover:shadow-emerald-600/30 transition-all btn-shimmer"
+                  variant="brand"
+                  size="cta"
+                  className="shadow-lg shadow-brand/25 hover:shadow-xl hover:shadow-brand/30 btn-shimmer"
                 >
                   {loading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -843,9 +845,9 @@ export function SearchPage() {
                       executeSearch({ specialtyId: familyMed.id });
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-all cursor-pointer animate-bounce-subtle"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-muted/50 px-3 py-1 text-xs text-brand-hover hover:bg-brand-subtle hover:border-brand-border transition-all cursor-pointer animate-bounce-subtle"
                 >
-                  <span className="text-emerald-500">🔥</span>
+                  <span className="text-brand">🔥</span>
                   Popular: Family Medicine
                 </button>
               </div>
@@ -864,9 +866,9 @@ export function SearchPage() {
             {/* Subtle hero illustration */}
             <div className="flex flex-col items-center justify-center text-center">
               <div className="relative w-16 h-16 mb-3">
-                <div className="absolute inset-0 rounded-full bg-emerald-100/50" />
+                <div className="absolute inset-0 rounded-full bg-brand-subtle/50" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Stethoscope className="size-7 text-emerald-500/50" />
+                  <Stethoscope className="size-7 text-brand/50" />
                 </div>
               </div>
               <h2 className="text-lg font-semibold text-foreground mb-1">
@@ -883,12 +885,12 @@ export function SearchPage() {
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Building2 className="size-5 text-emerald-600" />
+                    <Building2 className="size-5 text-brand" />
                     <h2 className="text-xl font-bold text-foreground">Featured Clinics</h2>
                   </div>
                   <Link
                     href="/clinics"
-                    className="text-sm text-emerald-600 hover:text-emerald-700 font-medium hover:underline transition-colors cursor-pointer"
+                    className="text-sm text-brand hover:text-brand-hover font-medium hover:underline transition-colors cursor-pointer"
                   >
                     View all →
                   </Link>
@@ -901,12 +903,12 @@ export function SearchPage() {
                       style={{ animationDelay: `${idx * 100}ms` }}
                     >
                       {/* Emerald gradient accent strip */}
-                      <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-400" />
+                      <div className="h-1.5 bg-gradient-to-r from-brand to-teal-400" />
                       <div className="p-5 space-y-3">
                         {/* Clinic Name */}
                         <Link
                           href={`/clinic/${clinic.slug}`}
-                          className="block font-bold text-foreground group-hover:text-emerald-700 transition-colors cursor-pointer"
+                          className="block font-bold text-foreground group-hover:text-brand-hover transition-colors cursor-pointer"
                         >
                           {clinic.name}
                         </Link>
@@ -944,7 +946,7 @@ export function SearchPage() {
                               <Badge
                                 key={spec}
                                 variant="outline"
-                                className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50/50"
+                                className="text-xs border-brand-border text-brand-hover bg-brand-muted/50"
                               >
                                 {spec}
                               </Badge>
@@ -953,13 +955,13 @@ export function SearchPage() {
                         )}
                         {/* Available Slots */}
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Clock className="size-3.5 text-emerald-500" />
+                          <Clock className="size-3.5 text-brand" />
                           <span>{clinic.availableSlotsCount} available this week</span>
                         </div>
                         {/* View Clinic Link */}
                         <Link
                           href={`/clinic/${clinic.slug}`}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer pt-1"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer pt-1"
                         >
                           View Clinic →
                         </Link>
@@ -974,7 +976,7 @@ export function SearchPage() {
             {popularSpecialties.length > 0 && (
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <LayoutGrid className="size-5 text-emerald-600" />
+                  <LayoutGrid className="size-5 text-brand" />
                   <h2 className="text-xl font-bold text-foreground">Popular Searches by Specialty</h2>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -988,13 +990,13 @@ export function SearchPage() {
                           setSpecialtyId(spec.id);
                           executeSearch({ specialtyId: spec.id });
                         }}
-                        className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-center hover:shadow-md hover:border-emerald-300 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer"
+                        className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-center hover:shadow-md hover:border-brand-border hover:bg-brand-muted/50 transition-all duration-200 cursor-pointer"
                         style={{ animationDelay: `${idx * 60}ms` }}
                       >
                         {spec.icon ? (
                           <span className="text-2xl leading-none" role="img" aria-label={spec.name}>{spec.icon}</span>
                         ) : (
-                          <FallbackIcon className="size-6 text-emerald-600" />
+                          <FallbackIcon className="size-6 text-brand" />
                         )}
                         <span className="text-sm font-medium text-foreground leading-tight">
                           {spec.name}
@@ -1009,13 +1011,13 @@ export function SearchPage() {
             {/* ----- How It Works ----- */}
             <section className="space-y-6">
               <div className="flex items-center justify-center gap-2">
-                <HeartPulse className="size-5 text-emerald-600" />
+                <HeartPulse className="size-5 text-brand" />
                 <h2 className="text-xl font-bold text-foreground">How DoctA Works</h2>
               </div>
               <div className="relative">
                 {/* Connecting dots line — desktop only */}
                 <div className="hidden md:flex absolute top-[38px] left-[calc(16.6%+24px)] right-[calc(16.6%+24px)] items-center justify-between px-2 z-0">
-                  <div className="flex-1 border-t-2 border-dashed border-emerald-200" />
+                  <div className="flex-1 border-t-2 border-dashed border-brand-border" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
@@ -1024,7 +1026,7 @@ export function SearchPage() {
                       Icon: Search,
                       title: "Search",
                       desc: "Find providers by specialty, location, or name. Compare ratings and availability.",
-                      gradient: "from-emerald-400 to-emerald-600",
+                      gradient: "from-brand to-brand",
                     },
                     {
                       num: 2,
@@ -1050,10 +1052,10 @@ export function SearchPage() {
                       <div className="p-6 flex flex-col items-center text-center space-y-3">
                         {/* Numbered circle + icon */}
                         <div className="relative">
-                          <div className="size-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+                          <div className="size-12 rounded-full bg-brand text-white flex items-center justify-center shadow-md shadow-brand/20">
                             <step.Icon className="size-5" />
                           </div>
-                          <span className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white">
+                          <span className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-brand-muted text-white text-xs font-bold flex items-center justify-center ring-2 ring-white">
                             {step.num}
                           </span>
                         </div>
@@ -1118,9 +1120,9 @@ export function SearchPage() {
                 <div className="space-y-2.5">
                   <div className="skeleton-shimmer h-4 w-28 rounded-md" />
                   <div className="flex gap-2">
-                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300" />
-                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300" />
-                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-emerald-300 hidden sm:block" />
+                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-brand" />
+                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-brand" />
+                    <div className="skeleton-shimmer h-14 w-44 rounded-lg border-l-4 border-l-brand hidden sm:block" />
                   </div>
                 </div>
                 {/* Separator before review */}
@@ -1167,9 +1169,9 @@ export function SearchPage() {
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-5">
             {/* Medical-themed CSS illustration */}
             <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full bg-emerald-50" />
+              <div className="absolute inset-0 rounded-full bg-brand-muted" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <Search className="size-8 text-emerald-400/60" />
+                <Search className="size-8 text-brand/60" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white border shadow-sm flex items-center justify-center">
                 <X className="size-3.5 text-muted-foreground" />
@@ -1228,7 +1230,7 @@ export function SearchPage() {
               <div className="flex items-center gap-2 min-w-0">
                 <Badge
                   variant="secondary"
-                  className="bg-emerald-100 text-emerald-700 font-semibold tabular-nums shrink-0"
+                  className="bg-brand-subtle text-brand-hover font-semibold tabular-nums shrink-0"
                 >
                   {total}
                 </Badge>
