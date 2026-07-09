@@ -981,7 +981,7 @@ export default function AnalyticsPage() {
           value={data.summary.totalAppointments}
           subtitle={`${data.summary.avgDaily} per day average`}
           icon={CalendarDays}
-          gradient="bg-gradient-to-r from-brand to-teal-500"
+          gradient="bg-gradient-to-r from-brand to-coral"
           iconBg="bg-brand-subtle  text-brand"
         />
         <StatCard

@@ -1,0 +1,252 @@
+     1→/home/z/my-project/src/components/ui/button.tsx:15:          "bg-brand text-brand-foreground shadow-sm hover:bg-brand-hover focus-visible:ring-brand/30 active:bg-brand-hover",
+     2→/home/z/my-project/src/components/ui/expandable-text.tsx:46:          className="cursor-pointer mt-2 text-sm font-medium text-brand hover:text-brand-hover transition-colors"
+     3→/home/z/my-project/src/components/clinic-selector-bar.tsx:16:  PUBLISHED: "bg-brand-subtle text-brand-hover border-brand-border",
+     4→/home/z/my-project/src/components/public-footer.tsx:54:            <h4 className="text-xs font-semibold uppercase tracking-wider text-brand">
+     5→/home/z/my-project/src/components/public-footer.tsx:60:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+     6→/home/z/my-project/src/components/public-footer.tsx:66:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+     7→/home/z/my-project/src/components/public-footer.tsx:72:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+     8→/home/z/my-project/src/components/public-footer.tsx:78:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+     9→/home/z/my-project/src/components/public-footer.tsx:87:            <h4 className="text-xs font-semibold uppercase tracking-wider text-brand">
+    10→/home/z/my-project/src/components/public-footer.tsx:93:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    11→/home/z/my-project/src/components/public-footer.tsx:99:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    12→/home/z/my-project/src/components/public-footer.tsx:108:            <h4 className="text-xs font-semibold uppercase tracking-wider text-brand">
+    13→/home/z/my-project/src/components/public-footer.tsx:114:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    14→/home/z/my-project/src/components/public-footer.tsx:120:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    15→/home/z/my-project/src/components/public-footer.tsx:126:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    16→/home/z/my-project/src/components/public-footer.tsx:132:                className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+    17→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:77:          : "bg-brand-subtle text-brand-hover"
+    18→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:115:          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-subtle ring-2 ring-brand/20 text-brand-hover font-semibold text-sm">
+    19→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:124:                className="text-lg font-semibold leading-tight text-brand-hover hover:text-brand-hover hover:underline underline-offset-2 transition-colors cursor-pointer"
+    20→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:131:                  className="border-brand-border text-brand bg-brand-muted/50 text-[11px] font-medium shrink-0 cursor-default"
+    21→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:148:                  className="text-xs text-brand hover:text-brand-hover transition-colors cursor-pointer"
+    22→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:158:                className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover hover:translate-x-0.5 transition-all cursor-pointer"
+    23→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:169:            className="shrink-0 border-brand-border text-brand-hover bg-brand-muted/50"
+    24→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:194:                          : "hover:bg-brand-muted hover:border-brand-border"
+    25→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:202:                            : "bg-brand group-hover:bg-brand-muted"
+    26→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:209:                            isVideo ? "text-blue-500" : "text-brand"
+    27→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:219:                              : "text-brand opacity-0 group-hover:opacity-100"
+    28→/home/z/my-project/src/components/clinic/clinic-provider-row.tsx:234:                  className="cursor-pointer inline-flex items-center gap-1.5 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-brand-hover transition-all duration-200 hover:border-brand hover:bg-brand-muted hover:shadow-sm"
+    29→/home/z/my-project/src/components/clinic/about-text.tsx:26:          className="cursor-pointer mt-2 text-sm font-medium text-brand hover:text-brand-hover transition-colors"
+    30→/home/z/my-project/src/components/notification-bell.tsx:51:    color: "text-brand",
+    31→/home/z/my-project/src/components/notification-bell.tsx:52:    bgColor: "bg-brand-subtle",
+    32→/home/z/my-project/src/components/notification-bell.tsx:205:              className="text-xs font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer"
+    33→/home/z/my-project/src/components/theme-toggle.tsx:22:          className="h-9 w-9 border-brand-border hover:bg-brand-muted cursor-pointer"
+    34→/home/z/my-project/src/components/theme-toggle.tsx:37:            <Check className="h-4 w-4 ml-auto text-brand" />
+    35→/home/z/my-project/src/components/theme-toggle.tsx:47:            <Check className="h-4 w-4 ml-auto text-brand" />
+    36→/home/z/my-project/src/components/theme-toggle.tsx:57:            <Check className="h-4 w-4 ml-auto text-brand" />
+    37→/home/z/my-project/src/components/provider/availability-calendar.tsx:234:            className="text-sm font-semibold text-foreground hover:text-brand-hover transition-colors min-w-[180px] text-center cursor-pointer"
+    38→/home/z/my-project/src/components/provider/availability-calendar.tsx:266:                    ? "bg-brand text-white"
+    39→/home/z/my-project/src/components/provider/availability-calendar.tsx:351:                  day.isToday && "bg-brand-muted/80"
+    40→/home/z/my-project/src/components/provider/availability-calendar.tsx:356:                  day.isToday ? "text-brand-hover" : "text-muted-foreground"
+    41→/home/z/my-project/src/components/provider/availability-calendar.tsx:362:                  day.isToday ? "text-brand-hover" : "text-foreground"
+    42→/home/z/my-project/src/components/provider/availability-calendar.tsx:377:                  day.isToday && "bg-brand-muted/30",
+    43→/home/z/my-project/src/components/provider/availability-calendar.tsx:396:                        "hover:shadow-md hover:scale-[1.02] hover:border-brand",
+    44→/home/z/my-project/src/components/provider/availability-calendar.tsx:400:                          : "border-brand-border bg-brand-muted/60 hover:bg-brand-muted"
+    45→/home/z/my-project/src/components/provider/availability-calendar.tsx:406:                          slot.modality === "VIDEO" ? "text-blue-800" : "text-brand"
+    46→/home/z/my-project/src/components/provider/availability-calendar.tsx:414:                            <Building2 className="size-2.5 text-brand" />
+    47→/home/z/my-project/src/components/provider/availability-calendar.tsx:418:                            slot.modality === "VIDEO" ? "text-blue-500" : "text-brand"
+    48→/home/z/my-project/src/components/search/search-page.tsx:494:          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-subtle/40 blur-3xl animate-float-slow" />
+    49→/home/z/my-project/src/components/search/search-page.tsx:498:          <div className="absolute top-12 left-[15%] w-2 h-2 rounded-full bg-brand-subtle/40" />
+    50→/home/z/my-project/src/components/search/search-page.tsx:499:          <div className="absolute top-24 right-[20%] w-1.5 h-1.5 rounded-full bg-brand/30" />
+    51→/home/z/my-project/src/components/search/search-page.tsx:503:            className="absolute bottom-4 left-0 w-full h-6 text-brand-subtle/50 animate-heartbeat"
+    52→/home/z/my-project/src/components/search/search-page.tsx:518:            <Cross className="size-16 text-brand-hover animate-heartbeat" />
+    53→/home/z/my-project/src/components/search/search-page.tsx:534:                <CheckCircle2 className="size-3.5 text-brand" />
+    54→/home/z/my-project/src/components/search/search-page.tsx:539:                <Building2 className="size-3.5 text-brand" />
+    55→/home/z/my-project/src/components/search/search-page.tsx:543:              <Link href="/clinics" className="inline-flex items-center gap-1.5 text-xs md:text-sm text-brand hover:text-brand-hover font-medium underline-offset-4 decoration-brand-border hover:decoration-brand decoration-2 hover:underline transition-colors cursor-pointer">
+    56→/home/z/my-project/src/components/search/search-page.tsx:549:                <Stethoscope className="size-3.5 text-brand" />
+    57→/home/z/my-project/src/components/search/search-page.tsx:610:                      <div className="bg-brand-muted rounded-full p-0.5">
+    58→/home/z/my-project/src/components/search/search-page.tsx:726:                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-brand cursor-pointer"
+    59→/home/z/my-project/src/components/search/search-page.tsx:752:                    <span title="ZIP code location"><MapPin className="size-4 text-brand shrink-0" /></span>
+    60→/home/z/my-project/src/components/search/search-page.tsx:754:                    <span title="Location detected"><LocateFixed className="size-4 text-brand shrink-0" /></span>
+    61→/home/z/my-project/src/components/search/search-page.tsx:779:                    className="text-brand hover:text-brand-hover hover:bg-brand-muted cursor-pointer shrink-0"
+    62→/home/z/my-project/src/components/search/search-page.tsx:869:                <div className="absolute inset-0 rounded-full bg-brand-subtle/50" />
+    63→/home/z/my-project/src/components/search/search-page.tsx:871:                  <Stethoscope className="size-7 text-brand/50" />
+    64→/home/z/my-project/src/components/search/search-page.tsx:888:                    <Building2 className="size-5 text-brand" />
+    65→/home/z/my-project/src/components/search/search-page.tsx:893:                    className="text-sm text-brand hover:text-brand-hover font-medium hover:underline transition-colors cursor-pointer"
+    66→/home/z/my-project/src/components/search/search-page.tsx:911:                          className="block font-bold text-foreground group-hover:text-brand-hover transition-colors cursor-pointer"
+    67→/home/z/my-project/src/components/search/search-page.tsx:949:                                className="text-xs border-brand-border text-brand-hover bg-brand-muted/50"
+    68→/home/z/my-project/src/components/search/search-page.tsx:958:                          <Clock className="size-3.5 text-brand" />
+    69→/home/z/my-project/src/components/search/search-page.tsx:964:                          className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer pt-1"
+    70→/home/z/my-project/src/components/search/search-page.tsx:1020:                  <div className="flex-1 border-t-2 border-dashed border-brand-border" />
+    71→/home/z/my-project/src/components/search/search-page.tsx:1030:                      circleBg: "bg-brand",
+    72→/home/z/my-project/src/components/search/search-page.tsx:1032:                      badgeBg: "bg-brand-muted",
+    73→/home/z/my-project/src/components/search/search-page.tsx:1181:              <div className="absolute inset-0 rounded-full bg-brand-muted" />
+    74→/home/z/my-project/src/components/search/search-page.tsx:1183:                <Search className="size-8 text-brand/60" />
+    75→/home/z/my-project/src/components/search/search-page.tsx:1242:                  className="bg-brand-subtle text-brand-hover font-semibold tabular-nums shrink-0"
+    76→/home/z/my-project/src/components/search/provider-card.tsx:106:          : "bg-brand-subtle text-brand-hover"
+    77→/home/z/my-project/src/components/search/provider-card.tsx:190:          <Avatar className="size-16 shrink-0 rounded-full bg-brand-subtle ring-2 ring-brand/20">
+    78→/home/z/my-project/src/components/search/provider-card.tsx:192:            <AvatarFallback className="bg-brand-subtle text-brand-hover text-base font-semibold rounded-full">
+    79→/home/z/my-project/src/components/search/provider-card.tsx:204:                  className="text-lg font-semibold leading-tight truncate hover:text-brand-hover transition-colors cursor-pointer"
+    80→/home/z/my-project/src/components/search/provider-card.tsx:208:                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-brand-border bg-brand-muted/80 px-1.5 py-0.5">
+    81→/home/z/my-project/src/components/search/provider-card.tsx:209:                  <ShieldCheck className="size-3 text-brand" />
+    82→/home/z/my-project/src/components/search/provider-card.tsx:210:                  <span className="text-[10px] font-medium text-brand-hover leading-none">Verified</span>
+    83→/home/z/my-project/src/components/search/provider-card.tsx:216:                  className="shrink-0 border-brand-border text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-muted via-coral-muted to-brand-muted"
+    84→/home/z/my-project/src/components/search/provider-card.tsx:228:                className="truncate hover:underline hover:text-brand-hover transition-colors cursor-pointer"
+    85→/home/z/my-project/src/components/search/provider-card.tsx:234:                className="shrink-0 text-brand hover:text-brand-hover transition-colors cursor-pointer"
+    86→/home/z/my-project/src/components/search/provider-card.tsx:249:                <span className="shrink-0 font-medium text-brand whitespace-nowrap">
+    87→/home/z/my-project/src/components/search/provider-card.tsx:286:                          : "border-l-4 border-l-brand border-border hover:bg-brand-muted hover:border-brand-border"
+    88→/home/z/my-project/src/components/search/provider-card.tsx:301:                  className="cursor-pointer inline-flex items-center gap-1 self-stretch rounded-lg border border-dashed border-muted-foreground/30 px-4 text-sm font-medium text-brand-hover transition-all duration-200 hover:border-brand hover:bg-brand-muted hover:shadow-sm"
+    89→/home/z/my-project/src/components/search/provider-card.tsx:322:                className="border-brand-border text-brand-hover hover:bg-brand-muted hover:border-brand hover:text-brand-hover cursor-pointer"
+    90→/home/z/my-project/src/components/search/provider-card.tsx:395:                className="bg-brand hover:bg-brand-hover text-white cursor-pointer"
+    91→/home/z/my-project/src/components/search/provider-card.tsx:417:                className="inline-flex items-center gap-1 text-xs text-brand hover:text-brand-hover hover:underline hover:translate-x-0.5 transition-all cursor-pointer pl-6"
+    92→/home/z/my-project/src/components/search/provider-card.tsx:429:          className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover hover:translate-x-0.5 transition-all cursor-pointer"
+    93→/home/z/my-project/src/components/qr-code-display.tsx:111:      <Card className="border-brand-border bg-white">
+    94→/home/z/my-project/src/components/qr-code-display.tsx:145:    <Card className="border-brand-border bg-white">
+    95→/home/z/my-project/src/components/qr-code-display.tsx:148:        <div className="p-3 bg-white rounded-xl border border-brand-muted shadow-sm">
+    96→/home/z/my-project/src/components/qr-code-display.tsx:161:            <QrCode className="size-4 text-brand" />
+    97→/home/z/my-project/src/components/qr-code-display.tsx:173:            className="flex-1 border-brand-border text-brand-hover hover:bg-brand-muted hover:text-brand-hover cursor-pointer"
+    98→/home/z/my-project/src/components/qr-code-display.tsx:186:            className="flex-1 border-brand-border text-brand-hover hover:bg-brand-muted hover:text-brand-hover cursor-pointer"
+    99→/home/z/my-project/src/app/about/page.tsx:130:                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+   100→/home/z/my-project/src/app/about/page.tsx:131:                  <Search className="size-6 text-brand" />
+   101→/home/z/my-project/src/app/about/page.tsx:246:                    className="mt-2 border-brand-border text-brand-hover hover:bg-brand-muted cursor-pointer"
+   102→/home/z/my-project/src/app/intake/[token]/page.tsx:133:            <div className="w-7 h-7 rounded-md bg-brand-subtle flex items-center justify-center shrink-0">
+   103→/home/z/my-project/src/app/intake/[token]/page.tsx:372:                    <div className="w-16 h-16 rounded-full bg-brand-muted flex items-center justify-center mx-auto mb-5">
+   104→/home/z/my-project/src/app/intake/[token]/page.tsx:373:                      <CheckCircle2 className="size-8 text-brand" />
+   105→/home/z/my-project/src/app/intake/[token]/page.tsx:420:                  className="w-20 h-20 rounded-full bg-brand-subtle flex items-center justify-center mx-auto mb-5"
+   106→/home/z/my-project/src/app/intake/[token]/page.tsx:426:                    className="size-10 text-brand"
+   107→/home/z/my-project/src/app/intake/[token]/page.tsx:474:              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-subtle mb-3">
+   108→/home/z/my-project/src/app/intake/[token]/page.tsx:475:                <FileText className="size-6 text-brand" />
+   109→/home/z/my-project/src/app/intake/[token]/page.tsx:491:                    <Calendar className="size-4 text-brand" />
+   110→/home/z/my-project/src/app/intake/[token]/page.tsx:498:                      <Calendar className="size-4 text-brand mt-0.5 shrink-0" />
+   111→/home/z/my-project/src/app/intake/[token]/page.tsx:507:                      <User className="size-4 text-brand mt-0.5 shrink-0" />
+   112→/home/z/my-project/src/app/intake/[token]/page.tsx:514:                      <Building2 className="size-4 text-brand mt-0.5 shrink-0" />
+   113→/home/z/my-project/src/app/intake/[token]/page.tsx:525:                      <Stethoscope className="size-4 text-brand mt-0.5 shrink-0" />
+   114→/home/z/my-project/src/app/intake/[token]/page.tsx:539:                      <Badge className="bg-brand-subtle text-brand border-brand-border hover:bg-brand-subtle px-3 py-1 text-sm">
+   115→/home/z/my-project/src/app/intake/[token]/page.tsx:569:                icon={<Stethoscope className="size-3.5 text-brand-hover" />}
+   116→/home/z/my-project/src/app/intake/[token]/page.tsx:594:                icon={<Pill className="size-3.5 text-brand-hover" />}
+   117→/home/z/my-project/src/app/intake/[token]/page.tsx:617:                icon={<AlertTriangle className="size-3.5 text-brand-hover" />}
+   118→/home/z/my-project/src/app/intake/[token]/page.tsx:640:                icon={<History className="size-3.5 text-brand-hover" />}
+   119→/home/z/my-project/src/app/intake/[token]/page.tsx:663:                icon={<Users className="size-3.5 text-brand-hover" />}
+   120→/home/z/my-project/src/app/intake/[token]/page.tsx:684:                icon={<Phone className="size-3.5 text-brand-hover" />}
+   121→/home/z/my-project/src/app/intake/[token]/page.tsx:726:                icon={<StickyNote className="size-3.5 text-brand-hover" />}
+   122→/home/z/my-project/src/app/intake/[token]/page.tsx:770:              <Shield className="size-3 inline mr-1 text-brand" />
+   123→/home/z/my-project/src/app/intake/[token]/page.tsx:801:          <Shield className="size-3.5 text-brand" />
+   124→/home/z/my-project/src/app/clinic/[slug]/page.tsx:265:                  <Building2 className="size-6 text-brand shrink-0" />
+   125→/home/z/my-project/src/app/clinic/[slug]/page.tsx:269:                  <span className="inline-flex items-center gap-1 text-brand">
+   126→/home/z/my-project/src/app/clinic/[slug]/page.tsx:287:                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+   127→/home/z/my-project/src/app/clinic/[slug]/page.tsx:288:                    <MapPin className="size-4 text-brand" />
+   128→/home/z/my-project/src/app/clinic/[slug]/page.tsx:298:                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+   129→/home/z/my-project/src/app/clinic/[slug]/page.tsx:299:                      <Phone className="size-4 text-brand" />
+   130→/home/z/my-project/src/app/clinic/[slug]/page.tsx:303:                      className="text-sm text-foreground hover:text-brand-hover transition-colors cursor-pointer"
+   131→/home/z/my-project/src/app/clinic/[slug]/page.tsx:313:                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+   132→/home/z/my-project/src/app/clinic/[slug]/page.tsx:314:                      <Mail className="size-4 text-brand" />
+   133→/home/z/my-project/src/app/clinic/[slug]/page.tsx:318:                      className="text-sm text-foreground hover:text-brand-hover transition-colors cursor-pointer"
+   134→/home/z/my-project/src/app/clinic/[slug]/page.tsx:328:                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-muted">
+   135→/home/z/my-project/src/app/clinic/[slug]/page.tsx:329:                      <Globe className="size-4 text-brand" />
+   136→/home/z/my-project/src/app/clinic/[slug]/page.tsx:335:                      className="text-sm text-foreground hover:text-brand-hover transition-colors truncate cursor-pointer"
+   137→/home/z/my-project/src/app/clinic/[slug]/page.tsx:352:                  <Building2 className="size-5 text-brand" />
+   138→/home/z/my-project/src/app/clinic/[slug]/page.tsx:370:                    <Clock className="size-5 text-brand" />
+   139→/home/z/my-project/src/app/clinic/[slug]/page.tsx:405:                            ? "bg-brand-muted/80"
+   140→/home/z/my-project/src/app/clinic/[slug]/page.tsx:415:                            <span className="size-1.5 rounded-full bg-brand-muted shrink-0" />
+   141→/home/z/my-project/src/app/clinic/[slug]/page.tsx:448:                        <Shield className="size-5 text-brand" />
+   142→/home/z/my-project/src/app/clinic/[slug]/page.tsx:466:                          className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 hover:scale-105 transition-all cursor-default"
+   143→/home/z/my-project/src/app/clinic/[slug]/page.tsx:483:                        <Star className="size-5 text-brand" />
+   144→/home/z/my-project/src/app/clinic/[slug]/page.tsx:500:                          className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 hover:scale-105 transition-all cursor-default"
+   145→/home/z/my-project/src/app/clinic/[slug]/page.tsx:521:                    <Users className="size-5 text-brand" />
+   146→/home/z/my-project/src/app/clinic/[slug]/page.tsx:531:                  className="text-sm font-medium text-brand hover:text-brand-hover transition-colors cursor-pointer shrink-0"
+   147→/home/z/my-project/src/app/book/error.tsx:65:              className="bg-brand hover:bg-brand-hover text-white"
+   148→/home/z/my-project/src/app/book/page.tsx:131:          : "bg-brand-subtle text-brand-hover"
+   149→/home/z/my-project/src/app/book/page.tsx:185:              <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   150→/home/z/my-project/src/app/book/page.tsx:186:                <Stethoscope className="size-4 text-brand-hover" />
+   151→/home/z/my-project/src/app/book/page.tsx:204:              <Calendar className="size-3.5 text-brand shrink-0" />
+   152→/home/z/my-project/src/app/book/page.tsx:209:              <Clock className="size-3.5 text-brand shrink-0" />
+   153→/home/z/my-project/src/app/book/page.tsx:241:          className="h-0.5 bg-brand rounded-full transition-all duration-500 ease-out"
+   154→/home/z/my-project/src/app/book/page.tsx:265:                    <div className="absolute inset-0 size-10 rounded-full bg-brand-subtle/60 animate-ping" style={{ animationDuration: "2s" }} />
+   155→/home/z/my-project/src/app/book/page.tsx:270:                        ? "bg-brand text-white shadow-md"
+   156→/home/z/my-project/src/app/book/page.tsx:272:                        ? "bg-brand text-white ring-4 ring-brand/10 shadow-lg"
+   157→/home/z/my-project/src/app/book/page.tsx:287:                        ? "text-brand-hover font-semibold"
+   158→/home/z/my-project/src/app/book/page.tsx:289:                        ? "text-brand font-medium"
+   159→/home/z/my-project/src/app/book/page.tsx:296:                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+   160→/home/z/my-project/src/app/book/page.tsx:297:                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-muted" />
+   161→/home/z/my-project/src/app/book/page.tsx:304:                        ? "text-brand"
+   162→/home/z/my-project/src/app/book/page.tsx:319:                        ? "bg-brand"
+   163→/home/z/my-project/src/app/book/page.tsx:766:            <Loader2 className="size-8 animate-spin text-brand" />
+   164→/home/z/my-project/src/app/book/page.tsx:800:                <Button asChild className="bg-brand hover:bg-brand-hover text-white cursor-pointer">
+   165→/home/z/my-project/src/app/book/page.tsx:819:      "bg-brand", "bg-brand-muted", "bg-amber-400", "bg-amber-300",
+   166→/home/z/my-project/src/app/book/page.tsx:820:      "bg-brand-subtle", "bg-green-400", "bg-lime-400", "bg-coral-muted",
+   167→/home/z/my-project/src/app/book/page.tsx:833:              <div className="absolute top-20 left-[15%] size-2 rounded-full bg-brand-subtle/40 animate-pulse-subtle" />
+   168→/home/z/my-project/src/app/book/page.tsx:836:              <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-brand/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
+   169→/home/z/my-project/src/app/book/page.tsx:896:          <Card className="shadow-sm border-brand-border">
+   170→/home/z/my-project/src/app/book/page.tsx:899:                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   171→/home/z/my-project/src/app/book/page.tsx:900:                  <Calendar className="size-4 text-brand-hover" />
+   172→/home/z/my-project/src/app/book/page.tsx:911:                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   173→/home/z/my-project/src/app/book/page.tsx:912:                  <User className="size-4 text-brand-hover" />
+   174→/home/z/my-project/src/app/book/page.tsx:923:                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   175→/home/z/my-project/src/app/book/page.tsx:924:                  <Building2 className="size-4 text-brand-hover" />
+   176→/home/z/my-project/src/app/book/page.tsx:933:                <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   177→/home/z/my-project/src/app/book/page.tsx:934:                  <Shield className="size-4 text-brand-hover" />
+   178→/home/z/my-project/src/app/book/page.tsx:946:                    <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   179→/home/z/my-project/src/app/book/page.tsx:947:                      <CreditCard className="size-4 text-brand-hover" />
+   180→/home/z/my-project/src/app/book/page.tsx:962:          <Card className="border-brand-border bg-brand-muted/40 shadow-sm">
+   181→/home/z/my-project/src/app/book/page.tsx:965:                <Shield className="size-4 text-brand" />
+   182→/home/z/my-project/src/app/book/page.tsx:1026:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   183→/home/z/my-project/src/app/book/page.tsx:1027:                    <Mail className="size-4 text-brand-hover" />
+   184→/home/z/my-project/src/app/book/page.tsx:1037:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   185→/home/z/my-project/src/app/book/page.tsx:1038:                    <FileText className="size-4 text-brand-hover" />
+   186→/home/z/my-project/src/app/book/page.tsx:1048:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   187→/home/z/my-project/src/app/book/page.tsx:1049:                    <Timer className="size-4 text-brand-hover" />
+   188→/home/z/my-project/src/app/book/page.tsx:1062:            <Button asChild className="bg-brand hover:bg-brand-hover text-white cursor-pointer">
+   189→/home/z/my-project/src/app/book/page.tsx:1235:                            <Badge variant="outline" className="ml-2 text-brand border-brand-border text-[10px] px-1.5 py-0">
+   190→/home/z/my-project/src/app/book/page.tsx:1248:                        <Badge className="bg-brand-subtle text-brand-hover border-brand-border hover:bg-brand-subtle cursor-default">
+   191→/home/z/my-project/src/app/book/page.tsx:1297:            <Card className="shadow-sm border-brand-border bg-brand-muted/30">
+   192→/home/z/my-project/src/app/book/page.tsx:1299:                <h3 className="text-xs font-semibold text-brand uppercase tracking-wider mb-3 flex items-center gap-1.5">
+   193→/home/z/my-project/src/app/book/page.tsx:1332:                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+   194→/home/z/my-project/src/app/book/page.tsx:1339:                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+   195→/home/z/my-project/src/app/book/page.tsx:1438:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   196→/home/z/my-project/src/app/book/page.tsx:1439:                    <User className="size-4 text-brand-hover" />
+   197→/home/z/my-project/src/app/book/page.tsx:1453:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   198→/home/z/my-project/src/app/book/page.tsx:1454:                    <Building2 className="size-4 text-brand-hover" />
+   199→/home/z/my-project/src/app/book/page.tsx:1466:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   200→/home/z/my-project/src/app/book/page.tsx:1467:                    <Calendar className="size-4 text-brand-hover" />
+   201→/home/z/my-project/src/app/book/page.tsx:1479:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   202→/home/z/my-project/src/app/book/page.tsx:1481:                      <Baby className="size-4 text-brand-hover" />
+   203→/home/z/my-project/src/app/book/page.tsx:1483:                      <User className="size-4 text-brand-hover" />
+   204→/home/z/my-project/src/app/book/page.tsx:1508:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+   205→/home/z/my-project/src/app/book/page.tsx:1509:                    <AlertCircle className="size-4 text-brand-hover" />
+   206→/home/z/my-project/src/app/book/page.tsx:1523:                  <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+   207→/home/z/my-project/src/app/book/page.tsx:1524:                    <Shield className="size-4 text-brand-hover" />
+   208→/home/z/my-project/src/app/book/page.tsx:1535:            <Card className="shadow-sm border-brand-border bg-brand-muted/30">
+   209→/home/z/my-project/src/app/book/page.tsx:1537:                <h3 className="text-xs font-semibold text-brand uppercase tracking-wider flex items-center gap-1.5">
+   210→/home/z/my-project/src/app/book/page.tsx:1573:                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+   211→/home/z/my-project/src/app/book/page.tsx:1586:                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-brand-hover" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+   212→/home/z/my-project/src/app/book/page.tsx:1705:                className="bg-brand hover:bg-brand-hover text-white cursor-pointer shadow-sm btn-icon-slide-next"
+   213→/home/z/my-project/src/app/error.tsx:53:            className="bg-brand hover:bg-brand-hover text-white"
+   214→/home/z/my-project/src/app/review/[token]/page.tsx:133:          <span className="text-sm font-medium text-brand-hover">
+   215→/home/z/my-project/src/app/review/[token]/page.tsx:367:                  className="w-20 h-20 rounded-full bg-brand-subtle flex items-center justify-center mx-auto mb-6"
+   216→/home/z/my-project/src/app/review/[token]/page.tsx:373:                    className="size-10 text-brand"
+   217→/home/z/my-project/src/app/review/[token]/page.tsx:399:                  className="bg-brand hover:bg-brand-hover text-white font-semibold rounded-lg"
+   218→/home/z/my-project/src/app/review/[token]/page.tsx:443:                      <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center shrink-0 border border-brand-border">
+   219→/home/z/my-project/src/app/review/[token]/page.tsx:444:                        <User className="size-6 text-brand" />
+   220→/home/z/my-project/src/app/review/[token]/page.tsx:483:                    <Star className="size-5 text-brand" />
+   221→/home/z/my-project/src/app/review/[token]/page.tsx:621:          <Shield className="size-3.5 text-brand" />
+   222→/home/z/my-project/src/app/global-error.tsx:41:              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand-hover transition-colors shadow-sm"
+   223→/home/z/my-project/src/app/providers/[slug]/page.tsx:133:          className="h-full rounded-full bg-brand-muted transition-all duration-500"
+   224→/home/z/my-project/src/app/providers/[slug]/page.tsx:285:                <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-brand-subtle ring-4 ring-brand/20 text-brand-hover text-2xl font-bold">
+   225→/home/z/my-project/src/app/providers/[slug]/page.tsx:297:                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-muted/80 px-2 py-0.5">
+   226→/home/z/my-project/src/app/providers/[slug]/page.tsx:298:                          <ShieldCheck className="size-3 text-brand" />
+   227→/home/z/my-project/src/app/providers/[slug]/page.tsx:299:                          <span className="text-[10px] font-medium text-brand-hover leading-none">Verified</span>
+   228→/home/z/my-project/src/app/providers/[slug]/page.tsx:309:                              className="bg-brand-subtle text-brand-hover border-brand-border hover:bg-brand-subtle cursor-default"
+   229→/home/z/my-project/src/app/providers/[slug]/page.tsx:323:                          className="hover:text-brand-hover hover:underline transition-colors cursor-pointer"
+   230→/home/z/my-project/src/app/providers/[slug]/page.tsx:350:                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+   231→/home/z/my-project/src/app/providers/[slug]/page.tsx:351:                  <Clock className="size-5 text-brand" />
+   232→/home/z/my-project/src/app/providers/[slug]/page.tsx:361:                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+   233→/home/z/my-project/src/app/providers/[slug]/page.tsx:362:                  <CalendarCheck className="size-5 text-brand" />
+   234→/home/z/my-project/src/app/providers/[slug]/page.tsx:372:                <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
+   235→/home/z/my-project/src/app/providers/[slug]/page.tsx:373:                  <Award className="size-5 text-brand" />
+   236→/home/z/my-project/src/app/providers/[slug]/page.tsx:388:                  <Users className="size-5 text-brand" />
+   237→/home/z/my-project/src/app/providers/[slug]/page.tsx:410:                    <Stethoscope className="size-5 text-brand" />
+   238→/home/z/my-project/src/app/providers/[slug]/page.tsx:420:                        className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 transition-colors cursor-default"
+   239→/home/z/my-project/src/app/providers/[slug]/page.tsx:436:                    <Globe className="size-5 text-brand" />
+   240→/home/z/my-project/src/app/providers/[slug]/page.tsx:446:                        className="border-brand-border text-brand-hover bg-brand-muted/50 px-3 py-1 text-sm hover:bg-brand-subtle/60 transition-colors cursor-default"
+   241→/home/z/my-project/src/app/providers/[slug]/page.tsx:462:                <CalendarDays className="size-5 text-brand" />
+   242→/home/z/my-project/src/app/providers/[slug]/page.tsx:485:                      <Star className="size-5 text-brand fill-brand" />
+   243→/home/z/my-project/src/app/providers/[slug]/page.tsx:532:                            <span className="inline-flex items-center gap-0.5 text-brand">
+   244→/home/z/my-project/src/app/providers/[slug]/page.tsx:551:                <Building2 className="size-5 text-brand" />
+   245→/home/z/my-project/src/app/providers/[slug]/page.tsx:559:                className="font-semibold text-foreground hover:text-brand-hover transition-colors cursor-pointer"
+   246→/home/z/my-project/src/app/providers/[slug]/page.tsx:566:                <MapPin className="size-4 text-brand shrink-0 mt-0.5" />
+   247→/home/z/my-project/src/app/providers/[slug]/page.tsx:571:                  className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+   248→/home/z/my-project/src/app/providers/[slug]/page.tsx:580:                <Phone className="size-4 text-brand shrink-0" />
+   249→/home/z/my-project/src/app/providers/[slug]/page.tsx:583:                  className="text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+   250→/home/z/my-project/src/app/providers/[slug]/page.tsx:597:                  className="w-full mt-2 border-brand-border text-brand-hover hover:bg-brand-muted hover:border-brand cursor-pointer"
+   251→
+   252→[Showing results with pagination = limit: 250]

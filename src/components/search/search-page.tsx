@@ -477,7 +477,7 @@ export function SearchPage() {
       <PublicNavbar />
 
       {/* ===== Hero Section ===== */}
-      <section className="relative bg-gradient-to-br from-brand-muted via-white to-teal-50/30 pb-8 pt-12 md:pt-16 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-brand-muted via-white to-coral-muted/30 pb-8 pt-12 md:pt-16 overflow-hidden">
         {/* Dot pattern background */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -493,11 +493,11 @@ export function SearchPage() {
           {/* Large gradient blob — top right */}
           <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-subtle/40 blur-3xl animate-float-slow" />
           {/* Small circle — bottom left */}
-          <div className="absolute bottom-0 -left-10 w-48 h-48 rounded-full bg-teal-100/30 blur-2xl" style={{ animation: "float-slow 8s ease-in-out infinite reverse" }} />
+          <div className="absolute bottom-0 -left-10 w-48 h-48 rounded-full bg-coral-muted/30 blur-2xl" style={{ animation: "float-slow 8s ease-in-out infinite reverse" }} />
           {/* Tiny dot accents */}
           <div className="absolute top-12 left-[15%] w-2 h-2 rounded-full bg-brand-subtle/40" />
           <div className="absolute top-24 right-[20%] w-1.5 h-1.5 rounded-full bg-brand/30" />
-          <div className="absolute bottom-16 left-[30%] w-1 h-1 rounded-full bg-teal-400/40" />
+          <div className="absolute bottom-16 left-[30%] w-1 h-1 rounded-full bg-coral/40" />
           {/* Heartbeat line */}
           <svg
             className="absolute bottom-4 left-0 w-full h-6 text-brand-subtle/50 animate-heartbeat"
@@ -558,7 +558,7 @@ export function SearchPage() {
 
           {/* Search Form — Card Wrapper with animated gradient border */}
           <form onSubmit={onFormSubmit} className="text-left">
-            <div className="p-[1px] rounded-2xl bg-gradient-to-r from-brand via-teal-400 to-brand bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite]">
+            <div className="p-[1px] rounded-2xl bg-gradient-to-r from-brand via-coral to-brand bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite]">
             <div className="rounded-[15px] border-0 bg-white/90 backdrop-blur-sm shadow-lg shadow-brand/5 p-4 md:p-6 space-y-4">
               {/* Row 1: Search Input */}
               <div className="relative">
@@ -845,10 +845,10 @@ export function SearchPage() {
                       executeSearch({ specialtyId: familyMed.id });
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-muted/50 px-3 py-1 text-xs text-brand-hover hover:bg-brand-subtle hover:border-brand-border transition-all cursor-pointer animate-bounce-subtle"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-coral-border bg-coral-muted/60 px-3 py-1 text-xs text-coral-hover hover:bg-coral-subtle hover:border-coral-border transition-all cursor-pointer animate-bounce-subtle"
                 >
-                  <span className="text-brand">🔥</span>
-                  Popular: Family Medicine
+                  <span>🔥</span>
+                  <span className="text-coral">Popular: Family Medicine</span>
                 </button>
               </div>
             </div>
@@ -902,8 +902,8 @@ export function SearchPage() {
                       className="group relative rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                       style={{ animationDelay: `${idx * 100}ms` }}
                     >
-                      {/* Emerald gradient accent strip */}
-                      <div className="h-1.5 bg-gradient-to-r from-brand to-teal-400" />
+                      {/* Gradient accent strip — brand to coral */}
+                      <div className="h-1.5 bg-gradient-to-r from-brand to-coral" />
                       <div className="p-5 space-y-3">
                         {/* Clinic Name */}
                         <Link
@@ -976,7 +976,7 @@ export function SearchPage() {
             {popularSpecialties.length > 0 && (
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <LayoutGrid className="size-5 text-brand" />
+                  <LayoutGrid className="size-5 text-navy" />
                   <h2 className="text-xl font-bold text-foreground">Popular Searches by Specialty</h2>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -990,13 +990,13 @@ export function SearchPage() {
                           setSpecialtyId(spec.id);
                           executeSearch({ specialtyId: spec.id });
                         }}
-                        className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-center hover:shadow-md hover:border-brand-border hover:bg-brand-muted/50 transition-all duration-200 cursor-pointer"
+                        className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-center hover:shadow-md hover:border-navy-border hover:bg-navy-muted/50 transition-all duration-200 cursor-pointer"
                         style={{ animationDelay: `${idx * 60}ms` }}
                       >
                         {spec.icon ? (
                           <span className="text-2xl leading-none" role="img" aria-label={spec.name}>{spec.icon}</span>
                         ) : (
-                          <FallbackIcon className="size-6 text-brand" />
+                          <FallbackIcon className="size-6 text-navy" />
                         )}
                         <span className="text-sm font-medium text-foreground leading-tight">
                           {spec.name}
@@ -1011,7 +1011,7 @@ export function SearchPage() {
             {/* ----- How It Works ----- */}
             <section className="space-y-6">
               <div className="flex items-center justify-center gap-2">
-                <HeartPulse className="size-5 text-brand" />
+                <HeartPulse className="size-5 text-navy" />
                 <h2 className="text-xl font-bold text-foreground">How DoctA Works</h2>
               </div>
               <div className="relative">
@@ -1027,20 +1027,29 @@ export function SearchPage() {
                       title: "Search",
                       desc: "Find providers by specialty, location, or name. Compare ratings and availability.",
                       gradient: "from-brand to-brand",
+                      circleBg: "bg-brand",
+                      circleShadow: "shadow-brand/20",
+                      badgeBg: "bg-brand-muted",
                     },
                     {
                       num: 2,
                       Icon: CalendarCheck,
                       title: "Book",
                       desc: "Choose a convenient time slot and book instantly. No phone calls needed.",
-                      gradient: "from-teal-400 to-teal-600",
+                      gradient: "from-coral to-coral-hover",
+                      circleBg: "bg-coral",
+                      circleShadow: "shadow-coral/20",
+                      badgeBg: "bg-coral-muted",
                     },
                     {
                       num: 3,
                       Icon: MapPin,
                       title: "Visit",
                       desc: "Show up (or join virtually) at your scheduled time. That\u0027s it!",
-                      gradient: "from-cyan-400 to-cyan-600",
+                      gradient: "from-navy to-navy-hover",
+                      circleBg: "bg-navy",
+                      circleShadow: "shadow-navy/20",
+                      badgeBg: "bg-navy-muted",
                     },
                   ].map((step) => (
                     <div
@@ -1052,10 +1061,10 @@ export function SearchPage() {
                       <div className="p-6 flex flex-col items-center text-center space-y-3">
                         {/* Numbered circle + icon */}
                         <div className="relative">
-                          <div className="size-12 rounded-full bg-brand text-white flex items-center justify-center shadow-md shadow-brand/20">
+                          <div className={`size-12 rounded-full ${step.circleBg} text-white flex items-center justify-center shadow-md ${step.circleShadow}`}>
                             <step.Icon className="size-5" />
                           </div>
-                          <span className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-brand-muted text-white text-xs font-bold flex items-center justify-center ring-2 ring-white">
+                          <span className={`absolute -top-1.5 -right-1.5 size-5 rounded-full ${step.badgeBg} text-white text-xs font-bold flex items-center justify-center ring-2 ring-white`}>
                             {step.num}
                           </span>
                         </div>

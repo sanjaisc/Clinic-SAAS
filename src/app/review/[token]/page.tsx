@@ -361,7 +361,7 @@ export default function ReviewPage() {
         <main className="flex-1 flex items-center justify-center p-4">
           <motion.div className="max-w-md w-full" {...fadeInUp}>
             <Card className="text-center border-0 shadow-lg overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-brand via-brand to-teal-500" />
+              <div className="h-2 bg-gradient-to-r from-brand via-coral to-brand" />
               <CardContent className="pt-10 pb-10 px-8">
                 <motion.div
                   className="w-20 h-20 rounded-full bg-brand-subtle flex items-center justify-center mx-auto mb-6"
@@ -477,7 +477,7 @@ export default function ReviewPage() {
             {/* Rating Form Card */}
             <motion.div {...fadeInUp}>
               <Card className="border-0 shadow-lg overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-brand via-brand to-teal-500" />
+                <div className="h-2 bg-gradient-to-r from-brand via-coral to-brand" />
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Star className="size-5 text-brand" />
@@ -610,7 +610,7 @@ function ReviewHeader() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-teal-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-coral-hover flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">

@@ -755,15 +755,15 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-teal-100 bg-gradient-to-br from-teal-50 to-white shadow-sm">
+        <Card className="border-coral-border bg-gradient-to-br from-coral-muted to-white shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <div className="size-7 rounded-lg bg-teal-100 flex items-center justify-center">
-                <CheckCircle2 className="size-3.5 text-teal-600" />
+              <div className="size-7 rounded-lg bg-coral-muted flex items-center justify-center">
+                <CheckCircle2 className="size-3.5 text-coral-hover" />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Available</span>
             </div>
-            <p className="text-2xl font-bold text-teal-700">{weekSummary.available}</p>
+            <p className="text-2xl font-bold text-coral">{weekSummary.available}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
           </CardContent>
         </Card>

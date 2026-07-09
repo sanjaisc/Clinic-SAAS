@@ -126,7 +126,7 @@ export default function InsurancePage() {
 
           {/* ===== Accepted Insurance Providers ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-coral" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Shield className="size-5 text-brand" />
@@ -198,7 +198,7 @@ export default function InsurancePage() {
 
           {/* ===== Payment Methods ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-coral" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CreditCard className="size-5 text-brand" />
@@ -254,7 +254,7 @@ export default function InsurancePage() {
 
           {/* ===== FAQ ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-coral" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <HelpCircle className="size-5 text-brand" />

@@ -36,21 +36,21 @@ const VALUES = [
     title: "Easy Booking",
     description:
       "No phone tag, no hold music. Book your appointment in seconds with real-time availability and instant confirmation.",
-    gradient: "from-teal-400 to-teal-600",
+    gradient: "from-coral to-coral-hover",
   },
   {
     icon: ShieldCheck,
     title: "Verified Providers",
     description:
       "Every provider on DoctA is verified. We check credentials, licenses, and clinic standing so you can book with confidence.",
-    gradient: "from-cyan-400 to-cyan-600",
+    gradient: "from-navy to-navy-hover",
   },
   {
     icon: Lock,
     title: "Secure Platform",
     description:
       "Your health data is protected with industry-standard encryption. We never share your personal information without consent.",
-    gradient: "from-brand to-teal-500",
+    gradient: "from-brand to-coral",
   },
 ];
 
@@ -124,7 +124,7 @@ export default function AboutPage() {
 
           {/* ===== Mission Statement ===== */}
           <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
+            <div className="h-1.5 bg-gradient-to-r from-brand to-navy" />
             <CardContent className="p-6 md:p-8">
               <div className="flex items-start gap-4">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
@@ -155,7 +155,7 @@ export default function AboutPage() {
           {/* ===== Our Values ===== */}
           <section className="space-y-5">
             <div className="flex items-center gap-2">
-              <Sparkles className="size-5 text-brand" />
+              <Sparkles className="size-5 text-navy" />
               <h2 className="text-xl font-bold text-foreground">Our Values</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -169,8 +169,8 @@ export default function AboutPage() {
                   />
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-subtle">
-                        <val.icon className="size-5 text-brand" />
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-coral-subtle">
+                        <val.icon className="size-5 text-coral" />
                       </div>
                       <h3 className="font-semibold text-foreground">
                         {val.title}
@@ -188,7 +188,7 @@ export default function AboutPage() {
           {/* ===== By the Numbers ===== */}
           <section className="space-y-5">
             <div className="flex items-center gap-2">
-              <Clock className="size-5 text-brand" />
+              <Clock className="size-5 text-navy" />
               <h2 className="text-xl font-bold text-foreground">
                 By the Numbers
               </h2>
@@ -196,17 +196,17 @@ export default function AboutPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {STATS.map((stat) => (
                 <Card key={stat.label} className="text-center overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
+                  <div className="h-1 bg-gradient-to-r from-brand to-navy" />
                   <CardContent className="p-5 space-y-2">
                     <div className="flex justify-center mb-1">
-                      <div className="size-10 rounded-full bg-brand-subtle flex items-center justify-center">
-                        <stat.icon className="size-5 text-brand" />
+                      <div className="size-10 rounded-full bg-navy-subtle flex items-center justify-center">
+                        <stat.icon className="size-5 text-navy" />
                       </div>
                     </div>
                     <p className="text-2xl md:text-3xl font-bold text-foreground">
                       {stat.value}
                     </p>
-                    <p className="text-xs font-medium text-brand">
+                    <p className="text-xs font-medium text-navy">
                       {stat.label}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -221,15 +221,15 @@ export default function AboutPage() {
           {/* ===== Team — Coming Soon ===== */}
           <section className="space-y-5">
             <div className="flex items-center gap-2">
-              <Users className="size-5 text-brand" />
+              <Users className="size-5 text-coral" />
               <h2 className="text-xl font-bold text-foreground">Our Team</h2>
             </div>
             <Card className="overflow-hidden">
-              <div className="h-1.5 bg-gradient-to-r from-brand to-teal-500" />
+              <div className="h-1.5 bg-gradient-to-r from-brand to-navy" />
               <CardContent className="p-8 text-center space-y-3">
                 <div className="flex justify-center mb-2">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-brand-muted ring-2 ring-brand/20">
-                    <Users className="size-7 text-brand" />
+                  <div className="flex size-16 items-center justify-center rounded-full bg-coral-subtle ring-2 ring-coral/20">
+                    <Users className="size-7 text-coral" />
                   </div>
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">

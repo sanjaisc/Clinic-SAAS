@@ -251,7 +251,7 @@ function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
   return (
     <Card className="border-border/50 shadow-sm overflow-hidden">
       {/* Subtle gradient header strip */}
-      <div className="h-1 bg-gradient-to-r from-brand to-teal-500" />
+      <div className="h-1 bg-gradient-to-r from-brand to-coral" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -441,7 +441,7 @@ export default function DashboardPage() {
           value={data.stats.todayAppointments}
           subtitle={`${data.stats.bookedToday} of ${data.stats.totalSlotsToday} slots filled`}
           icon={CalendarDays}
-          gradient="bg-gradient-to-r from-brand to-teal-500"
+          gradient="bg-gradient-to-r from-brand to-coral"
           iconBg="bg-brand-subtle text-brand"
           trend={`${data.stats.utilizationPercent}% utilization`}
         />
