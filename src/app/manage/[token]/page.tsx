@@ -435,7 +435,7 @@ export default function ManagePage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="mb-2"
                 >
-                  <Card className="border-0 shadow-lg bg-gradient-to-br from-brand to-brand-hover text-white overflow-hidden">
+                  <Card className="border-0 shadow-lg bg-brand text-white overflow-hidden">
                     <CardContent className="pt-8 pb-8 px-8 text-center">
                       <motion.div
                         className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-5"
@@ -880,7 +880,7 @@ function Header() {
     <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-lavender-hover flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
             <Heart className="size-4 text-white" />
           </div>
           <span className="font-bold text-lg text-foreground tracking-tight">

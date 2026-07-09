@@ -503,3 +503,27 @@ Stage Summary:
 - Both colors complement the teal-green base harmoniously — cool temperature consistency
 - All 16 affected files updated, zero orphaned references
 - Design system: brand (green) + lavender (soft purple) + indigo (deep blue-violet)
+
+---
+Task ID: 7
+Agent: Main Orchestrator
+Task: Remove gradient backgrounds from buttons and text-containing elements
+
+Work Log:
+- User reported gradient backgrounds make text difficult to read on buttons/badges
+- Identified all gradient-on-text instances across codebase
+- Fixed 6 elements across 5 files:
+  - `clinics/page.tsx:121` — "Featured" badge: gradient → solid `bg-brand`
+  - `clinics/page.tsx:233` — "View Clinic" button: gradient → solid `bg-brand hover:bg-brand-hover` with `transition-colors`
+  - `provider-card.tsx:216` — Cost badge: gradient → solid `bg-brand-muted`
+  - `manage/[token]/page.tsx:438` — Check-in success card: gradient → solid `bg-brand`
+  - `intake/[token]/page.tsx:793` — Header icon: gradient → solid `bg-brand`
+  - `review/[token]/page.tsx:613` — Header icon: gradient → solid `bg-brand`
+  - `manage/[token]/page.tsx:883` — Header icon: gradient → solid `bg-brand`
+- Kept decorative gradient uses (1-2px divider strips, shimmer borders, animated header bars, stat card top strips) — these have no text readability concerns
+- Lint: 0 errors
+
+Stage Summary:
+- All gradient backgrounds with text replaced with solid colors
+- Clickable elements use solid bg + darker hover (brand → brand-hover) for clear interactivity
+- Decorative gradient strips/dividers preserved as design accents

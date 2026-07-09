@@ -118,7 +118,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
       {/* Featured Badge */}
       {isFeatured && (
         <div className="absolute top-3 right-3 z-10">
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand to-lavender px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
+          <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
             <Sparkles className="size-3" />
             Featured
           </span>
@@ -230,7 +230,7 @@ function ClinicCard({ clinic, index, isFeatured }: { clinic: ClinicData; index: 
           <Link href={`/clinic/${clinic.slug}`}>
             <Button
               size="sm"
-              className="w-full bg-gradient-to-r from-brand to-lavender-hover hover:from-brand-hover hover:to-lavender-hover text-white border-0 shadow-sm transition-all"
+              className="w-full bg-brand hover:bg-brand-hover text-white border-0 shadow-sm transition-colors"
             >
               View Clinic
               <ChevronRight className="ml-1 h-4 w-4" />

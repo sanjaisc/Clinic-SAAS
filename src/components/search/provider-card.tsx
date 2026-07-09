@@ -213,7 +213,7 @@ export function ProviderCard({ provider, index = 0, specialtyId, onSlotClick }: 
               {provider.costBadge && (
                 <Badge
                   variant="outline"
-                  className="shrink-0 border-brand-border text-sm font-semibold text-brand-hover bg-gradient-to-r from-brand-muted via-lavender-muted to-brand-muted"
+                  className="shrink-0 border-brand-border text-sm font-semibold text-brand-hover bg-brand-muted"
                 >
                   {provider.costBadge}
                 </Badge>
