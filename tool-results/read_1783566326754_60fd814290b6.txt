@@ -1,0 +1,920 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from "react";
+     4→import {
+     5→  format,
+     6→  startOfWeek,
+     7→  addWeeks,
+     8→  subWeeks,
+     9→  parseISO,
+    10→  isToday,
+    11→  startOfToday,
+    12→} from "date-fns";
+    13→import {
+    14→  ChevronLeft,
+    15→  ChevronRight,
+    16→  Users,
+    17→  Clock,
+    18→  CheckCircle2,
+    19→  XCircle,
+    20→  Video,
+    21→  AlertCircle,
+    22→  Ban,
+    23→  Plus,
+    24→} from "lucide-react";
+    25→import { Button } from "@/components/ui/button";
+    26→import { Badge } from "@/components/ui/badge";
+    27→import { Card, CardContent } from "@/components/ui/card";
+    28→import { Skeleton } from "@/components/ui/skeleton";
+    29→import { Input } from "@/components/ui/input";
+    30→import { Label } from "@/components/ui/label";
+    31→import {
+    32→  Select,
+    33→  SelectContent,
+    34→  SelectItem,
+    35→  SelectTrigger,
+    36→  SelectValue,
+    37→} from "@/components/ui/select";
+    38→import {
+    39→  Dialog,
+    40→  DialogContent,
+    41→  DialogDescription,
+    42→  DialogFooter,
+    43→  DialogHeader,
+    44→  DialogTitle,
+    45→} from "@/components/ui/dialog";
+    46→import { cn } from "@/lib/utils";
+    47→import { SLOT_STATUS, SLOT_MODALITY, APPOINTMENT_STATUS } from "@/lib/enums";
+    48→import { useToast } from "@/hooks/use-toast";
+    49→
+    50→// ---------------------------------------------------------------------------
+    51→// Types
+    52→// ---------------------------------------------------------------------------
+    53→
+    54→interface ProviderInfo {
+    55→  id: string;
+    56→  firstName: string;
+    57→  lastName: string;
+    58→  credentials: string | null;
+    59→}
+    60→
+    61→interface AppointmentInfo {
+    62→  id: string;
+    63→  patientName: string;
+    64→  patientPhone: string;
+    65→  patientEmail: string;
+    66→  reasonForVisit: string;
+    67→  status: string;
+    68→  service: { id: string; name: string } | null;
+    69→}
+    70→
+    71→interface SlotInfo {
+    72→  id: string;
+    73→  startTime: string;
+    74→  endTime: string;
+    75→  modality: string;
+    76→  status: string;
+    77→  provider: ProviderInfo;
+    78→  appointment: AppointmentInfo | null;
+    79→}
+    80→
+    81→interface DayData {
+    82→  date: string;
+    83→  formattedDate: string;
+    84→  isToday: boolean;
+    85→  providers: ProviderInfo[];
+    86→  slots: SlotInfo[];
+    87→  summary: {
+    88→    total: number;
+    89→    booked: number;
+    90→    available: number;
+    91→    blocked: number;
+    92→    checkedIn: number;
+    93→  };
+    94→}
+    95→
+    96→interface WeekSummary {
+    97→  booked: number;
+    98→  checkedIn: number;
+    99→  available: number;
+   100→  blocked: number;
+   101→}
+   102→
+   103→// ---------------------------------------------------------------------------
+   104→// Helpers
+   105→// ---------------------------------------------------------------------------
+   106→
+   107→function formatTime12(iso: string): string {
+   108→  return format(parseISO(iso), "h:mm a");
+   109→}
+   110→
+   111→function providerLabel(p: ProviderInfo): string {
+   112→  return `Dr. ${p.firstName} ${p.lastName}${p.credentials ? `, ${p.credentials}` : ""}`;
+   113→}
+   114→
+   115→function providerShortLabel(p: ProviderInfo): string {
+   116→  return `Dr. ${p.lastName}`;
+   117→}
+   118→
+   119→const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+   120→
+   121→// ---------------------------------------------------------------------------
+   122→// Status color helpers
+   123→// ---------------------------------------------------------------------------
+   124→
+   125→function getStatusColor(appointmentStatus: string) {
+   126→  switch (appointmentStatus) {
+   127→    case APPOINTMENT_STATUS.BOOKED:
+   128→      return {
+   129→        bg: "bg-emerald-50",
+   130→        border: "border-emerald-300 border-l-emerald-500",
+   131→        text: "text-emerald-700",
+   132→        dot: "bg-emerald-500",
+   133→      };
+   134→    case APPOINTMENT_STATUS.CHECKED_IN:
+   135→      return {
+   136→        bg: "bg-amber-50",
+   137→        border: "border-amber-300 border-l-amber-500",
+   138→        text: "text-amber-700",
+   139→        dot: "bg-amber-500",
+   140→      };
+   141→    case APPOINTMENT_STATUS.COMPLETED:
+   142→      return {
+   143→        bg: "bg-muted/50",
+   144→        border: "border-border border-l-border",
+   145→        text: "text-muted-foreground",
+   146→        dot: "bg-muted-foreground",
+   147→      };
+   148→    case APPOINTMENT_STATUS.CANCELLED:
+   149→      return {
+   150→        bg: "bg-red-50",
+   151→        border: "border-red-300 border-l-red-400",
+   152→        text: "text-red-600",
+   153→        dot: "bg-red-500",
+   154→      };
+   155→    case APPOINTMENT_STATUS.NO_SHOW:
+   156→      return {
+   157→        bg: "bg-muted/50",
+   158→        border: "border-border border-l-border",
+   159→        text: "text-muted-foreground",
+   160→        dot: "bg-muted-foreground",
+   161→      };
+   162→    default:
+   163→      return {
+   164→        bg: "bg-card",
+   165→        border: "border-border",
+   166→        text: "text-foreground",
+   167→        dot: "bg-border",
+   168→      };
+   169→  }
+   170→}
+   171→
+   172→// ---------------------------------------------------------------------------
+   173→// Compact Appointment Card (for weekly cells)
+   174→// ---------------------------------------------------------------------------
+   175→
+   176→const MAX_VISIBLE_CARDS = 3;
+   177→
+   178→function AppointmentCard({ slot }: { slot: SlotInfo }) {
+   179→  if (!slot.appointment) return null;
+   180→
+   181→  const appt = slot.appointment;
+   182→  const isBooked = slot.status === SLOT_STATUS.BOOKED || slot.status === SLOT_STATUS.BOOKED_EXTERNALLY;
+   183→  if (!isBooked) return null;
+   184→
+   185→  const colors = getStatusColor(appt.status);
+   186→  const time = formatTime12(slot.startTime);
+   187→  const isVideo = slot.modality === SLOT_MODALITY.VIDEO;
+   188→
+   189→  return (
+   190→    <div
+   191→      className={cn(
+   192→        "rounded-md border-l-3 px-2 py-1.5 text-[11px] leading-tight border border",
+   193→        colors.bg,
+   194→        colors.border,
+   195→        colors.text
+   196→      )}
+   197→    >
+   198→      <div className="flex items-center gap-1 font-semibold">
+   199→        <span className="tabular-nums">{time}</span>
+   200→        {isVideo && <Video className="size-3 shrink-0 text-emerald-600" />}
+   201→      </div>
+   202→      <div className="truncate font-medium">{appt.patientName}</div>
+   203→      <div className="truncate text-[10px] opacity-75">
+   204→        {appt.service?.name || appt.reasonForVisit}
+   205→      </div>
+   206→    </div>
+   207→  );
+   208→}
+   209→
+   210→function SlotCell({
+   211→  slots,
+   212→  providerId,
+   213→  onBlockSlots,
+   214→}: {
+   215→  slots: SlotInfo[];
+   216→  providerId: string;
+   217→  onBlockSlots: (providerId: string, date: string) => void;
+   218→}) {
+   219→  // Only show booked/externally booked slots as appointment cards
+   220→  const bookedSlots = slots.filter(
+   221→    (s) =>
+   222→      s.status === SLOT_STATUS.BOOKED || s.status === SLOT_STATUS.BOOKED_EXTERNALLY
+   223→  );
+   224→
+   225→  if (bookedSlots.length === 0) {
+   226→    return (
+   227→      <div
+   228→        className="min-h-[60px] flex items-center justify-center cursor-pointer rounded-md border border-dashed border-transparent hover:border-muted-foreground/30 hover:bg-muted/20 transition-colors group"
+   229→        onClick={() => {
+   230→          if (slots.length > 0) {
+   231→            const date = format(parseISO(slots[0].startTime), "yyyy-MM-dd");
+   232→            onBlockSlots(providerId, date);
+   233→          }
+   234→        }}
+   235→      >
+   236→        <Plus className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors" />
+   237→      </div>
+   238→    );
+   239→  }
+   240→
+   241→  const visibleSlots = bookedSlots.slice(0, MAX_VISIBLE_CARDS);
+   242→  const remaining = bookedSlots.length - MAX_VISIBLE_CARDS;
+   243→
+   244→  const dateStr = slots.length > 0 ? format(parseISO(slots[0].startTime), "yyyy-MM-dd") : "";
+   245→
+   246→  return (
+   247→    <div
+   248→      className="space-y-1.5 cursor-pointer rounded-md hover:ring-2 hover:ring-emerald-200 transition-all p-1 -m-1"
+   249→      onClick={() => onBlockSlots(providerId, dateStr)}
+   250→    >
+   251→      {visibleSlots.map((slot) => (
+   252→        <AppointmentCard key={slot.id} slot={slot} />
+   253→      ))}
+   254→      {remaining > 0 && (
+   255→        <button
+   256→          className="text-[11px] font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
+   257→          onClick={(e) => {
+   258→            e.stopPropagation();
+   259→          }}
+   260→        >
+   261→          +{remaining} more
+   262→        </button>
+   263→      )}
+   264→    </div>
+   265→  );
+   266→}
+   267→
+   268→// ---------------------------------------------------------------------------
+   269→// Block Slots Modal
+   270→// ---------------------------------------------------------------------------
+   271→
+   272→interface BlockModalState {
+   273→  open: boolean;
+   274→  providerId: string;
+   275→  date: string;
+   276→}
+   277→
+   278→const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+   279→  const h = i;
+   280→  const label = format(new Date(2000, 0, 1, h, 0), "h:mm a");
+   281→  return { value: `${h.toString().padStart(2, "0")}:00`, label };
+   282→});
+   283→
+   284→function BlockSlotsModal({
+   285→  modal,
+   286→  onClose,
+   287→  providers,
+   288→  onSuccess,
+   289→}: {
+   290→  modal: BlockModalState;
+   291→  onClose: () => void;
+   292→  providers: ProviderInfo[];
+   293→  onSuccess: () => void;
+   294→}) {
+   295→  const [startTime, setStartTime] = useState("09:00");
+   296→  const [endTime, setEndTime] = useState("12:00");
+   297→  const [reason, setReason] = useState("");
+   298→  const [submitting, setSubmitting] = useState(false);
+   299→  const [error, setError] = useState<string | null>(null);
+   300→  const { toast } = useToast();
+   301→
+   302→  // Reset form when modal opens
+   303→  useEffect(() => {
+   304→    if (modal.open) {
+   305→      setStartTime("09:00");
+   306→      setEndTime("12:00");
+   307→      setReason("");
+   308→      setError(null);
+   309→      setSubmitting(false);
+   310→    }
+   311→  }, [modal.open]);
+   312→
+   313→  if (!modal.open) return null;
+   314→
+   315→  const handleSubmit = async (e: React.FormEvent) => {
+   316→    e.preventDefault();
+   317→    if (!modal.providerId || !modal.date) return;
+   318→    if (startTime >= endTime) {
+   319→      setError("End time must be after start time");
+   320→      return;
+   321→    }
+   322→
+   323→    setSubmitting(true);
+   324→    setError(null);
+   325→    try {
+   326→      const res = await fetch("/api/staff/slots/block-range", {
+   327→        method: "POST",
+   328→        headers: { "Content-Type": "application/json" },
+   329→        body: JSON.stringify({
+   330→          providerId: modal.providerId,
+   331→          date: modal.date,
+   332→          startTime,
+   333→          endTime,
+   334→          reason: reason.trim() || undefined,
+   335→        }),
+   336→      });
+   337→      if (!res.ok) {
+   338→        const err = await res.json();
+   339→        throw new Error(err.error || "Failed to block slots");
+   340→      }
+   341→      const json = await res.json();
+   342→      toast({
+   343→        title: "Slots Blocked",
+   344→        description: `${json.blockedCount} slot(s) blocked successfully.`,
+   345→      });
+   346→      onClose();
+   347→      onSuccess();
+   348→    } catch (e) {
+   349→      setError(e instanceof Error ? e.message : "Unknown error");
+   350→    } finally {
+   351→      setSubmitting(false);
+   352→    }
+   353→  };
+   354→
+   355→  const selectedProvider = providers.find((p) => p.id === modal.providerId);
+   356→  const dateDisplay = modal.date ? format(parseISO(modal.date), "EEE, MMM d, yyyy") : "";
+   357→
+   358→  return (
+   359→    <Dialog open={modal.open} onOpenChange={(open) => !open && onClose()}>
+   360→      <DialogContent className="sm:max-w-[440px]">
+   361→        <DialogHeader>
+   362→          <DialogTitle className="flex items-center gap-2">
+   363→            <Ban className="size-5 text-amber-600" />
+   364→            Block Time Slots
+   365→          </DialogTitle>
+   366→          <DialogDescription>
+   367→            Block all available slots within a time range for a provider.
+   368→          </DialogDescription>
+   369→        </DialogHeader>
+   370→
+   371→        <form onSubmit={handleSubmit} className="space-y-4">
+   372→          {/* Provider */}
+   373→          <div className="space-y-2">
+   374→            <Label htmlFor="block-provider">Provider</Label>
+   375→            <Select
+   376→              value={modal.providerId}
+   377→              onValueChange={(val) => {
+   378→                // Update modal provider
+   379→              }}
+   380→            >
+   381→              <SelectTrigger id="block-provider" className="cursor-pointer">
+   382→                <SelectValue placeholder="Select provider" />
+   383→              </SelectTrigger>
+   384→              <SelectContent>
+   385→                {selectedProvider ? (
+   386→                  <SelectItem value={selectedProvider.id}>
+   387→                    {providerLabel(selectedProvider)}
+   388→                  </SelectItem>
+   389→                ) : (
+   390→                  providers.map((p) => (
+   391→                    <SelectItem key={p.id} value={p.id}>
+   392→                      {providerLabel(p)}
+   393→                    </SelectItem>
+   394→                  ))
+   395→                )}
+   396→              </SelectContent>
+   397→            </Select>
+   398→          </div>
+   399→
+   400→          {/* Date */}
+   401→          <div className="space-y-2">
+   402→            <Label htmlFor="block-date">Date</Label>
+   403→            <Input
+   404→              id="block-date"
+   405→              value={dateDisplay}
+   406→              disabled
+   407→              className="bg-muted"
+   408→            />
+   409→          </div>
+   410→
+   411→          {/* Start / End Time */}
+   412→          <div className="grid grid-cols-2 gap-3">
+   413→            <div className="space-y-2">
+   414→              <Label htmlFor="block-start">Start Time</Label>
+   415→              <Select value={startTime} onValueChange={setStartTime}>
+   416→                <SelectTrigger id="block-start" className="cursor-pointer">
+   417→                  <SelectValue />
+   418→                </SelectTrigger>
+   419→                <SelectContent className="max-h-48">
+   420→                  {TIME_OPTIONS.map((opt) => (
+   421→                    <SelectItem key={opt.value} value={opt.value}>
+   422→                      {opt.label}
+   423→                    </SelectItem>
+   424→                  ))}
+   425→                </SelectContent>
+   426→              </Select>
+   427→            </div>
+   428→            <div className="space-y-2">
+   429→              <Label htmlFor="block-end">End Time</Label>
+   430→              <Select value={endTime} onValueChange={setEndTime}>
+   431→                <SelectTrigger id="block-end" className="cursor-pointer">
+   432→                  <SelectValue />
+   433→                </SelectTrigger>
+   434→                <SelectContent className="max-h-48">
+   435→                  {TIME_OPTIONS.map((opt) => (
+   436→                    <SelectItem key={opt.value} value={opt.value}>
+   437→                      {opt.label}
+   438→                    </SelectItem>
+   439→                  ))}
+   440→                </SelectContent>
+   441→              </Select>
+   442→            </div>
+   443→          </div>
+   444→
+   445→          {/* Reason */}
+   446→          <div className="space-y-2">
+   447→            <Label htmlFor="block-reason">
+   448→              Reason <span className="text-muted-foreground font-normal">(optional)</span>
+   449→            </Label>
+   450→            <Input
+   451→              id="block-reason"
+   452→              placeholder="e.g., Lunch break, Meeting"
+   453→              value={reason}
+   454→              onChange={(e) => setReason(e.target.value)}
+   455→            />
+   456→          </div>
+   457→
+   458→          {error && (
+   459→            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-center gap-2">
+   460→              <AlertCircle className="size-4 shrink-0" />
+   461→              {error}
+   462→            </div>
+   463→          )}
+   464→
+   465→          <DialogFooter className="gap-2 sm:gap-0">
+   466→            <Button
+   467→              type="button"
+   468→              variant="outline"
+   469→              onClick={onClose}
+   470→              className="cursor-pointer"
+   471→            >
+   472→              Cancel
+   473→            </Button>
+   474→            <Button
+   475→              type="submit"
+   476→              disabled={submitting}
+   477→              className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white"
+   478→            >
+   479→              {submitting ? "Blocking…" : "Block Slots"}
+   480→            </Button>
+   481→          </DialogFooter>
+   482→        </form>
+   483→      </DialogContent>
+   484→    </Dialog>
+   485→  );
+   486→}
+   487→
+   488→// ---------------------------------------------------------------------------
+   489→// Loading Skeleton
+   490→// ---------------------------------------------------------------------------
+   491→
+   492→function CalendarSkeleton() {
+   493→  return (
+   494→    <div className="space-y-5 animate-in fade-in duration-300">
+   495→      <div className="flex items-center gap-3">
+   496→        <Skeleton className="h-9 w-9 rounded-lg" />
+   497→        <Skeleton className="h-8 w-52" />
+   498→        <Skeleton className="h-8 w-20" />
+   499→        <Skeleton className="h-8 w-20" />
+   500→        <Skeleton className="h-9 w-[200px] ml-auto" />
+   501→      </div>
+   502→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   503→        {Array.from({ length: 4 }).map((_, i) => (
+   504→          <Skeleton key={i} className="h-20 rounded-xl" />
+   505→        ))}
+   506→      </div>
+   507→      <Skeleton className="h-[400px] rounded-xl" />
+   508→    </div>
+   509→  );
+   510→}
+   511→
+   512→// ---------------------------------------------------------------------------
+   513→// Main Calendar Page
+   514→// ---------------------------------------------------------------------------
+   515→
+   516→export default function CalendarPage() {
+   517→  const [weekStart, setWeekStart] = useState<Date>(() =>
+   518→    startOfWeek(startOfToday(), { weekStartsOn: 1 })
+   519→  );
+   520→  const [providerFilter, setProviderFilter] = useState<string>("all");
+   521→  const [weekData, setWeekData] = useState<DayData[] | null>(null);
+   522→  const [allProviders, setAllProviders] = useState<ProviderInfo[]>([]);
+   523→  const [loading, setLoading] = useState(true);
+   524→  const [error, setError] = useState<string | null>(null);
+   525→
+   526→  // Block modal state
+   527→  const [blockModal, setBlockModal] = useState<BlockModalState>({
+   528→    open: false,
+   529→    providerId: "",
+   530→    date: "",
+   531→  });
+   532→
+   533→  const weekDays = useMemo(
+   534→    () => Array.from({ length: 7 }, (_, i) => addWeeks(weekStart, 0) && new Date(weekStart.getTime() + i * 86400000)),
+   535→    [weekStart]
+   536→  );
+   537→
+   538→  // Fetch all 7 days in parallel
+   539→  const fetchWeek = useCallback(
+   540→    async (start: Date, pFilter: string) => {
+   541→      setLoading(true);
+   542→      setError(null);
+   543→      try {
+   544→        const params = pFilter && pFilter !== "all" ? `&providerId=${pFilter}` : "";
+   545→        const promises = weekDays.map((day) => {
+   546→          const dateStr = format(day, "yyyy-MM-dd");
+   547→          return fetch(`/api/staff/calendar?date=${dateStr}${params}`).then((res) => {
+   548→            if (!res.ok) throw new Error("Failed to load");
+   549→            return res.json() as Promise<DayData>;
+   550→          });
+   551→        });
+   552→        const results = await Promise.all(promises);
+   553→        setWeekData(results);
+   554→        if (results.length > 0 && results[0].providers.length > 0) {
+   555→          setAllProviders(results[0].providers);
+   556→        }
+   557→      } catch (e) {
+   558→        setError(e instanceof Error ? e.message : "Unknown error");
+   559→      } finally {
+   560→        setLoading(false);
+   561→      }
+   562→    },
+   563→    [weekDays]
+   564→  );
+   565→
+   566→  useEffect(() => {
+   567→    fetchWeek(weekStart, providerFilter);
+   568→  }, [weekStart, providerFilter, fetchWeek]);
+   569→
+   570→  const goToPrevWeek = () => setWeekStart((d) => subWeeks(d, 1));
+   571→  const goToNextWeek = () => setWeekStart((d) => addWeeks(d, 1));
+   572→  const goToToday = () => setWeekStart(startOfWeek(startOfToday(), { weekStartsOn: 1 }));
+   573→
+   574→  const isCurrentWeek = (() => {
+   575→    const current = startOfWeek(startOfToday(), { weekStartsOn: 1 });
+   576→    return format(weekStart, "yyyy-MM-dd") === format(current, "yyyy-MM-dd");
+   577→  })();
+   578→
+   579→  const weekRangeLabel = (() => {
+   580→    const start = weekDays[0];
+   581→    const end = weekDays[6];
+   582→    const sameMonth = start.getMonth() === end.getMonth();
+   583→    if (sameMonth) {
+   584→      return `${format(start, "MMM d")} – ${format(end, "d, yyyy")}`;
+   585→    }
+   586→    return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
+   587→  })();
+   588→
+   589→  // Aggregate week summary
+   590→  const weekSummary: WeekSummary = useMemo(() => {
+   591→    if (!weekData) return { booked: 0, checkedIn: 0, available: 0, blocked: 0 };
+   592→    return weekData.reduce(
+   593→      (acc, day) => ({
+   594→        booked: acc.booked + day.summary.booked,
+   595→        checkedIn: acc.checkedIn + day.summary.checkedIn,
+   596→        available: acc.available + day.summary.available,
+   597→        blocked: acc.blocked + day.summary.blocked,
+   598→      }),
+   599→      { booked: 0, checkedIn: 0, available: 0, blocked: 0 }
+   600→    );
+   601→  }, [weekData]);
+   602→
+   603→  // Build provider×day matrix
+   604→  const matrixData = useMemo(() => {
+   605→    if (!weekData || allProviders.length === 0) return { providers: [], cells: {} as Record<string, SlotInfo[]> };
+   606→
+   607→    const filteredProviders =
+   608→      providerFilter && providerFilter !== "all"
+   609→        ? allProviders.filter((p) => p.id === providerFilter)
+   610→        : allProviders;
+   611→
+   612→    const cells: Record<string, SlotInfo[]> = {};
+   613→    for (const day of weekData) {
+   614→      for (const provider of filteredProviders) {
+   615→        const key = `${provider.id}|${day.date}`;
+   616→        cells[key] = day.slots.filter((s) => s.providerId === provider.id);
+   617→      }
+   618→    }
+   619→
+   620→    return { providers: filteredProviders, cells };
+   621→  }, [weekData, allProviders, providerFilter]);
+   622→
+   623→  const openBlockModal = (providerId: string, date: string) => {
+   624→    setBlockModal({ open: true, providerId, date });
+   625→  };
+   626→
+   627→  const closeBlockModal = () => {
+   628→    setBlockModal({ open: false, providerId: "", date: "" });
+   629→  };
+   630→
+   631→  // --- Loading ---
+   632→  if (loading && !weekData) {
+   633→    return (
+   634→      <div className="max-w-7xl mx-auto">
+   635→        <CalendarSkeleton />
+   636→      </div>
+   637→    );
+   638→  }
+   639→
+   640→  // --- Error ---
+   641→  if (error && !weekData) {
+   642→    return (
+   643→      <div className="max-w-7xl mx-auto">
+   644→        <Card className="border-red-200 bg-red-50/30">
+   645→          <CardContent className="p-6 flex flex-col items-center gap-3 text-center">
+   646→            <div className="size-12 rounded-full bg-red-100 flex items-center justify-center">
+   647→              <AlertCircle className="size-6 text-red-600" />
+   648→            </div>
+   649→            <p className="text-sm font-medium text-red-700">{error}</p>
+   650→            <Button
+   651→              variant="outline"
+   652→              size="sm"
+   653→              onClick={() => fetchWeek(weekStart, providerFilter)}
+   654→              className="cursor-pointer"
+   655→            >
+   656→              Try Again
+   657→            </Button>
+   658→          </CardContent>
+   659→        </Card>
+   660→      </div>
+   661→    );
+   662→  }
+   663→
+   664→  if (!weekData) return null;
+   665→
+   666→  return (
+   667→    <div className="max-w-7xl mx-auto space-y-5 animate-in fade-in duration-300">
+   668→      {/* ---- Header ---- */}
+   669→      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+   670→        <h1 className="text-lg font-bold text-foreground">Calendar</h1>
+   671→
+   672→        <div className="flex items-center gap-2">
+   673→          <Button
+   674→            variant="outline"
+   675→            size="icon"
+   676→            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+   677→            onClick={goToPrevWeek}
+   678→          >
+   679→            <ChevronLeft className="size-4" />
+   680→          </Button>
+   681→
+   682→          <div className="min-w-[200px] text-center">
+   683→            <span className="text-sm font-semibold text-foreground px-3 py-1.5 rounded-lg border bg-card">
+   684→              {weekRangeLabel}
+   685→            </span>
+   686→          </div>
+   687→
+   688→          <Button
+   689→            variant="outline"
+   690→            size="icon"
+   691→            className="size-9 cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+   692→            onClick={goToNextWeek}
+   693→          >
+   694→            <ChevronRight className="size-4" />
+   695→          </Button>
+   696→
+   697→          {!isCurrentWeek && (
+   698→            <Button
+   699→              variant="outline"
+   700→              size="sm"
+   701→              onClick={goToToday}
+   702→              className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-emerald-700 border-emerald-200"
+   703→            >
+   704→              Today
+   705→            </Button>
+   706→          )}
+   707→        </div>
+   708→
+   709→        {/* Provider Filter */}
+   710→        {allProviders.length > 1 && (
+   711→          <div className="flex items-center gap-2 sm:ml-auto">
+   712→            <Users className="size-4 text-muted-foreground shrink-0" />
+   713→            <Select value={providerFilter} onValueChange={setProviderFilter}>
+   714→              <SelectTrigger className="w-[220px] cursor-pointer hover:border-emerald-300">
+   715→                <SelectValue placeholder="All Providers" />
+   716→              </SelectTrigger>
+   717→              <SelectContent>
+   718→                <SelectItem value="all">All Providers</SelectItem>
+   719→                {allProviders.map((p) => (
+   720→                  <SelectItem key={p.id} value={p.id}>
+   721→                    {providerLabel(p)}
+   722→                  </SelectItem>
+   723→                ))}
+   724→              </SelectContent>
+   725→            </Select>
+   726→          </div>
+   727→        )}
+   728→      </div>
+   729→
+   730→      {/* ---- Summary Cards ---- */}
+   731→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   732→        <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+   733→          <CardContent className="p-4">
+   734→            <div className="flex items-center gap-2 mb-1">
+   735→              <div className="size-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+   736→                <CheckCircle2 className="size-3.5 text-emerald-600" />
+   737→              </div>
+   738→              <span className="text-xs text-muted-foreground font-medium">Booked</span>
+   739→            </div>
+   740→            <p className="text-2xl font-bold text-emerald-700">{weekSummary.booked}</p>
+   741→            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
+   742→          </CardContent>
+   743→        </Card>
+   744→
+   745→        <Card className="border-amber-100 bg-gradient-to-br from-amber-50 to-white shadow-sm">
+   746→          <CardContent className="p-4">
+   747→            <div className="flex items-center gap-2 mb-1">
+   748→              <div className="size-7 rounded-lg bg-amber-100 flex items-center justify-center">
+   749→                <Clock className="size-3.5 text-amber-600" />
+   750→              </div>
+   751→              <span className="text-xs text-muted-foreground font-medium">Checked In</span>
+   752→            </div>
+   753→            <p className="text-2xl font-bold text-amber-700">{weekSummary.checkedIn}</p>
+   754→            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
+   755→          </CardContent>
+   756→        </Card>
+   757→
+   758→        <Card className="border-teal-100 bg-gradient-to-br from-teal-50 to-white shadow-sm">
+   759→          <CardContent className="p-4">
+   760→            <div className="flex items-center gap-2 mb-1">
+   761→              <div className="size-7 rounded-lg bg-teal-100 flex items-center justify-center">
+   762→                <CheckCircle2 className="size-3.5 text-teal-600" />
+   763→              </div>
+   764→              <span className="text-xs text-muted-foreground font-medium">Available</span>
+   765→            </div>
+   766→            <p className="text-2xl font-bold text-teal-700">{weekSummary.available}</p>
+   767→            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
+   768→          </CardContent>
+   769→        </Card>
+   770→
+   771→        <Card className="border-border bg-gradient-to-br from-muted/50 to-card shadow-sm">
+   772→          <CardContent className="p-4">
+   773→            <div className="flex items-center gap-2 mb-1">
+   774→              <div className="size-7 rounded-lg bg-muted flex items-center justify-center">
+   775→                <XCircle className="size-3.5 text-muted-foreground" />
+   776→              </div>
+   777→              <span className="text-xs text-muted-foreground font-medium">Blocked</span>
+   778→            </div>
+   779→            <p className="text-2xl font-bold text-muted-foreground">{weekSummary.blocked}</p>
+   780→            <p className="text-[10px] text-muted-foreground mt-0.5">this week</p>
+   781→          </CardContent>
+   782→        </Card>
+   783→      </div>
+   784→
+   785→      {/* ---- Weekly Grid ---- */}
+   786→      <Card className="shadow-sm border overflow-hidden">
+   787→        <CardContent className="p-0">
+   788→          <div className="overflow-x-auto custom-scrollbar">
+   789→            <div className="min-w-[800px]">
+   790→              {/* Header Row */}
+   791→              <div className="grid grid-cols-[200px_repeat(7,1fr)] border-b bg-muted/40">
+   792→                {/* Provider header */}
+   793→                <div className="p-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider border-r flex items-center">
+   794→                  <Users className="size-3.5 mr-1.5" />
+   795→                  Provider
+   796→                </div>
+   797→                {/* Day headers */}
+   798→                {weekDays.map((day, idx) => {
+   799→                  const today = isToday(day);
+   800→                  return (
+   801→                    <div
+   802→                      key={idx}
+   803→                      className={cn(
+   804→                        "p-3 text-center border-r last:border-r-0",
+   805→                        today && "bg-emerald-50"
+   806→                      )}
+   807→                    >
+   808→                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+   809→                        {DAY_NAMES[idx]}
+   810→                      </div>
+   811→                      <div
+   812→                        className={cn(
+   813→                          "text-lg font-bold tabular-nums mt-0.5",
+   814→                          today ? "text-emerald-700" : "text-foreground"
+   815→                        )}
+   816→                      >
+   817→                        {format(day, "d")}
+   818→                      </div>
+   819→                      {today && (
+   820→                        <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 mt-1 hover:bg-emerald-600">
+   821→                          Today
+   822→                        </Badge>
+   823→                      )}
+   824→                    </div>
+   825→                  );
+   826→                })}
+   827→              </div>
+   828→
+   829→              {/* Provider Rows */}
+   830→              {matrixData.providers.length === 0 && (
+   831→                <div className="p-12 text-center text-muted-foreground text-sm">
+   832→                  No providers found for this clinic.
+   833→                </div>
+   834→              )}
+   835→
+   836→              {matrixData.providers.map((provider, pIdx) => (
+   837→                <div
+   838→                  key={provider.id}
+   839→                  className={cn(
+   840→                    "grid grid-cols-[200px_repeat(7,1fr)] border-b last:border-b-0",
+   841→                    pIdx % 2 === 1 && "bg-muted/20"
+   842→                  )}
+   843→                >
+   844→                  {/* Provider name (sticky) */}
+   845→                  <div className="p-3 border-r bg-card z-10 flex items-start sticky left-0">
+   846→                    <div>
+   847→                      <div className="text-sm font-semibold text-foreground leading-tight">
+   848→                        {providerLabel(provider)}
+   849→                      </div>
+   850→                      <div className="text-[11px] text-muted-foreground mt-0.5">
+   851→                        {providerShortLabel(provider)}
+   852→                      </div>
+   853→                    </div>
+   854→                  </div>
+   855→
+   856→                  {/* Day cells */}
+   857→                  {weekDays.map((day, dIdx) => {
+   858→                    const dateStr = format(day, "yyyy-MM-dd");
+   859→                    const key = `${provider.id}|${dateStr}`;
+   860→                    const slots = matrixData.cells[key] || [];
+   861→                    const today = isToday(day);
+   862→
+   863→                    return (
+   864→                      <div
+   865→                        key={dIdx}
+   866→                        className={cn(
+   867→                          "p-2 border-r last:border-r-0 min-h-[80px]",
+   868→                          today && "bg-emerald-50/30"
+   869→                        )}
+   870→                        onClick={() => openBlockModal(provider.id, dateStr)}
+   871→                      >
+   872→                        <SlotCell
+   873→                          slots={slots}
+   874→                          providerId={provider.id}
+   875→                          onBlockSlots={openBlockModal}
+   876→                        />
+   877→                      </div>
+   878→                    );
+   879→                  })}
+   880→                </div>
+   881→              ))}
+   882→            </div>
+   883→          </div>
+   884→        </CardContent>
+   885→      </Card>
+   886→
+   887→      {/* ---- Legend ---- */}
+   888→      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground pb-2">
+   889→        <div className="flex items-center gap-1.5">
+   890→          <div className="size-3 rounded-sm border-l-3 border-l-emerald-500 bg-emerald-50 border border-emerald-300" />
+   891→          <span>Booked</span>
+   892→        </div>
+   893→        <div className="flex items-center gap-1.5">
+   894→          <div className="size-3 rounded-sm border-l-3 border-l-amber-500 bg-amber-50 border border-amber-300" />
+   895→          <span>Checked In</span>
+   896→        </div>
+   897→        <div className="flex items-center gap-1.5">
+   898→          <div className="size-3 rounded-sm border-l-3 border-l-border bg-muted/50 border border-border" />
+   899→          <span>Completed / No Show</span>
+   900→        </div>
+   901→        <div className="flex items-center gap-1.5">
+   902→          <div className="size-3 rounded-sm border-l-3 border-l-red-400 bg-red-50 border border-red-300" />
+   903→          <span>Cancelled</span>
+   904→        </div>
+   905→        <div className="flex items-center gap-1.5">
+   906→          <Video className="size-3 text-emerald-600" />
+   907→          <span>Video Visit</span>
+   908→        </div>
+   909→      </div>
+   910→
+   911→      {/* ---- Block Slots Modal ---- */}
+   912→      <BlockSlotsModal
+   913→        modal={blockModal}
+   914→        onClose={closeBlockModal}
+   915→        providers={allProviders}
+   916→        onSuccess={() => fetchWeek(weekStart, providerFilter)}
+   917→      />
+   918→    </div>
+   919→  );
+   920→}

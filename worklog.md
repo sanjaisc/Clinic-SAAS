@@ -527,3 +527,23 @@ Stage Summary:
 - All gradient backgrounds with text replaced with solid colors
 - Clickable elements use solid bg + darker hover (brand → brand-hover) for clear interactivity
 - Decorative gradient strips/dividers preserved as design accents
+
+---
+Task ID: BugFix-1
+Agent: Main Orchestrator
+Task: Fix "No email templates configured" in Settings > Communications tab
+
+Work Log:
+- Investigated the issue: frontend fetches `/api/staff/communications` which queries `db.emailTemplate.findMany({ where: { clinicId } })`
+- Root cause: `prisma/seed.ts` never creates `EmailTemplate` records — database had 0 templates for all 6 clinics
+- Created `src/lib/default-email-templates.ts` — shared module with 7 default email templates (BOOKING_CONFIRMATION, CANCELLATION, RESCHEDULE, REMINDER, INTAKE, REVIEW_REQUEST, PAYMENT_REQUEST) and a `getDefaultTemplateDataForClinic(clinicId)` helper
+- Modified `src/app/api/staff/communications/route.ts` GET handler — added auto-seed: if `emailTemplates.length === 0`, calls `db.emailTemplate.createMany` with defaults, then re-fetches
+- Updated `src/app/api/staff/email-templates/reset/[id]/route.ts` — replaced inline DEFAULT_TEMPLATES with import from shared module
+- Directly seeded all 6 existing clinics with 7 templates each (42 total) in the database
+- Verified via lint (clean) and direct DB queries
+
+Stage Summary:
+- Fix is a lazy-initialization pattern: first visit to Communications tab auto-creates templates if missing
+- Future clinics will also get templates auto-created on first access
+- Files changed: `src/lib/default-email-templates.ts` (new), `src/app/api/staff/communications/route.ts` (modified), `src/app/api/staff/email-templates/reset/[id]/route.ts` (modified)
+- DB state: 42 email templates across 6 clinics, all active

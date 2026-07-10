@@ -1,0 +1,815 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import {
+     5→  CreditCard,
+     6→  Key,
+     7→  Globe,
+     8→  Clock,
+     9→  Play,
+    10→  CheckCircle2,
+    11→  XCircle,
+    12→  AlertCircle,
+    13→  Database,
+    14→  Trash2,
+    15→  RotateCcw,
+    16→  RefreshCw,
+    17→  Loader2,
+    18→  Shield,
+    19→  HardDrive,
+    20→  BarChart3,
+    21→  Info,
+    22→} from "lucide-react";
+    23→import {
+    24→  Card,
+    25→  CardContent,
+    26→  CardDescription,
+    27→  CardHeader,
+    28→  CardTitle,
+    29→} from "@/components/ui/card";
+    30→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    31→import { Button } from "@/components/ui/button";
+    32→import { Badge } from "@/components/ui/badge";
+    33→import {
+    34→  AlertDialog,
+    35→  AlertDialogAction,
+    36→  AlertDialogCancel,
+    37→  AlertDialogContent,
+    38→  AlertDialogDescription,
+    39→  AlertDialogFooter,
+    40→  AlertDialogHeader,
+    41→  AlertDialogTitle,
+    42→  AlertDialogTrigger,
+    43→} from "@/components/ui/alert-dialog";
+    44→import { Skeleton } from "@/components/ui/skeleton";
+    45→import { useToast } from "@/hooks/use-toast";
+    46→import { Separator } from "@/components/ui/separator";
+    47→
+    48→// =============================================================================
+    49→// Types
+    50→// =============================================================================
+    51→
+    52→type IntegrationStatus = {
+    53→  stripe: { configured: boolean; publicKey: string };
+    54→  jwt: { configured: boolean; secretMasked: string };
+    55→  gravityForms: { configured: boolean };
+    56→};
+    57→
+    58→type CronJob = {
+    59→  name: string;
+    60→  key: string;
+    61→  status: string;
+    62→  lastRun: string | null;
+    63→  successRate: string | null;
+    64→  description: string;
+    65→};
+    66→
+    67→type CronData = {
+    68→  jobs: CronJob[];
+    69→  counts: {
+    70→    expiredLocks: number;
+    71→    activeWaitlist: number;
+    72→    pendingAppointments: number;
+    73→  };
+    74→};
+    75→
+    76→type DataStats = {
+    77→  tables: Record<string, number>;
+    78→  dbFileSize: string | null;
+    79→  resolvedErrorLogs: number;
+    80→  totalRows: number;
+    81→};
+    82→
+    83→type TestResult = {
+    84→  success: boolean;
+    85→  message: string;
+    86→} | null;
+    87→
+    88→type TriggerResult = {
+    89→  success: boolean;
+    90→  message: string;
+    91→} | null;
+    92→
+    93→// =============================================================================
+    94→// Helpers
+    95→// =============================================================================
+    96→
+    97→const TABLE_LABELS: Record<string, string> = {
+    98→  clinics: "Clinics",
+    99→  providers: "Providers",
+   100→  services: "Services",
+   101→  specialties: "Specialties",
+   102→  insurances: "Insurances",
+   103→  amenities: "Amenities",
+   104→  languages: "Languages",
+   105→  slots: "Slots",
+   106→  appointments: "Appointments",
+   107→  reviews: "Reviews",
+   108→  waitlistEntries: "Waitlist Entries",
+   109→  users: "Users",
+   110→  slotLocks: "Slot Locks",
+   111→  slotTemplates: "Slot Templates",
+   112→  auditLogs: "Audit Logs",
+   113→  systemErrorLogs: "Error Logs",
+   114→  emailTemplates: "Email Templates",
+   115→  staffInvitations: "Staff Invitations",
+   116→  conversionEvents: "Conversion Events",
+   117→  providerServices: "Provider Services",
+   118→  clinicInsurances: "Clinic Insurances",
+   119→  clinicAmenities: "Clinic Amenities",
+   120→  providerLanguages: "Provider Languages",
+   121→  clinicClosures: "Clinic Closures",
+   122→  appointmentLedgers: "Appointment Ledgers",
+   123→  internalNotes: "Internal Notes",
+   124→  tokens: "Tokens",
+   125→  serviceInsurances: "Service Insurances",
+   126→};
+   127→
+   128→function StatusBadge({ status }: { status: string }) {
+   129→  const variants: Record<string, { color: string; label: string }> = {
+   130→    IDLE: { color: "bg-muted text-foreground", label: "IDLE" },
+   131→    RUNNING: { color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", label: "RUNNING" },
+   132→    ERROR: { color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", label: "ERROR" },
+   133→    "N/A": { color: "bg-muted/50 text-muted-foreground", label: "N/A" },
+   134→  };
+   135→  const v = variants[status] || { color: "bg-muted text-muted-foreground", label: status };
+   136→
+   137→  return (
+   138→    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${v.color}`}>
+   139→      {v.label}
+   140→    </span>
+   141→  );
+   142→}
+   143→
+   144→// =============================================================================
+   145→// Page Component
+   146→// =============================================================================
+   147→
+   148→export default function InfrastructurePage() {
+   149→  const { toast } = useToast();
+   150→
+   151→  // Tab 1: Integrations
+   152→  const [integrations, setIntegrations] = useState<IntegrationStatus | null>(null);
+   153→  const [integrationsLoading, setIntegrationsLoading] = useState(true);
+   154→  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
+   155→  const [testing, setTesting] = useState<Record<string, boolean>>({});
+   156→
+   157→  // Tab 2: Cron
+   158→  const [cronData, setCronData] = useState<CronData | null>(null);
+   159→  const [cronLoading, setCronLoading] = useState(true);
+   160→  const [triggerResults, setTriggerResults] = useState<Record<string, TriggerResult>>({});
+   161→  const [triggering, setTriggering] = useState<Record<string, boolean>>({});
+   162→
+   163→  // Tab 3: Data
+   164→  const [dataStats, setDataStats] = useState<DataStats | null>(null);
+   165→  const [dataLoading, setDataLoading] = useState(true);
+   166→  const [seeding, setSeeding] = useState(false);
+   167→  const [purgingErrors, setPurgingErrors] = useState(false);
+   168→
+   169→  // =========================================================================
+   170→  // Fetchers
+   171→  // =========================================================================
+   172→
+   173→  const fetchIntegrations = useCallback(async () => {
+   174→    setIntegrationsLoading(true);
+   175→    try {
+   176→      const res = await fetch("/api/staff/admin/integrations");
+   177→      if (!res.ok) throw new Error("Failed to fetch");
+   178→      const data = await res.json();
+   179→      setIntegrations(data);
+   180→    } catch {
+   181→      toast({ title: "Error", description: "Failed to load integration status.", variant: "destructive" });
+   182→    } finally {
+   183→      setIntegrationsLoading(false);
+   184→    }
+   185→  }, [toast]);
+   186→
+   187→  const fetchCron = useCallback(async () => {
+   188→    setCronLoading(true);
+   189→    try {
+   190→      const res = await fetch("/api/staff/admin/cron");
+   191→      if (!res.ok) throw new Error("Failed to fetch");
+   192→      const data = await res.json();
+   193→      setCronData(data);
+   194→    } catch {
+   195→      toast({ title: "Error", description: "Failed to load cron status.", variant: "destructive" });
+   196→    } finally {
+   197→      setCronLoading(false);
+   198→    }
+   199→  }, [toast]);
+   200→
+   201→  const fetchDataStats = useCallback(async () => {
+   202→    setDataLoading(true);
+   203→    try {
+   204→      const res = await fetch("/api/staff/admin/data/stats");
+   205→      if (!res.ok) throw new Error("Failed to fetch");
+   206→      const data = await res.json();
+   207→      setDataStats(data);
+   208→    } catch {
+   209→      toast({ title: "Error", description: "Failed to load data stats.", variant: "destructive" });
+   210→    } finally {
+   211→      setDataLoading(false);
+   212→    }
+   213→  }, [toast]);
+   214→
+   215→  useEffect(() => {
+   216→    fetchIntegrations();
+   217→    fetchCron();
+   218→    fetchDataStats();
+   219→  }, [fetchIntegrations, fetchCron, fetchDataStats]);
+   220→
+   221→  // =========================================================================
+   222→  // Actions
+   223→  // =========================================================================
+   224→
+   225→  const testIntegration = async (integration: "stripe" | "jwt") => {
+   226→    setTesting((prev) => ({ ...prev, [integration]: true }));
+   227→    setTestResults((prev) => ({ ...prev, [integration]: null }));
+   228→    try {
+   229→      const res = await fetch("/api/staff/admin/integrations/test", {
+   230→        method: "POST",
+   231→        headers: { "Content-Type": "application/json" },
+   232→        body: JSON.stringify({ integration }),
+   233→      });
+   234→      const data = await res.json();
+   235→      setTestResults((prev) => ({ ...prev, [integration]: data }));
+   236→    } catch {
+   237→      setTestResults((prev) => ({
+   238→        ...prev,
+   239→        [integration]: { success: false, message: "Request failed." },
+   240→      }));
+   241→    } finally {
+   242→      setTesting((prev) => ({ ...prev, [integration]: false }));
+   243→    }
+   244→  };
+   245→
+   246→  const triggerJob = async (jobKey: string) => {
+   247→    setTriggering((prev) => ({ ...prev, [jobKey]: true }));
+   248→    setTriggerResults((prev) => ({ ...prev, [jobKey]: null }));
+   249→    try {
+   250→      const res = await fetch("/api/staff/admin/cron/trigger", {
+   251→        method: "POST",
+   252→        headers: { "Content-Type": "application/json" },
+   253→        body: JSON.stringify({ job: jobKey }),
+   254→      });
+   255→      const data = await res.json();
+   256→      setTriggerResults((prev) => ({ ...prev, [jobKey]: data }));
+   257→      if (data.success) {
+   258→        toast({ title: "Job Triggered", description: data.message });
+   259→        // Refresh cron data after a successful trigger
+   260→        fetchCron();
+   261→      } else {
+   262→        toast({ title: "Job Failed", description: data.message, variant: "destructive" });
+   263→      }
+   264→    } catch {
+   265→      setTriggerResults((prev) => ({
+   266→        ...prev,
+   267→        [jobKey]: { success: false, message: "Request failed." },
+   268→      }));
+   269→      toast({ title: "Error", description: "Failed to trigger job.", variant: "destructive" });
+   270→    } finally {
+   271→      setTriggering((prev) => ({ ...prev, [jobKey]: false }));
+   272→    }
+   273→  };
+   274→
+   275→  const handleSeed = async () => {
+   276→    setSeeding(true);
+   277→    try {
+   278→      const res = await fetch("/api/staff/admin/data/seed", { method: "POST" });
+   279→      const data = await res.json();
+   280→      toast({
+   281→        title: data.success ? "Seed Triggered" : "Error",
+   282→        description: data.message,
+   283→        variant: data.success ? "default" : "destructive",
+   284→      });
+   285→    } catch {
+   286→      toast({ title: "Error", description: "Failed to trigger seed.", variant: "destructive" });
+   287→    } finally {
+   288→      setSeeding(false);
+   289→    }
+   290→  };
+   291→
+   292→  const handlePurgeErrors = async () => {
+   293→    setPurgingErrors(true);
+   294→    try {
+   295→      const res = await fetch("/api/staff/admin/data/purge-errors", { method: "POST" });
+   296→      const data = await res.json();
+   297→      if (data.success) {
+   298→        toast({ title: "Purged", description: data.message });
+   299→        fetchDataStats();
+   300→      } else {
+   301→        toast({ title: "Error", description: data.message || "Purge failed.", variant: "destructive" });
+   302→      }
+   303→    } catch {
+   304→      toast({ title: "Error", description: "Failed to purge error logs.", variant: "destructive" });
+   305→    } finally {
+   306→      setPurgingErrors(false);
+   307→    }
+   308→  };
+   309→
+   310→  // =========================================================================
+   311→  // Count annotations for cron jobs
+   312→  // =========================================================================
+   313→  const getCountAnnotation = (key: string) => {
+   314→    if (!cronData) return null;
+   315→    switch (key) {
+   316→      case "LOCK_SWEEP":
+   317→        return { label: "Expired Locks", value: cronData.counts.expiredLocks };
+   318→      case "WAITLIST_PROCESSOR":
+   319→        return { label: "Active Waitlist", value: cronData.counts.activeWaitlist };
+   320→      case "SLOT_GENERATION":
+   321→        return { label: "Pending Appts", value: cronData.counts.pendingAppointments };
+   322→      default:
+   323→        return null;
+   324→    }
+   325→  };
+   326→
+   327→  // =========================================================================
+   328→  // Render
+   329→  // =========================================================================
+   330→
+   331→  return (
+   332→    <div className="space-y-6">
+   333→      <Tabs defaultValue="integrations" className="space-y-6">
+   334→        <TabsList className="grid w-full grid-cols-3">
+   335→          <TabsTrigger value="integrations" className="gap-2">
+   336→            <Key className="size-4" />
+   337→            <span className="hidden sm:inline">Integrations</span>
+   338→          </TabsTrigger>
+   339→          <TabsTrigger value="cron" className="gap-2">
+   340→            <Clock className="size-4" />
+   341→            <span className="hidden sm:inline">WP-Cron</span>
+   342→          </TabsTrigger>
+   343→          <TabsTrigger value="data" className="gap-2">
+   344→            <Database className="size-4" />
+   345→            <span className="hidden sm:inline">Data</span>
+   346→          </TabsTrigger>
+   347→        </TabsList>
+   348→
+   349→        {/* ============================================================= */}
+   350→        {/* TAB 1: Integration Credentials                                */}
+   351→        {/* ============================================================= */}
+   352→        <TabsContent value="integrations" className="space-y-4">
+   353→          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 p-3">
+   354→            <Info className="size-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+   355→            <p className="text-sm text-amber-800 dark:text-amber-300">
+   356→              Credentials are managed via environment variables. Contact DevOps to update.
+   357→            </p>
+   358→          </div>
+   359→
+   360→          <div className="grid gap-4 md:grid-cols-3">
+   361→            {/* Stripe */}
+   362→            <Card>
+   363→              <CardHeader className="pb-3">
+   364→                <div className="flex items-center gap-2">
+   365→                  <div className="flex items-center justify-center size-9 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+   366→                    <CreditCard className="size-4 text-purple-600 dark:text-purple-400" />
+   367→                  </div>
+   368→                  <div>
+   369→                    <CardTitle className="text-base">Stripe</CardTitle>
+   370→                    <CardDescription>Payment processing</CardDescription>
+   371→                  </div>
+   372→                </div>
+   373→              </CardHeader>
+   374→              <CardContent className="space-y-3">
+   375→                {integrationsLoading ? (
+   376→                  <Skeleton className="h-16 w-full" />
+   377→                ) : (
+   378→                  <>
+   379→                    <div className="flex items-center gap-2">
+   380→                      {integrations?.stripe.configured ? (
+   381→                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+   382→                      ) : (
+   383→                        <Badge variant="secondary">Not Configured</Badge>
+   384→                      )}
+   385→                    </div>
+   386→                    {integrations?.stripe.configured && (
+   387→                      <div className="rounded-md bg-muted/50 px-3 py-2">
+   388→                        <p className="text-xs text-muted-foreground font-mono break-all">
+   389→                          {integrations.stripe.publicKey}
+   390→                        </p>
+   391→                      </div>
+   392→                    )}
+   393→                    {testResults.stripe && (
+   394→                      <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
+   395→                        testResults.stripe.success
+   396→                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   397→                          : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+   398→                      }`}>
+   399→                        {testResults.stripe.success
+   400→                          ? <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+   401→                          : <XCircle className="size-4 mt-0.5 shrink-0" />
+   402→                        }
+   403→                        <span>{testResults.stripe.message}</span>
+   404→                      </div>
+   405→                    )}
+   406→                    <Button
+   407→                      size="sm"
+   408→                      variant="outline"
+   409→                      className="w-full"
+   410→                      disabled={testing.stripe}
+   411→                      onClick={() => testIntegration("stripe")}
+   412→                    >
+   413→                      {testing.stripe ? (
+   414→                        <Loader2 className="size-4 mr-2 animate-spin" />
+   415→                      ) : (
+   416→                        <RefreshCw className="size-4 mr-2" />
+   417→                      )}
+   418→                      Test Connection
+   419→                    </Button>
+   420→                  </>
+   421→                )}
+   422→              </CardContent>
+   423→            </Card>
+   424→
+   425→            {/* JWT Secret */}
+   426→            <Card>
+   427→              <CardHeader className="pb-3">
+   428→                <div className="flex items-center gap-2">
+   429→                  <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   430→                    <Key className="size-4 text-emerald-600 dark:text-emerald-400" />
+   431→                  </div>
+   432→                  <div>
+   433→                    <CardTitle className="text-base">JWT Secret</CardTitle>
+   434→                    <CardDescription>Auth token signing</CardDescription>
+   435→                  </div>
+   436→                </div>
+   437→              </CardHeader>
+   438→              <CardContent className="space-y-3">
+   439→                {integrationsLoading ? (
+   440→                  <Skeleton className="h-16 w-full" />
+   441→                ) : (
+   442→                  <>
+   443→                    <div className="flex items-center gap-2">
+   444→                      {integrations?.jwt.configured ? (
+   445→                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+   446→                      ) : (
+   447→                        <Badge variant="secondary">Not Configured</Badge>
+   448→                      )}
+   449→                    </div>
+   450→                    {integrations?.jwt.configured && (
+   451→                      <div className="rounded-md bg-muted/50 px-3 py-2">
+   452→                        <p className="text-xs text-muted-foreground font-mono break-all">
+   453→                          {integrations.jwt.secretMasked}
+   454→                        </p>
+   455→                      </div>
+   456→                    )}
+   457→                    {testResults.jwt && (
+   458→                      <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
+   459→                        testResults.jwt.success
+   460→                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   461→                          : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+   462→                      }`}>
+   463→                        {testResults.jwt.success
+   464→                          ? <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+   465→                          : <XCircle className="size-4 mt-0.5 shrink-0" />
+   466→                        }
+   467→                        <span>{testResults.jwt.message}</span>
+   468→                      </div>
+   469→                    )}
+   470→                    <Button
+   471→                      size="sm"
+   472→                      variant="outline"
+   473→                      className="w-full"
+   474→                      disabled={testing.jwt}
+   475→                      onClick={() => testIntegration("jwt")}
+   476→                    >
+   477→                      {testing.jwt ? (
+   478→                        <Loader2 className="size-4 mr-2 animate-spin" />
+   479→                      ) : (
+   480→                        <RefreshCw className="size-4 mr-2" />
+   481→                      )}
+   482→                      Test Signing
+   483→                    </Button>
+   484→                  </>
+   485→                )}
+   486→              </CardContent>
+   487→            </Card>
+   488→
+   489→            {/* Gravity Forms */}
+   490→            <Card>
+   491→              <CardHeader className="pb-3">
+   492→                <div className="flex items-center gap-2">
+   493→                  <div className="flex items-center justify-center size-9 rounded-lg bg-muted">
+   494→                    <Globe className="size-4 text-muted-foreground" />
+   495→                  </div>
+   496→                  <div>
+   497→                    <CardTitle className="text-base">Gravity Forms</CardTitle>
+   498→                    <CardDescription>WordPress integration</CardDescription>
+   499→                  </div>
+   500→                </div>
+   501→              </CardHeader>
+   502→              <CardContent className="space-y-3">
+   503→                {integrationsLoading ? (
+   504→                  <Skeleton className="h-16 w-full" />
+   505→                ) : (
+   506→                  <>
+   507→                    <div className="flex items-center gap-2">
+   508→                      <Badge variant="secondary">Not Configured</Badge>
+   509→                    </div>
+   510→                    <p className="text-sm text-muted-foreground">
+   511→                      Gravity Forms integration is not yet configured. This will be used for intake form bridging.
+   512→                    </p>
+   513→                  </>
+   514→                )}
+   515→              </CardContent>
+   516→            </Card>
+   517→          </div>
+   518→        </TabsContent>
+   519→
+   520→        {/* ============================================================= */}
+   521→        {/* TAB 2: WP-Cron Monitoring                                     */}
+   522→        {/* ============================================================= */}
+   523→        <TabsContent value="cron" className="space-y-4">
+   524→          {cronLoading ? (
+   525→            <div className="grid gap-4 md:grid-cols-2">
+   526→              {[1, 2, 3, 4].map((i) => (
+   527→                <Skeleton key={i} className="h-48 w-full rounded-xl" />
+   528→              ))}
+   529→            </div>
+   530→          ) : (
+   531→            <div className="grid gap-4 md:grid-cols-2">
+   532→              {cronData?.jobs.map((job) => {
+   533→                const annotation = getCountAnnotation(job.key);
+   534→                const isTriggering = triggering[job.key];
+   535→                const result = triggerResults[job.key];
+   536→
+   537→                return (
+   538→                  <Card key={job.key}>
+   539→                    <CardHeader className="pb-3">
+   540→                      <div className="flex items-center justify-between">
+   541→                        <div className="flex items-center gap-2">
+   542→                          <div className="flex items-center justify-center size-9 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+   543→                            <Clock className="size-4 text-orange-600 dark:text-orange-400" />
+   544→                          </div>
+   545→                          <div>
+   546→                            <CardTitle className="text-base">{job.name}</CardTitle>
+   547→                            <CardDescription>{job.description}</CardDescription>
+   548→                          </div>
+   549→                        </div>
+   550→                        <StatusBadge status={job.status} />
+   551→                      </div>
+   552→                    </CardHeader>
+   553→                    <CardContent className="space-y-3">
+   554→                      {/* Metadata */}
+   555→                      <div className="grid grid-cols-2 gap-3 text-sm">
+   556→                        <div>
+   557→                          <p className="text-muted-foreground text-xs">Last Run</p>
+   558→                          <p className="font-medium">
+   559→                            {job.lastRun
+   560→                              ? new Date(job.lastRun).toLocaleString()
+   561→                              : "Never"}
+   562→                          </p>
+   563→                        </div>
+   564→                        <div>
+   565→                          <p className="text-muted-foreground text-xs">Success Rate</p>
+   566→                          <p className="font-medium">
+   567→                            {job.successRate
+   568→                              ? `${job.successRate}%`
+   569→                              : "N/A — No automated runs yet"}
+   570→                          </p>
+   571→                        </div>
+   572→                      </div>
+   573→
+   574→                      {/* Annotation (live DB count) */}
+   575→                      {annotation && (
+   576→                        <div className="rounded-md bg-muted/50 px-3 py-2 flex items-center justify-between">
+   577→                          <span className="text-xs text-muted-foreground">{annotation.label}</span>
+   578→                          <span className="text-sm font-semibold">{annotation.value}</span>
+   579→                        </div>
+   580→                      )}
+   581→
+   582→                      {/* Trigger result */}
+   583→                      {result && (
+   584→                        <div className={`flex items-start gap-2 rounded-md p-2 text-sm ${
+   585→                          result.success
+   586→                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   587→                            : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+   588→                        }`}>
+   589→                          {result.success
+   590→                            ? <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+   591→                            : <XCircle className="size-4 mt-0.5 shrink-0" />
+   592→                          }
+   593→                          <span>{result.message}</span>
+   594→                        </div>
+   595→                      )}
+   596→
+   597→                      <Button
+   598→                        size="sm"
+   599→                        variant="outline"
+   600→                        className="w-full"
+   601→                        disabled={isTriggering}
+   602→                        onClick={() => triggerJob(job.key)}
+   603→                      >
+   604→                        {isTriggering ? (
+   605→                          <Loader2 className="size-4 mr-2 animate-spin" />
+   606→                        ) : (
+   607→                          <Play className="size-4 mr-2" />
+   608→                        )}
+   609→                        Trigger
+   610→                      </Button>
+   611→                    </CardContent>
+   612→                  </Card>
+   613→                );
+   614→              })}
+   615→            </div>
+   616→          )}
+   617→        </TabsContent>
+   618→
+   619→        {/* ============================================================= */}
+   620→        {/* TAB 3: Data Management                                        */}
+   621→        {/* ============================================================= */}
+   622→        <TabsContent value="data" className="space-y-4">
+   623→          {/* Database Stats */}
+   624→          <Card>
+   625→            <CardHeader className="pb-3">
+   626→              <div className="flex items-center justify-between">
+   627→                <div className="flex items-center gap-2">
+   628→                  <div className="flex items-center justify-center size-9 rounded-lg bg-sky-100 dark:bg-sky-900/30">
+   629→                    <BarChart3 className="size-4 text-sky-600 dark:text-sky-400" />
+   630→                  </div>
+   631→                  <div>
+   632→                    <CardTitle className="text-base">Database Statistics</CardTitle>
+   633→                    <CardDescription>Table row counts across all models</CardDescription>
+   634→                  </div>
+   635→                </div>
+   636→                <div className="flex items-center gap-3">
+   637→                  {dataStats?.dbFileSize && (
+   638→                    <Badge variant="outline" className="gap-1.5">
+   639→                      <HardDrive className="size-3" />
+   640→                      {dataStats.dbFileSize}
+   641→                    </Badge>
+   642→                  )}
+   643→                  {dataStats && (
+   644→                    <Badge variant="outline" className="gap-1.5">
+   645→                      <Database className="size-3" />
+   646→                      {dataStats.totalRows.toLocaleString()} total rows
+   647→                    </Badge>
+   648→                  )}
+   649→                  <Button
+   650→                    size="sm"
+   651→                    variant="ghost"
+   652→                    onClick={fetchDataStats}
+   653→                    disabled={dataLoading}
+   654→                  >
+   655→                    <RefreshCw className={`size-4 ${dataLoading ? "animate-spin" : ""}`} />
+   656→                  </Button>
+   657→                </div>
+   658→              </div>
+   659→            </CardHeader>
+   660→            <CardContent>
+   661→              {dataLoading ? (
+   662→                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+   663→                  {Array.from({ length: 10 }).map((_, i) => (
+   664→                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+   665→                  ))}
+   666→                </div>
+   667→              ) : dataStats ? (
+   668→                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-96 overflow-y-auto">
+   669→                  {Object.entries(dataStats.tables)
+   670→                    .sort(([, a], [, b]) => b - a)
+   671→                    .map(([key, count]) => (
+   672→                      <div
+   673→                        key={key}
+   674→                        className="rounded-lg border bg-card p-3 space-y-1"
+   675→                      >
+   676→                        <p className="text-xs text-muted-foreground truncate">
+   677→                          {TABLE_LABELS[key] || key}
+   678→                        </p>
+   679→                        <p className="text-lg font-bold">{count.toLocaleString()}</p>
+   680→                      </div>
+   681→                    ))}
+   682→                </div>
+   683→              ) : null}
+   684→            </CardContent>
+   685→          </Card>
+   686→
+   687→          {/* Action Cards */}
+   688→          <div className="grid gap-4 md:grid-cols-3">
+   689→            {/* Re-seed Demo Data */}
+   690→            <Card>
+   691→              <CardHeader className="pb-3">
+   692→                <div className="flex items-center gap-2">
+   693→                  <div className="flex items-center justify-center size-9 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   694→                    <RotateCcw className="size-4 text-amber-600 dark:text-amber-400" />
+   695→                  </div>
+   696→                  <div>
+   697→                    <CardTitle className="text-base">Re-seed Demo Data</CardTitle>
+   698→                    <CardDescription>Reset to demo defaults</CardDescription>
+   699→                  </div>
+   700→                </div>
+   701→              </CardHeader>
+   702→              <CardContent className="space-y-3">
+   703→                <p className="text-sm text-muted-foreground">
+   704→                  Triggers the demo data seed script. This will add sample data but does not clear existing records.
+   705→                </p>
+   706→                <AlertDialog>
+   707→                  <AlertDialogTrigger asChild>
+   708→                    <Button
+   709→                      size="sm"
+   710→                      variant="outline"
+   711→                      className="w-full"
+   712→                      disabled={seeding}
+   713→                    >
+   714→                      {seeding ? (
+   715→                        <Loader2 className="size-4 mr-2 animate-spin" />
+   716→                      ) : (
+   717→                        <RotateCcw className="size-4 mr-2" />
+   718→                      )}
+   719→                      Re-seed Demo Data
+   720→                    </Button>
+   721→                  </AlertDialogTrigger>
+   722→                  <AlertDialogContent>
+   723→                    <AlertDialogHeader>
+   724→                      <AlertDialogTitle className="flex items-center gap-2">
+   725→                        <AlertCircle className="size-5 text-amber-500" />
+   726→                        Confirm Data Reset
+   727→                      </AlertDialogTitle>
+   728→                      <AlertDialogDescription>
+   729→                        This will trigger the demo data seed script. If the seed script performs a full reset,
+   730→                        existing data may be lost. This action cannot be undone.
+   731→                      </AlertDialogDescription>
+   732→                    </AlertDialogHeader>
+   733→                    <AlertDialogFooter>
+   734→                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+   735→                      <AlertDialogAction onClick={handleSeed} disabled={seeding}>
+   736→                        {seeding ? (
+   737→                          <Loader2 className="size-4 mr-2 animate-spin" />
+   738→                        ) : null}
+   739→                        Trigger Seed
+   740→                      </AlertDialogAction>
+   741→                    </AlertDialogFooter>
+   742→                  </AlertDialogContent>
+   743→                </AlertDialog>
+   744→              </CardContent>
+   745→            </Card>
+   746→
+   747→            {/* Purge Soft-Deleted Data */}
+   748→            <Card>
+   749→              <CardHeader className="pb-3">
+   750→                <div className="flex items-center gap-2">
+   751→                  <div className="flex items-center justify-center size-9 rounded-lg bg-muted">
+   752→                    <Trash2 className="size-4 text-muted-foreground" />
+   753→                  </div>
+   754→                  <div>
+   755→                    <CardTitle className="text-base">Purge Soft-Deleted Data</CardTitle>
+   756→                    <CardDescription>Clean up archived records</CardDescription>
+   757→                  </div>
+   758→                </div>
+   759→              </CardHeader>
+   760→              <CardContent className="space-y-3">
+   761→                <p className="text-sm text-muted-foreground">
+   762→                  Permanently remove soft-deleted records (archived appointments, inactive providers, etc.) to reclaim database space.
+   763→                </p>
+   764→                <Button size="sm" variant="outline" className="w-full" disabled>
+   765→                  <Trash2 className="size-4 mr-2" />
+   766→                  Purge Soft-Deleted
+   767→                  <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
+   768→                </Button>
+   769→              </CardContent>
+   770→            </Card>
+   771→
+   772→            {/* SystemErrorLog Cleanup */}
+   773→            <Card>
+   774→              <CardHeader className="pb-3">
+   775→                <div className="flex items-center gap-2">
+   776→                  <div className="flex items-center justify-center size-9 rounded-lg bg-red-100 dark:bg-red-900/30">
+   777→                    <Shield className="size-4 text-red-600 dark:text-red-400" />
+   778→                  </div>
+   779→                  <div>
+   780→                    <CardTitle className="text-base">Error Log Cleanup</CardTitle>
+   781→                    <CardDescription>SystemErrorLog maintenance</CardDescription>
+   782→                  </div>
+   783→                </div>
+   784→              </CardHeader>
+   785→              <CardContent className="space-y-3">
+   786→                {dataLoading ? (
+   787→                  <Skeleton className="h-8 w-full" />
+   788→                ) : (
+   789→                  <div className="rounded-md bg-muted/50 px-3 py-2 flex items-center justify-between">
+   790→                    <span className="text-sm text-muted-foreground">Resolved Error Logs</span>
+   791→                    <span className="text-sm font-semibold">{dataStats?.resolvedErrorLogs ?? 0}</span>
+   792→                  </div>
+   793→                )}
+   794→                <Button
+   795→                  size="sm"
+   796→                  variant="outline"
+   797→                  className="w-full"
+   798→                  disabled={purgingErrors || (dataStats?.resolvedErrorLogs ?? 0) === 0}
+   799→                  onClick={handlePurgeErrors}
+   800→                >
+   801→                  {purgingErrors ? (
+   802→                    <Loader2 className="size-4 mr-2 animate-spin" />
+   803→                  ) : (
+   804→                    <Trash2 className="size-4 mr-2" />
+   805→                  )}
+   806→                  Purge Resolved
+   807→                </Button>
+   808→              </CardContent>
+   809→            </Card>
+   810→          </div>
+   811→        </TabsContent>
+   812→      </Tabs>
+   813→    </div>
+   814→  );
+   815→}

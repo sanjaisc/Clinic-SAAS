@@ -1,0 +1,881 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { toast } from "sonner";
+     5→import {
+     6→  Search,
+     7→  Filter,
+     8→  Star,
+     9→  Users,
+    10→  CalendarCheck,
+    11→  ChevronDown,
+    12→  ChevronUp,
+    13→  Pencil,
+    14→  AlertTriangle,
+    15→  Loader2,
+    16→  Building2,
+    17→  ExternalLink,
+    18→} from "lucide-react";
+    19→import {
+    20→  Card,
+    21→  CardContent,
+    22→  CardHeader,
+    23→  CardTitle,
+    24→} from "@/components/ui/card";
+    25→import { Input } from "@/components/ui/input";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Badge } from "@/components/ui/badge";
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from "@/components/ui/select";
+    35→import {
+    36→  Dialog,
+    37→  DialogContent,
+    38→  DialogHeader,
+    39→  DialogTitle,
+    40→  DialogDescription,
+    41→  DialogFooter,
+    42→} from "@/components/ui/dialog";
+    43→import {
+    44→  Table,
+    45→  TableBody,
+    46→  TableCell,
+    47→  TableHead,
+    48→  TableHeader,
+    49→  TableRow,
+    50→} from "@/components/ui/table";
+    51→import {
+    52→  Collapsible,
+    53→  CollapsibleContent,
+    54→  CollapsibleTrigger,
+    55→} from "@/components/ui/collapsible";
+    56→import { Skeleton } from "@/components/ui/skeleton";
+    57→import { Textarea } from "@/components/ui/textarea";
+    58→import { Label } from "@/components/ui/label";
+    59→import { Separator } from "@/components/ui/separator";
+    60→import {
+    61→  CLINIC_STATUS,
+    62→  CLINIC_STATUSES,
+    63→  type ClinicStatus,
+    64→} from "@/lib/enums";
+    65→
+    66→// ─── Types ───────────────────────────────────────────────────────────────────
+    67→
+    68→interface ClinicRow {
+    69→  id: string;
+    70→  slug: string;
+    71→  name: string;
+    72→  city: string;
+    73→  state: string;
+    74→  status: string;
+    75→  providerCount: number;
+    76→  todayAppointments: number;
+    77→  avgRating: number;
+    78→  createdAt: string;
+    79→  updatedAt: string;
+    80→}
+    81→
+    82→interface ClinicDetail {
+    83→  id: string;
+    84→  slug: string;
+    85→  name: string;
+    86→  tagline: string | null;
+    87→  description: string | null;
+    88→  streetAddress: string;
+    89→  city: string;
+    90→  state: string;
+    91→  zipCode: string;
+    92→  latitude: number;
+    93→  longitude: number;
+    94→  phoneNumber: string;
+    95→  email: string | null;
+    96→  website: string | null;
+    97→  logoUrl: string | null;
+    98→  coverImageUrl: string | null;
+    99→  about: string | null;
+   100→  hoursOfOperation: string | null;
+   101→  faq: string | null;
+   102→  galleryUrls: string | null;
+   103→  status: string;
+   104→  inPersonDepositCents: number;
+   105→  videoDepositCents: number;
+   106→  selfPayFlatRateCents: number;
+   107→  cancellationLeadTimeMin: number;
+   108→  videoCancellationLeadTimeMin: number;
+   109→  reschedulePolicy: string;
+   110→  parkingInstructions: string | null;
+   111→  visitInstructions: string | null;
+   112→  emailFromName: string | null;
+   113→  customEmailHeader: string | null;
+   114→  commonInstructions: string | null;
+   115→  intakeReminderDays: string;
+   116→  intakeFormIds: string | null;
+   117→  isFeatured: boolean;
+   118→  featuredExpiry: string | null;
+   119→  createdAt: string;
+   120→  updatedAt: string;
+   121→  _count: {
+   122→    providers: number;
+   123→    appointments: number;
+   124→    reviews: number;
+   125→    staff: number;
+   126→  };
+   127→}
+   128→
+   129→// ─── Status badge config ────────────────────────────────────────────────────
+   130→
+   131→const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+   132→  DRAFT: {
+   133→    label: "Draft",
+   134→    className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700",
+   135→  },
+   136→  PENDING: {
+   137→    label: "Pending",
+   138→    className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800",
+   139→  },
+   140→  PUBLISHED: {
+   141→    label: "Published",
+   142→    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+   143→  },
+   144→  SUSPENDED: {
+   145→    label: "Suspended",
+   146→    className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800",
+   147→  },
+   148→  ARCHIVED: {
+   149→    label: "Archived",
+   150→    className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800",
+   151→  },
+   152→};
+   153→
+   154→// ─── Component ───────────────────────────────────────────────────────────────
+   155→
+   156→export default function AdminClinicsPage() {
+   157→  // State
+   158→  const [clinics, setClinics] = useState<ClinicRow[]>([]);
+   159→  const [loading, setLoading] = useState(true);
+   160→  const [search, setSearch] = useState("");
+   161→  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+   162→  const [page, setPage] = useState(1);
+   163→  const [totalPages, setTotalPages] = useState(1);
+   164→  const [total, setTotal] = useState(0);
+   165→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   166→
+   167→  // Status change dialog
+   168→  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+   169→  const [statusClinic, setStatusClinic] = useState<ClinicRow | null>(null);
+   170→  const [newStatus, setNewStatus] = useState<string>("");
+   171→  const [statusChanging, setStatusChanging] = useState(false);
+   172→
+   173→  // Emergency edit dialog
+   174→  const [editDialogOpen, setEditDialogOpen] = useState(false);
+   175→  const [clinicDetail, setClinicDetail] = useState<ClinicDetail | null>(null);
+   176→  const [editData, setEditData] = useState<Record<string, string | number | boolean | null>>({});
+   177→  const [editLoading, setEditLoading] = useState(false);
+   178→  const [detailLoading, setDetailLoading] = useState(false);
+   179→
+   180→  // Debounced search
+   181→  const [debouncedSearch, setDebouncedSearch] = useState("");
+   182→
+   183→  useEffect(() => {
+   184→    const t = setTimeout(() => setDebouncedSearch(search), 300);
+   185→    return () => clearTimeout(t);
+   186→  }, [search]);
+   187→
+   188→  // Fetch clinics
+   189→  const fetchClinics = useCallback(async () => {
+   190→    setLoading(true);
+   191→    try {
+   192→      const params = new URLSearchParams();
+   193→      if (debouncedSearch) params.set("search", debouncedSearch);
+   194→      if (statusFilter !== "ALL") params.set("status", statusFilter);
+   195→      params.set("page", String(page));
+   196→      params.set("limit", "20");
+   197→
+   198→      const res = await fetch(`/api/staff/admin/clinics?${params}`);
+   199→      if (!res.ok) throw new Error("Failed to fetch clinics");
+   200→      const data = await res.json();
+   201→      setClinics(data.clinics);
+   202→      setTotalPages(data.pagination.totalPages);
+   203→      setTotal(data.pagination.total);
+   204→    } catch {
+   205→      toast.error("Failed to load clinics");
+   206→    } finally {
+   207→      setLoading(false);
+   208→    }
+   209→  }, [debouncedSearch, statusFilter, page]);
+   210→
+   211→  useEffect(() => {
+   212→    fetchClinics();
+   213→  }, [fetchClinics]);
+   214→
+   215→  // Reset page on filter change
+   216→  useEffect(() => {
+   217→    setPage(1);
+   218→  }, [debouncedSearch, statusFilter]);
+   219→
+   220→  // ─── Status Change ─────────────────────────────────────
+   221→
+   222→  const openStatusDialog = (clinic: ClinicRow) => {
+   223→    setStatusClinic(clinic);
+   224→    setNewStatus(clinic.status);
+   225→    setStatusDialogOpen(true);
+   226→  };
+   227→
+   228→  const handleStatusChange = async () => {
+   229→    if (!statusClinic || newStatus === statusClinic.status) return;
+   230→    setStatusChanging(true);
+   231→    try {
+   232→      const res = await fetch(`/api/staff/admin/clinics/${statusClinic.id}`, {
+   233→        method: "PATCH",
+   234→        headers: { "Content-Type": "application/json" },
+   235→        body: JSON.stringify({ status: newStatus }),
+   236→      });
+   237→      if (!res.ok) {
+   238→        const err = await res.json();
+   239→        throw new Error(err.error || "Failed to change status");
+   240→      }
+   241→      toast.success(`Clinic status changed to ${newStatus}`);
+   242→      setStatusDialogOpen(false);
+   243→      fetchClinics();
+   244→    } catch (e) {
+   245→      toast.error(e instanceof Error ? e.message : "Failed to change status");
+   246→    } finally {
+   247→      setStatusChanging(false);
+   248→    }
+   249→  };
+   250→
+   251→  // ─── Emergency Edit ────────────────────────────────────
+   252→
+   253→  const openEditDialog = async (clinic: ClinicRow) => {
+   254→    setEditDialogOpen(true);
+   255→    setDetailLoading(true);
+   256→    try {
+   257→      const res = await fetch(`/api/staff/admin/clinics/${clinic.id}`);
+   258→      if (!res.ok) throw new Error("Failed to fetch clinic details");
+   259→      const data = await res.json();
+   260→      const detail = data.clinic as ClinicDetail;
+   261→      setClinicDetail(detail);
+   262→      setEditData({
+   263→        name: detail.name,
+   264→        tagline: detail.tagline || "",
+   265→        streetAddress: detail.streetAddress,
+   266→        city: detail.city,
+   267→        state: detail.state,
+   268→        zipCode: detail.zipCode,
+   269→        phoneNumber: detail.phoneNumber,
+   270→        email: detail.email || "",
+   271→        website: detail.website || "",
+   272→        description: detail.description || "",
+   273→        about: detail.about || "",
+   274→        inPersonDepositCents: detail.inPersonDepositCents,
+   275→        videoDepositCents: detail.videoDepositCents,
+   276→        selfPayFlatRateCents: detail.selfPayFlatRateCents,
+   277→        cancellationLeadTimeMin: detail.cancellationLeadTimeMin,
+   278→        videoCancellationLeadTimeMin: detail.videoCancellationLeadTimeMin,
+   279→        reschedulePolicy: detail.reschedulePolicy,
+   280→        parkingInstructions: detail.parkingInstructions || "",
+   281→        visitInstructions: detail.visitInstructions || "",
+   282→        emailFromName: detail.emailFromName || "",
+   283→        customEmailHeader: detail.customEmailHeader || "",
+   284→        commonInstructions: detail.commonInstructions || "",
+   285→        intakeReminderDays: detail.intakeReminderDays,
+   286→        isFeatured: detail.isFeatured,
+   287→      });
+   288→    } catch {
+   289→      toast.error("Failed to load clinic details");
+   290→      setEditDialogOpen(false);
+   291→    } finally {
+   292→      setDetailLoading(false);
+   293→    }
+   294→  };
+   295→
+   296→  const handleEmergencyEdit = async () => {
+   297→    if (!clinicDetail) return;
+   298→    setEditLoading(true);
+   299→    try {
+   300→      const res = await fetch(`/api/staff/admin/clinics/${clinicDetail.id}/edit`, {
+   301→        method: "PATCH",
+   302→        headers: { "Content-Type": "application/json" },
+   303→        body: JSON.stringify(editData),
+   304→      });
+   305→      if (!res.ok) {
+   306→        const err = await res.json();
+   307→        throw new Error(err.error || "Failed to save changes");
+   308→      }
+   309→      toast.success("Clinic updated successfully");
+   310→      setEditDialogOpen(false);
+   311→      fetchClinics();
+   312→    } catch (e) {
+   313→      toast.error(e instanceof Error ? e.message : "Failed to save changes");
+   314→    } finally {
+   315→      setEditLoading(false);
+   316→    }
+   317→  };
+   318→
+   319→  // ─── Render ────────────────────────────────────────────
+   320→
+   321→  return (
+   322→    <div className="space-y-6">
+   323→      {/* Header */}
+   324→      <div>
+   325→        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+   326→          Clinic Oversight
+   327→        </h2>
+   328→        <p className="text-sm text-muted-foreground mt-1">
+   329→          Manage all clinics across the platform — {total} total
+   330→        </p>
+   331→      </div>
+   332→
+   333→      {/* Filters */}
+   334→      <Card>
+   335→        <CardContent className="p-4">
+   336→          <div className="flex flex-col sm:flex-row gap-3">
+   337→            <div className="relative flex-1">
+   338→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   339→              <Input
+   340→                placeholder="Search by name or city..."
+   341→                value={search}
+   342→                onChange={(e) => setSearch(e.target.value)}
+   343→                className="pl-9"
+   344→              />
+   345→            </div>
+   346→            <Select value={statusFilter} onValueChange={setStatusFilter}>
+   347→              <SelectTrigger className="w-full sm:w-[180px]">
+   348→                <Filter className="size-4 mr-2 text-muted-foreground" />
+   349→                <SelectValue placeholder="All Statuses" />
+   350→              </SelectTrigger>
+   351→              <SelectContent>
+   352→                <SelectItem value="ALL">All Statuses</SelectItem>
+   353→                {CLINIC_STATUSES.map((s) => (
+   354→                  <SelectItem key={s} value={s}>
+   355→                    {STATUS_CONFIG[s]?.label || s}
+   356→                  </SelectItem>
+   357→                ))}
+   358→              </SelectContent>
+   359→            </Select>
+   360→          </div>
+   361→        </CardContent>
+   362→      </Card>
+   363→
+   364→      {/* Clinics Table */}
+   365→      <Card>
+   366→        <CardContent className="p-0">
+   367→          {loading ? (
+   368→            <div className="p-6 space-y-4">
+   369→              {Array.from({ length: 5 }).map((_, i) => (
+   370→                <div key={i} className="flex items-center gap-4">
+   371→                  <Skeleton className="h-5 w-48" />
+   372→                  <Skeleton className="h-5 w-32" />
+   373→                  <Skeleton className="h-5 w-24" />
+   374→                  <Skeleton className="h-5 w-16" />
+   375→                  <Skeleton className="h-5 w-16" />
+   376→                </div>
+   377→              ))}
+   378→            </div>
+   379→          ) : clinics.length === 0 ? (
+   380→            <div className="py-12 text-center">
+   381→              <Building2 className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+   382→              <p className="text-sm text-muted-foreground">No clinics found</p>
+   383→            </div>
+   384→          ) : (
+   385→            <>
+   386→              <div className="max-h-[600px] overflow-y-auto">
+   387→                <Table>
+   388→                  <TableHeader>
+   389→                    <TableRow className="hover:bg-transparent">
+   390→                      <TableHead className="w-8"></TableHead>
+   391→                      <TableHead>Name</TableHead>
+   392→                      <TableHead>Slug</TableHead>
+   393→                      <TableHead>City</TableHead>
+   394→                      <TableHead>Status</TableHead>
+   395→                      <TableHead className="text-right">Providers</TableHead>
+   396→                      <TableHead className="text-right">Today&apos;s Appts</TableHead>
+   397→                      <TableHead className="text-right">Rating</TableHead>
+   398→                      <TableHead className="text-right">Actions</TableHead>
+   399→                    </TableRow>
+   400→                  </TableHeader>
+   401→                  <TableBody>
+   402→                    {clinics.map((clinic) => (
+   403→                      <ClinicTableRow
+   404→                        key={clinic.id}
+   405→                        clinic={clinic}
+   406→                        isExpanded={expandedId === clinic.id}
+   407→                        onToggle={() =>
+   408→                          setExpandedId(expandedId === clinic.id ? null : clinic.id)
+   409→                        }
+   410→                        onStatusChange={() => openStatusDialog(clinic)}
+   411→                        onEdit={() => openEditDialog(clinic)}
+   412→                      />
+   413→                    ))}
+   414→                  </TableBody>
+   415→                </Table>
+   416→              </div>
+   417→
+   418→              {/* Pagination */}
+   419→              {totalPages > 1 && (
+   420→                <div className="flex items-center justify-between px-4 py-3 border-t">
+   421→                  <p className="text-xs text-muted-foreground">
+   422→                    Page {page} of {totalPages} ({total} clinics)
+   423→                  </p>
+   424→                  <div className="flex gap-1">
+   425→                    <Button
+   426→                      variant="outline"
+   427→                      size="sm"
+   428→                      disabled={page <= 1}
+   429→                      onClick={() => setPage(page - 1)}
+   430→                    >
+   431→                      Previous
+   432→                    </Button>
+   433→                    <Button
+   434→                      variant="outline"
+   435→                      size="sm"
+   436→                      disabled={page >= totalPages}
+   437→                      onClick={() => setPage(page + 1)}
+   438→                    >
+   439→                      Next
+   440→                    </Button>
+   441→                  </div>
+   442→                </div>
+   443→              )}
+   444→            </>
+   445→          )}
+   446→        </CardContent>
+   447→      </Card>
+   448→
+   449→      {/* Status Change Dialog */}
+   450→      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+   451→        <DialogContent>
+   452→          <DialogHeader>
+   453→            <DialogTitle className="flex items-center gap-2">
+   454→              <AlertTriangle className="size-5 text-amber-500" />
+   455→              Change Clinic Status
+   456→            </DialogTitle>
+   457→            <DialogDescription>
+   458→              Changing status for <strong>{statusClinic?.name}</strong>
+   459→              {newStatus === CLINIC_STATUS.SUSPENDED && (
+   460→                <span className="block mt-2 text-amber-600 dark:text-amber-400 text-xs">
+   461→                  ⚠ Suspending will block future slot generation. Existing booked appointments will be preserved.
+   462→                </span>
+   463→              )}
+   464→            </DialogDescription>
+   465→          </DialogHeader>
+   466→          <div className="py-4 space-y-3">
+   467→            <Label>Current Status</Label>
+   468→            <Badge className={STATUS_CONFIG[statusClinic?.status || ""]?.className}>
+   469→              {STATUS_CONFIG[statusClinic?.status || ""]?.label || statusClinic?.status}
+   470→            </Badge>
+   471→            <div className="pt-2">
+   472→              <Label>New Status</Label>
+   473→              <Select value={newStatus} onValueChange={setNewStatus}>
+   474→                <SelectTrigger className="mt-1.5">
+   475→                  <SelectValue />
+   476→                </SelectTrigger>
+   477→                <SelectContent>
+   478→                  {CLINIC_STATUSES.map((s) => (
+   479→                    <SelectItem key={s} value={s}>
+   480→                      {STATUS_CONFIG[s]?.label || s}
+   481→                    </SelectItem>
+   482→                  ))}
+   483→                </SelectContent>
+   484→              </Select>
+   485→            </div>
+   486→          </div>
+   487→          <DialogFooter>
+   488→            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+   489→              Cancel
+   490→            </Button>
+   491→            <Button
+   492→              onClick={handleStatusChange}
+   493→              disabled={statusChanging || newStatus === statusClinic?.status}
+   494→            >
+   495→              {statusChanging && <Loader2 className="size-4 mr-2 animate-spin" />}
+   496→              Update Status
+   497→            </Button>
+   498→          </DialogFooter>
+   499→        </DialogContent>
+   500→      </Dialog>
+   501→
+   502→      {/* Emergency Edit Dialog */}
+   503→      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+   504→        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+   505→          <DialogHeader>
+   506→            <DialogTitle className="flex items-center gap-2">
+   507→              <Pencil className="size-5 text-purple-500" />
+   508→              Emergency Edit — {clinicDetail?.name}
+   509→            </DialogTitle>
+   510→            <DialogDescription>
+   511→              Edit any clinic field. Changes take effect immediately.
+   512→            </DialogDescription>
+   513→          </DialogHeader>
+   514→
+   515→          {detailLoading ? (
+   516→            <div className="py-8 space-y-4">
+   517→              {Array.from({ length: 6 }).map((_, i) => (
+   518→                <div key={i} className="space-y-1.5">
+   519→                  <Skeleton className="h-3 w-24" />
+   520→                  <Skeleton className="h-9 w-full" />
+   521→                </div>
+   522→              ))}
+   523→            </div>
+   524→          ) : (
+   525→            <div className="space-y-4 py-2">
+   526→              {/* Basic Info */}
+   527→              <div>
+   528→                <h4 className="text-sm font-semibold text-foreground mb-3">Basic Information</h4>
+   529→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   530→                  <div className="sm:col-span-2">
+   531→                    <Label htmlFor="edit-name">Clinic Name</Label>
+   532→                    <Input
+   533→                      id="edit-name"
+   534→                      value={String(editData.name || "")}
+   535→                      onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+   536→                    />
+   537→                  </div>
+   538→                  <div className="sm:col-span-2">
+   539→                    <Label htmlFor="edit-tagline">Tagline</Label>
+   540→                    <Input
+   541→                      id="edit-tagline"
+   542→                      value={String(editData.tagline || "")}
+   543→                      onChange={(e) => setEditData({ ...editData, tagline: e.target.value })}
+   544→                    />
+   545→                  </div>
+   546→                  <div className="sm:col-span-2">
+   547→                    <Label htmlFor="edit-desc">Description</Label>
+   548→                    <Textarea
+   549→                      id="edit-desc"
+   550→                      value={String(editData.description || "")}
+   551→                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+   552→                      rows={3}
+   553→                    />
+   554→                  </div>
+   555→                </div>
+   556→              </div>
+   557→
+   558→              <Separator />
+   559→
+   560→              {/* Location */}
+   561→              <div>
+   562→                <h4 className="text-sm font-semibold text-foreground mb-3">Location</h4>
+   563→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   564→                  <div className="sm:col-span-2">
+   565→                    <Label htmlFor="edit-address">Street Address</Label>
+   566→                    <Input
+   567→                      id="edit-address"
+   568→                      value={String(editData.streetAddress || "")}
+   569→                      onChange={(e) => setEditData({ ...editData, streetAddress: e.target.value })}
+   570→                    />
+   571→                  </div>
+   572→                  <div>
+   573→                    <Label htmlFor="edit-city">City</Label>
+   574→                    <Input
+   575→                      id="edit-city"
+   576→                      value={String(editData.city || "")}
+   577→                      onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+   578→                    />
+   579→                  </div>
+   580→                  <div>
+   581→                    <Label htmlFor="edit-state">State</Label>
+   582→                    <Input
+   583→                      id="edit-state"
+   584→                      value={String(editData.state || "")}
+   585→                      onChange={(e) => setEditData({ ...editData, state: e.target.value })}
+   586→                    />
+   587→                  </div>
+   588→                  <div>
+   589→                    <Label htmlFor="edit-zip">Zip Code</Label>
+   590→                    <Input
+   591→                      id="edit-zip"
+   592→                      value={String(editData.zipCode || "")}
+   593→                      onChange={(e) => setEditData({ ...editData, zipCode: e.target.value })}
+   594→                    />
+   595→                  </div>
+   596→                  <div>
+   597→                    <Label htmlFor="edit-phone">Phone</Label>
+   598→                    <Input
+   599→                      id="edit-phone"
+   600→                      value={String(editData.phoneNumber || "")}
+   601→                      onChange={(e) => setEditData({ ...editData, phoneNumber: e.target.value })}
+   602→                    />
+   603→                  </div>
+   604→                  <div>
+   605→                    <Label htmlFor="edit-email">Email</Label>
+   606→                    <Input
+   607→                      id="edit-email"
+   608→                      type="email"
+   609→                      value={String(editData.email || "")}
+   610→                      onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+   611→                    />
+   612→                  </div>
+   613→                  <div>
+   614→                    <Label htmlFor="edit-website">Website</Label>
+   615→                    <Input
+   616→                      id="edit-website"
+   617→                      value={String(editData.website || "")}
+   618→                      onChange={(e) => setEditData({ ...editData, website: e.target.value })}
+   619→                    />
+   620→                  </div>
+   621→                </div>
+   622→              </div>
+   623→
+   624→              <Separator />
+   625→
+   626→              {/* Financial */}
+   627→              <div>
+   628→                <h4 className="text-sm font-semibold text-foreground mb-3">Financial Configuration</h4>
+   629→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   630→                  <div>
+   631→                    <Label htmlFor="edit-inperson-deposit">In-Person Deposit (cents)</Label>
+   632→                    <Input
+   633→                      id="edit-inperson-deposit"
+   634→                      type="number"
+   635→                      min="0"
+   636→                      value={Number(editData.inPersonDepositCents || 0)}
+   637→                      onChange={(e) => setEditData({ ...editData, inPersonDepositCents: Number(e.target.value) })}
+   638→                    />
+   639→                  </div>
+   640→                  <div>
+   641→                    <Label htmlFor="edit-video-deposit">Video Deposit (cents)</Label>
+   642→                    <Input
+   643→                      id="edit-video-deposit"
+   644→                      type="number"
+   645→                      min="0"
+   646→                      value={Number(editData.videoDepositCents || 0)}
+   647→                      onChange={(e) => setEditData({ ...editData, videoDepositCents: Number(e.target.value) })}
+   648→                    />
+   649→                  </div>
+   650→                  <div>
+   651→                    <Label htmlFor="edit-flat-rate">Self-Pay Flat Rate (cents)</Label>
+   652→                    <Input
+   653→                      id="edit-flat-rate"
+   654→                      type="number"
+   655→                      min="0"
+   656→                      value={Number(editData.selfPayFlatRateCents || 0)}
+   657→                      onChange={(e) => setEditData({ ...editData, selfPayFlatRateCents: Number(e.target.value) })}
+   658→                    />
+   659→                  </div>
+   660→                  <div>
+   661→                    <Label htmlFor="edit-cancel-lead">Cancellation Lead Time (min)</Label>
+   662→                    <Input
+   663→                      id="edit-cancel-lead"
+   664→                      type="number"
+   665→                      min="0"
+   666→                      value={Number(editData.cancellationLeadTimeMin || 0)}
+   667→                      onChange={(e) => setEditData({ ...editData, cancellationLeadTimeMin: Number(e.target.value) })}
+   668→                    />
+   669→                  </div>
+   670→                  <div>
+   671→                    <Label htmlFor="edit-video-cancel-lead">Video Cancel Lead Time (min)</Label>
+   672→                    <Input
+   673→                      id="edit-video-cancel-lead"
+   674→                      type="number"
+   675→                      min="0"
+   676→                      value={Number(editData.videoCancellationLeadTimeMin || 0)}
+   677→                      onChange={(e) => setEditData({ ...editData, videoCancellationLeadTimeMin: Number(e.target.value) })}
+   678→                    />
+   679→                  </div>
+   680→                </div>
+   681→              </div>
+   682→
+   683→              <Separator />
+   684→
+   685→              {/* Patient Experience */}
+   686→              <div>
+   687→                <h4 className="text-sm font-semibold text-foreground mb-3">Patient Experience</h4>
+   688→                <div className="space-y-3">
+   689→                  <div>
+   690→                    <Label htmlFor="edit-parking">Parking Instructions</Label>
+   691→                    <Textarea
+   692→                      id="edit-parking"
+   693→                      value={String(editData.parkingInstructions || "")}
+   694→                      onChange={(e) => setEditData({ ...editData, parkingInstructions: e.target.value })}
+   695→                      rows={2}
+   696→                    />
+   697→                  </div>
+   698→                  <div>
+   699→                    <Label htmlFor="edit-visit">Visit Instructions</Label>
+   700→                    <Textarea
+   701→                      id="edit-visit"
+   702→                      value={String(editData.visitInstructions || "")}
+   703→                      onChange={(e) => setEditData({ ...editData, visitInstructions: e.target.value })}
+   704→                      rows={2}
+   705→                    />
+   706→                  </div>
+   707→                  <div>
+   708→                    <Label htmlFor="edit-common">Common Instructions</Label>
+   709→                    <Textarea
+   710→                      id="edit-common"
+   711→                      value={String(editData.commonInstructions || "")}
+   712→                      onChange={(e) => setEditData({ ...editData, commonInstructions: e.target.value })}
+   713→                      rows={3}
+   714→                    />
+   715→                  </div>
+   716→                </div>
+   717→              </div>
+   718→            </div>
+   719→          )}
+   720→
+   721→          <DialogFooter>
+   722→            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+   723→              Cancel
+   724→            </Button>
+   725→            <Button
+   726→              onClick={handleEmergencyEdit}
+   727→              disabled={editLoading || detailLoading}
+   728→              className="bg-purple-600 hover:bg-purple-700 text-white"
+   729→            >
+   730→              {editLoading && <Loader2 className="size-4 mr-2 animate-spin" />}
+   731→              Save Emergency Edit
+   732→            </Button>
+   733→          </DialogFooter>
+   734→        </DialogContent>
+   735→      </Dialog>
+   736→    </div>
+   737→  );
+   738→}
+   739→
+   740→// ─── Sub-Components ──────────────────────────────────────────────────────────
+   741→
+   742→function ClinicTableRow({
+   743→  clinic,
+   744→  isExpanded,
+   745→  onToggle,
+   746→  onStatusChange,
+   747→  onEdit,
+   748→}: {
+   749→  clinic: ClinicRow;
+   750→  isExpanded: boolean;
+   751→  onToggle: () => void;
+   752→  onStatusChange: () => void;
+   753→  onEdit: () => void;
+   754→}) {
+   755→  const cfg = STATUS_CONFIG[clinic.status] || {
+   756→    label: clinic.status,
+   757→    className: "bg-zinc-100 text-zinc-700 border-zinc-200",
+   758→  };
+   759→
+   760→  return (
+   761→    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+   762→      <CollapsibleTrigger asChild>
+   763→        <TableRow className="cursor-pointer group">
+   764→          <TableCell className="w-8">
+   765→            {isExpanded ? (
+   766→              <ChevronUp className="size-4 text-muted-foreground" />
+   767→            ) : (
+   768→              <ChevronDown className="size-4 text-muted-foreground" />
+   769→            )}
+   770→          </TableCell>
+   771→          <TableCell>
+   772→            <div className="flex items-center gap-2">
+   773→              <Building2 className="size-4 text-muted-foreground shrink-0" />
+   774→              <span className="font-medium text-foreground">{clinic.name}</span>
+   775→            </div>
+   776→          </TableCell>
+   777→          <TableCell className="text-xs text-muted-foreground font-mono">
+   778→            {clinic.slug}
+   779→          </TableCell>
+   780→          <TableCell>{clinic.city}, {clinic.state}</TableCell>
+   781→          <TableCell>
+   782→            <Badge variant="outline" className={cfg.className}>
+   783→              {cfg.label}
+   784→            </Badge>
+   785→          </TableCell>
+   786→          <TableCell className="text-right">
+   787→            <span className="flex items-center justify-end gap-1">
+   788→              <Users className="size-3.5 text-muted-foreground" />
+   789→              {clinic.providerCount}
+   790→            </span>
+   791→          </TableCell>
+   792→          <TableCell className="text-right">
+   793→            <span className="flex items-center justify-end gap-1">
+   794→              <CalendarCheck className="size-3.5 text-muted-foreground" />
+   795→              {clinic.todayAppointments}
+   796→            </span>
+   797→          </TableCell>
+   798→          <TableCell className="text-right">
+   799→            {clinic.avgRating > 0 ? (
+   800→              <span className="flex items-center justify-end gap-1">
+   801→                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+   802→                {clinic.avgRating}
+   803→              </span>
+   804→            ) : (
+   805→              <span className="text-muted-foreground text-xs">—</span>
+   806→            )}
+   807→          </TableCell>
+   808→          <TableCell className="text-right">
+   809→            <div className="flex items-center justify-end gap-1">
+   810→              <Button
+   811→                variant="ghost"
+   812→                size="sm"
+   813→                onClick={(e) => {
+   814→                  e.stopPropagation();
+   815→                  onStatusChange();
+   816→                }}
+   817→                className="h-7 px-2 text-xs"
+   818→              >
+   819→                Status
+   820→              </Button>
+   821→              <Button
+   822→                variant="ghost"
+   823→                size="sm"
+   824→                onClick={(e) => {
+   825→                  e.stopPropagation();
+   826→                  onEdit();
+   827→                }}
+   828→                className="h-7 px-2 text-xs text-purple-600 dark:text-purple-400"
+   829→              >
+   830→                <Pencil className="size-3.5 mr-1" />
+   831→                Edit
+   832→              </Button>
+   833→            </div>
+   834→          </TableCell>
+   835→        </TableRow>
+   836→      </CollapsibleTrigger>
+   837→      <CollapsibleContent>
+   838→        <TableRow>
+   839→          <TableCell colSpan={9} className="bg-muted/30 px-8 py-4">
+   840→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+   841→              <div>
+   842→                <span className="text-muted-foreground text-xs">ID</span>
+   843→                <p className="font-mono text-xs mt-0.5">{clinic.id}</p>
+   844→              </div>
+   845→              <div>
+   846→                <span className="text-muted-foreground text-xs">Slug</span>
+   847→                <p className="font-mono text-xs mt-0.5">{clinic.slug}</p>
+   848→              </div>
+   849→              <div>
+   850→                <span className="text-muted-foreground text-xs">Status</span>
+   851→                <Badge variant="outline" className={cfg.className + " mt-0.5"}>
+   852→                  {cfg.label}
+   853→                </Badge>
+   854→              </div>
+   855→              <div>
+   856→                <span className="text-muted-foreground text-xs">Location</span>
+   857→                <p className="text-xs mt-0.5">{clinic.city}, {clinic.state}</p>
+   858→              </div>
+   859→              <div>
+   860→                <span className="text-muted-foreground text-xs">Created</span>
+   861→                <p className="text-xs mt-0.5">{new Date(clinic.createdAt).toLocaleDateString()}</p>
+   862→              </div>
+   863→              <div>
+   864→                <span className="text-muted-foreground text-xs">Updated</span>
+   865→                <p className="text-xs mt-0.5">{new Date(clinic.updatedAt).toLocaleDateString()}</p>
+   866→              </div>
+   867→              <div>
+   868→                <span className="text-muted-foreground text-xs">Providers</span>
+   869→                <p className="text-xs mt-0.5 font-medium">{clinic.providerCount}</p>
+   870→              </div>
+   871→              <div>
+   872→                <span className="text-muted-foreground text-xs">Today&apos;s Appointments</span>
+   873→                <p className="text-xs mt-0.5 font-medium">{clinic.todayAppointments}</p>
+   874→              </div>
+   875→            </div>
+   876→          </TableCell>
+   877→        </TableRow>
+   878→      </CollapsibleContent>
+   879→    </Collapsible>
+   880→  );
+   881→}

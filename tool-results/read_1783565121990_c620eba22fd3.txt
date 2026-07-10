@@ -1,0 +1,1110 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import Link from "next/link";
+     6→import { useRouter } from "next/navigation";
+     7→import {
+     8→  CalendarDays,
+     9→  CalendarPlus,
+    10→  CreditCard,
+    11→  Search,
+    12→  TrendingUp,
+    13→  Building2,
+    14→  UserCheck,
+    15→  Activity,
+    16→  Shield,
+    17→  Server,
+    18→  AlertTriangle,
+    19→  Clock,
+    20→  RefreshCw,
+    21→  CheckCircle2,
+    22→  XCircle,
+    23→  AlertCircle,
+    24→  Eye,
+    25→  DollarSign,
+    26→  Users,
+    27→  BarChart3,
+    28→  Settings2,
+    29→  ClipboardList,
+    30→  ArrowRight,
+    31→  Loader2,
+    32→  Wifi,
+    33→  WifiOff,
+    34→  Database,
+    35→  Mail,
+    36→  Video,
+    37→  Phone,
+    38→  ExternalLink,
+    39→} from "lucide-react";
+    40→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    41→import { Button } from "@/components/ui/button";
+    42→import { Badge } from "@/components/ui/badge";
+    43→import { Skeleton } from "@/components/ui/skeleton";
+    44→import {
+    45→  Popover,
+    46→  PopoverContent,
+    47→  PopoverTrigger,
+    48→} from "@/components/ui/popover";
+    49→import { Calendar } from "@/components/ui/calendar";
+    50→import { format, parseISO, formatDistanceToNow } from "date-fns";
+    51→import type { DoctASessionUser } from "@/lib/auth";
+    52→
+    53→// =============================================================================
+    54→// Types
+    55→// =============================================================================
+    56→
+    57→type Period = "TODAY" | "7D" | "30D" | "90D" | "custom";
+    58→
+    59→interface AnalyticsData {
+    60→  period: { start: string; end: string; days: number };
+    61→  appointmentVolume: Array<{ date: string; count: number }>;
+    62→  modalitySplit: {
+    63→    inPerson: number;
+    64→    video: number;
+    65→    inPersonPct: number;
+    66→    videoPct: number;
+    67→  };
+    68→  noShowDistribution: Array<{ day: string; count: number }>;
+    69→  depositCapture: {
+    70→    totalDepositCents: number;
+    71→    capturedCents: number;
+    72→    forfeitedCents: number;
+    73→    refundedCents: number;
+    74→  };
+    75→  summaryStats: {
+    76→    totalAppointments: number;
+    77→    completedAppointments: number;
+    78→    noShowCount: number;
+    79→    cancellationRate: number;
+    80→    avgRating: number;
+    81→    totalRevenue: number;
+    82→  };
+    83→}
+    84→
+    85→interface ConversionData {
+    86→  period: { start: string; end: string };
+    87→  conversionRates: { searchToBooking: number };
+    88→  funnel: { totalSearches: number; bookingCompletes: number };
+    89→}
+    90→
+    91→interface CronJob {
+    92→  name: string;
+    93→  key: string;
+    94→  status: string;
+    95→  lastRun: string | null;
+    96→  successRate: string | null;
+    97→  description: string;
+    98→}
+    99→
+   100→interface CronData {
+   101→  jobs: CronJob[];
+   102→  counts: { expiredLocks: number; activeWaitlist: number; pendingAppointments: number };
+   103→}
+   104→
+   105→interface IntegrationStatus {
+   106→  stripe: { configured: boolean; publicKey: string };
+   107→  jwt: { configured: boolean; secretMasked: string };
+   108→  gravityForms: { configured: boolean };
+   109→}
+   110→
+   111→interface PaymentException {
+   112→  id: string;
+   113→  type: string;
+   114→  appointmentId: string;
+   115→  patientName: string;
+   116→  clinicName: string;
+   117→  amountCents: number;
+   118→  createdAt: string;
+   119→  resolved: boolean;
+   120→}
+   121→
+   122→interface PatientMatch {
+   123→  matchType: string;
+   124→  matchValue: string;
+   125→  hasNameMismatch: boolean;
+   126→  hasCrossClinic: boolean;
+   127→  appointments: Array<{ id: string; patientName: string; clinicName: string; startTime: string; status: string }>;
+   128→}
+   129→
+   130→interface AuditLog {
+   131→  id: string;
+   132→  userName: string;
+   133→  userClinic: string | null;
+   134→  action: string;
+   135→  targetType: string;
+   136→  targetId: string | null;
+   137→  createdAt: string;
+   138→}
+   139→
+   140→interface DashboardState {
+   141→  analytics: AnalyticsData | null;
+   142→  conversion: ConversionData | null;
+   143→  cron: CronData | null;
+   144→  integrations: IntegrationStatus | null;
+   145→  paymentExceptions: PaymentException[];
+   146→  patientMatches: PatientMatch[];
+   147→  auditLogs: AuditLog[];
+   148→  draftClinics: number;
+   149→  activeClinics: number;
+   150→  activeProviders: number;
+   151→  loading: boolean;
+   152→  error: string | null;
+   153→}
+   154→
+   155→// =============================================================================
+   156→// Helpers
+   157→// =============================================================================
+   158→
+   159→const PERIODS: { key: Period; label: string }[] = [
+   160→  { key: "TODAY", label: "Today" },
+   161→  { key: "7D", label: "Last 7 Days" },
+   162→  { key: "30D", label: "Last 30 Days" },
+   163→  { key: "90D", label: "Last 90 Days" },
+   164→];
+   165→
+   166→function fmtCents(cents: number): string {
+   167→  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+   168→}
+   169→
+   170→function fmtNumber(n: number): string {
+   171→  return n.toLocaleString("en-US");
+   172→}
+   173→
+   174→function getCronStatusColor(status: string): string {
+   175→  switch (status) {
+   176→    case "RUNNING": return "bg-emerald-500 text-white";
+   177→    case "IDLE": return "bg-amber-400 text-white";
+   178→    case "N/A": return "bg-zinc-300 text-zinc-700 dark:bg-zinc-600 dark:text-zinc-300";
+   179→    case "ERROR": return "bg-red-500 text-white";
+   180→    default: return "bg-zinc-300 text-zinc-700";
+   181→  }
+   182→}
+   183→
+   184→function getExceptionTypeBadge(type: string) {
+   185→  switch (type) {
+   186→    case "REFUND_FAILED": return <Badge variant="destructive" className="text-[10px]">Refund Failed</Badge>;
+   187→    case "ORPHANED": return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Orphaned</Badge>;
+   188→    case "DISPUTED": return <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px]">Disputed</Badge>;
+   189→    default: return <Badge variant="outline" className="text-[10px]">{type}</Badge>;
+   190→  }
+   191→}
+   192→
+   193→function actionToLabel(action: string): string {
+   194→  const map: Record<string, string> = {
+   195→    STAFF_LOGIN: "Signed in",
+   196→    CLINIC_UPDATE: "Updated clinic",
+   197→    APPOINTMENT_CREATE: "Created appointment",
+   198→    APPOINTMENT_CANCEL: "Cancelled appointment",
+   199→    APPOINTMENT_COMPLETE: "Completed appointment",
+   200→    PROVIDER_CREATE: "Created provider",
+   201→    PROVIDER_UPDATE: "Updated provider",
+   202→    SLOT_GENERATE: "Generated slots",
+   203→    SYSTEM_CONFIG_UPDATE: "Updated system config",
+   204→    USER_INVITE: "Invited user",
+   205→    USER_ROLE_CHANGE: "Changed user role",
+   206→  };
+   207→  return map[action] || action.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+   208→}
+   209→
+   210→// =============================================================================
+   211→// Component
+   212→// =============================================================================
+   213→
+   214→export default function AdminDashboardPage() {
+   215→  const { data: session } = useSession();
+   216→  const user = session?.user as DoctASessionUser | undefined;
+   217→  const router = useRouter();
+   218→
+   219→  // Date filter
+   220→  const [period, setPeriod] = useState<Period>("30D");
+   221→  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+   222→  const [dateTo, setDateTo] = useState<Date | undefined>();
+   223→  const [calOpen, setCalOpen] = useState<"from" | "to" | null>(null);
+   224→  const [refreshKey, setRefreshKey] = useState(0);
+   225→
+   226→  // Data state
+   227→  const [state, setState] = useState<DashboardState>({
+   228→    analytics: null,
+   229→    conversion: null,
+   230→    cron: null,
+   231→    integrations: null,
+   232→    paymentExceptions: [],
+   233→    patientMatches: [],
+   234→    auditLogs: [],
+   235→    draftClinics: 0,
+   236→    activeClinics: 0,
+   237→    activeProviders: 0,
+   238→    loading: true,
+   239→    error: null,
+   240→  });
+   241→
+   242→  // Fetch all dashboard data
+   243→  const fetchDashboardData = useCallback(async () => {
+   244→    if (!user) return;
+   245→    setState(prev => ({ ...prev, loading: true, error: null }));
+   246→
+   247→    try {
+   248→      // Build query params for analytics
+   249→      const analyticsParams = new URLSearchParams();
+   250→      if (period === "custom" && dateFrom && dateTo) {
+   251→        analyticsParams.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
+   252→        analyticsParams.set("dateTo", format(dateTo, "yyyy-MM-dd"));
+   253→      } else if (period !== "custom") {
+   254→        analyticsParams.set("period", period);
+   255→      }
+   256→
+   257→      // Build query params for conversion
+   258→      const convParams = new URLSearchParams();
+   259→      if (dateFrom && dateTo) {
+   260→        convParams.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
+   261→        convParams.set("dateTo", format(dateTo, "yyyy-MM-dd"));
+   262→      }
+   263→
+   264→      const [
+   265→        analyticsRes,
+   266→        conversionRes,
+   267→        cronRes,
+   268→        integrationsRes,
+   269→        exceptionsRes,
+   270→        matchesRes,
+   271→        auditRes,
+   272→        clinicsRes,
+   273→      ] = await Promise.all([
+   274→        fetch(`/api/staff/admin/analytics?${analyticsParams}`).then(r => r.json()),
+   275→        fetch(`/api/staff/admin/conversion?${convParams}`).then(r => r.json()),
+   276→        fetch("/api/staff/admin/cron").then(r => r.json()),
+   277→        fetch("/api/staff/admin/integrations").then(r => r.json()),
+   278→        fetch("/api/staff/admin/payments/exceptions?limit=5").then(r => r.json()),
+   279→        fetch("/api/staff/admin/patient-matches").then(r => r.json()),
+   280→        fetch("/api/staff/admin/audit-logs?limit=10").then(r => r.json()),
+   281→        fetch("/api/staff/admin/clinics?limit=100").then(r => r.json()),
+   282→      ]);
+   283→
+   284→      // Count draft/pending clinics
+   285→      const clinics = clinicsRes.data || clinicsRes.clinics || [];
+   286→      const draftCount = clinics.filter((c: { status?: string }) => c.status === "DRAFT" || c.status === "PENDING").length;
+   287→      const activeCount = clinics.filter((c: { status?: string }) => c.status === "PUBLISHED").length;
+   288→
+   289→      // Count active providers from analytics
+   290→      // Use the data/stats endpoint for accurate counts
+   291→      let providerCount = 0;
+   292→      try {
+   293→        const statsRes = await fetch("/api/staff/admin/data/stats").then(r => r.json());
+   294→        providerCount = statsRes.tables?.providers || 0;
+   295→      } catch {
+   296→        providerCount = 0;
+   297→      }
+   298→
+   299→      setState({
+   300→        analytics: analyticsRes.error ? null : analyticsRes,
+   301→        conversion: conversionRes.error ? null : conversionRes,
+   302→        cron: cronRes.error ? null : cronRes,
+   303→        integrations: integrationsRes.error ? null : integrationsRes,
+   304→        paymentExceptions: exceptionsRes.data || [],
+   305→        patientMatches: matchesRes.data || [],
+   306→        auditLogs: auditRes.data || [],
+   307→        draftClinics: draftCount,
+   308→        activeClinics: activeCount,
+   309→        activeProviders: providerCount,
+   310→        loading: false,
+   311→        error: null,
+   312→      });
+   313→    } catch (err) {
+   314→      console.error("[ADMIN_DASHBOARD_FETCH]", err);
+   315→      setState(prev => ({ ...prev, loading: false, error: "Failed to load dashboard data" }));
+   316→    }
+   317→  }, [user, period, dateFrom, dateTo, refreshKey]);
+   318→
+   319→  useEffect(() => {
+   320→    fetchDashboardData();
+   321→  }, [fetchDashboardData]);
+   322→
+   323→  const handleRefresh = () => setRefreshKey(k => k + 1);
+   324→
+   325→  // Derived values
+   326→  const totalBookings = state.analytics?.summaryStats?.totalAppointments ?? 0;
+   327→  const totalDeposits = state.analytics?.depositCapture?.capturedCents ?? 0;
+   328→  const searchToBooking = state.conversion?.conversionRates?.searchToBooking ?? 0;
+   329→  const maxVolume = Math.max(1, ...(state.analytics?.appointmentVolume?.map(d => d.count) || [1]));
+   330→
+   331→  // Donut chart calculations
+   332→  const inPersonPct = state.analytics?.modalitySplit?.inPersonPct ?? 50;
+   333→  const videoPct = state.analytics?.modalitySplit?.videoPct ?? 50;
+   334→  const totalModality = (state.analytics?.modalitySplit?.inPerson ?? 0) + (state.analytics?.modalitySplit?.video ?? 0);
+   335→
+   336→  // No-show chart max
+   337→  const maxNoShow = Math.max(1, ...(state.analytics?.noShowDistribution?.map(d => d.count) || [1]));
+   338→
+   339→  return (
+   340→    <div className="space-y-6">
+   341→      {/* ===================================================================== */}
+   342→      {/* SECTION 1: Global Date Filter Bar                                    */}
+   343→      {/* ===================================================================== */}
+   344→      <Card className="border-none shadow-sm bg-gradient-to-r from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+   345→        <CardContent className="py-4 px-5">
+   346→          <div className="flex flex-wrap items-center gap-2">
+   347→            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mr-1">
+   348→              Period:
+   349→            </span>
+   350→            {PERIODS.map(p => (
+   351→              <Button
+   352→                key={p.key}
+   353→                size="sm"
+   354→                variant={period === p.key ? "default" : "outline"}
+   355→                onClick={() => {
+   356→                  setPeriod(p.key);
+   357→                  setDateFrom(undefined);
+   358→                  setDateTo(undefined);
+   359→                }}
+   360→                className={
+   361→                  period === p.key
+   362→                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+   363→                    : "text-xs"
+   364→                }
+   365→              >
+   366→                {p.label}
+   367→              </Button>
+   368→            ))}
+   369→
+   370→            <div className="flex items-center gap-1.5 ml-2">
+   371→              <Popover
+   372→                open={calOpen === "from"}
+   373→                onOpenChange={open => setCalOpen(open ? "from" : null)}
+   374→              >
+   375→                <PopoverTrigger asChild>
+   376→                  <Button
+   377→                    size="sm"
+   378→                    variant={period === "custom" ? "default" : "outline"}
+   379→                    className={period === "custom" ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-xs"}
+   380→                  >
+   381→                    {dateFrom ? format(dateFrom, "MMM d, yyyy") : "From"}
+   382→                  </Button>
+   383→                </PopoverTrigger>
+   384→                <PopoverContent className="w-auto p-0" align="start">
+   385→                  <Calendar
+   386→                    mode="single"
+   387→                    selected={dateFrom}
+   388→                    onSelect={d => { setDateFrom(d); setPeriod("custom"); setCalOpen("to"); }}
+   389→                    disabled={d => (dateTo ? d > dateTo : d > new Date())}
+   390→                    initialFocus
+   391→                  />
+   392→                </PopoverContent>
+   393→              </Popover>
+   394→              <span className="text-xs text-muted-foreground">to</span>
+   395→              <Popover
+   396→                open={calOpen === "to"}
+   397→                onOpenChange={open => setCalOpen(open ? "to" : null)}
+   398→              >
+   399→                <PopoverTrigger asChild>
+   400→                  <Button
+   401→                    size="sm"
+   402→                    variant={period === "custom" ? "default" : "outline"}
+   403→                    className={period === "custom" ? "bg-purple-600 hover:bg-purple-700 text-white" : "text-xs"}
+   404→                  >
+   405→                    {dateTo ? format(dateTo, "MMM d, yyyy") : "To"}
+   406→                  </Button>
+   407→                </PopoverTrigger>
+   408→                <PopoverContent className="w-auto p-0" align="start">
+   409→                  <Calendar
+   410→                    mode="single"
+   411→                    selected={dateTo}
+   412→                    onSelect={d => { setDateTo(d); setPeriod("custom"); setCalOpen(null); }}
+   413→                    disabled={d => (dateFrom ? d < dateFrom || d > new Date() : d > new Date())}
+   414→                    initialFocus
+   415→                  />
+   416→                </PopoverContent>
+   417→              </Popover>
+   418→            </div>
+   419→
+   420→            {state.analytics?.period && (
+   421→              <span className="text-xs text-muted-foreground ml-auto hidden sm:inline">
+   422→                {state.analytics.period.start} → {state.analytics.period.end}
+   423→              </span>
+   424→            )}
+   425→
+   426→            <Button size="sm" variant="ghost" onClick={handleRefresh} className="ml-auto sm:ml-0">
+   427→              <RefreshCw className="size-3.5 mr-1" />
+   428→              Refresh
+   429→            </Button>
+   430→          </div>
+   431→        </CardContent>
+   432→      </Card>
+   433→
+   434→      {state.loading ? (
+   435→        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+   436→          {Array.from({ length: 5 }).map((_, i) => (
+   437→            <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>
+   438→          ))}
+   439→        </div>
+   440→      ) : state.error ? (
+   441→        <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+   442→          <CardContent className="py-6 text-center">
+   443→            <AlertCircle className="size-8 text-red-400 mx-auto mb-2" />
+   444→            <p className="text-sm font-medium text-red-700">{state.error}</p>
+   445→            <Button size="sm" variant="outline" onClick={handleRefresh} className="mt-3">Retry</Button>
+   446→          </CardContent>
+   447→        </Card>
+   448→      ) : (
+   449→        <>
+   450→          {/* =================================================================== */}
+   451→          {/* SECTION 2: KPI Metric Cards (At a Glance)                          */}
+   452→          {/* =================================================================== */}
+   453→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+   454→            {/* Total Platform Bookings */}
+   455→            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+   456→              <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+   457→              <CardContent className="p-4 pl-5">
+   458→                <div className="flex items-center gap-2 mb-2">
+   459→                  <CalendarDays className="size-4 text-purple-500" />
+   460→                  <span className="text-xs font-medium text-muted-foreground">Total Bookings</span>
+   461→                </div>
+   462→                <p className="text-2xl font-bold text-foreground">{fmtNumber(totalBookings)}</p>
+   463→                <p className="text-[11px] text-muted-foreground mt-1">
+   464→                  {state.analytics?.period?.days ?? 0}-day period
+   465→                </p>
+   466→              </CardContent>
+   467→            </Card>
+   468→
+   469→            {/* Total Deposit Capture */}
+   470→            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+   471→              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+   472→              <CardContent className="p-4 pl-5">
+   473→                <div className="flex items-center gap-2 mb-2">
+   474→                  <DollarSign className="size-4 text-emerald-500" />
+   475→                  <span className="text-xs font-medium text-muted-foreground">Deposit Captured</span>
+   476→                </div>
+   477→                <p className="text-2xl font-bold text-foreground">{fmtCents(totalDeposits)}</p>
+   478→                <p className="text-[11px] text-muted-foreground mt-1">
+   479→                  Authorized: {fmtCents(state.analytics?.depositCapture?.totalDepositCents ?? 0)}
+   480→                </p>
+   481→              </CardContent>
+   482→            </Card>
+   483→
+   484→            {/* Search-to-Booking Conversion */}
+   485→            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+   486→              <div className="absolute top-0 left-0 w-1 h-full bg-sky-500" />
+   487→              <CardContent className="p-4 pl-5">
+   488→                <div className="flex items-center gap-2 mb-2">
+   489→                  <Search className="size-4 text-sky-500" />
+   490→                  <span className="text-xs font-medium text-muted-foreground">Search → Booking</span>
+   491→                </div>
+   492→                <p className="text-2xl font-bold text-foreground">{searchToBooking}%</p>
+   493→                <p className="text-[11px] text-muted-foreground mt-1">
+   494→                  {fmtNumber(state.conversion?.funnel?.totalSearches ?? 0)} searches, {fmtNumber(state.conversion?.funnel?.bookingCompletes ?? 0)} bookings
+   495→                </p>
+   496→              </CardContent>
+   497→            </Card>
+   498→
+   499→            {/* Active Clinics */}
+   500→            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+   501→              <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
+   502→              <CardContent className="p-4 pl-5">
+   503→                <div className="flex items-center gap-2 mb-2">
+   504→                  <Building2 className="size-4 text-amber-500" />
+   505→                  <span className="text-xs font-medium text-muted-foreground">Active Clinics</span>
+   506→                </div>
+   507→                <p className="text-2xl font-bold text-foreground">{fmtNumber(state.activeClinics)}</p>
+   508→                <p className="text-[11px] text-muted-foreground mt-1">
+   509→                  {state.draftClinics > 0 && (
+   510→                    <span className="text-amber-600 font-medium">{state.draftClinics} draft/pending</span>
+   511→                  )}
+   512→                  {state.draftClinics === 0 && "All published"}
+   513→                </p>
+   514→              </CardContent>
+   515→            </Card>
+   516→
+   517→            {/* Active Providers */}
+   518→            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+   519→              <div className="absolute top-0 left-0 w-1 h-full bg-rose-500" />
+   520→              <CardContent className="p-4 pl-5">
+   521→                <div className="flex items-center gap-2 mb-2">
+   522→                  <UserCheck className="size-4 text-rose-500" />
+   523→                  <span className="text-xs font-medium text-muted-foreground">Active Providers</span>
+   524→                </div>
+   525→                <p className="text-2xl font-bold text-foreground">{fmtNumber(state.activeProviders)}</p>
+   526→                <p className="text-[11px] text-muted-foreground mt-1">
+   527→                  Across all clinics
+   528→                </p>
+   529→              </CardContent>
+   530→            </Card>
+   531→          </div>
+   532→
+   533→          {/* =================================================================== */}
+   534→          {/* SECTION 3: Visual Analytics Charts (Trends)                         */}
+   535→          {/* =================================================================== */}
+   536→          <div>
+   537→            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+   538→              <BarChart3 className="size-4 text-purple-500" />
+   539→              Platform Trends
+   540→            </h2>
+   541→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   542→              {/* Appointment Volume (Bar Chart) */}
+   543→              <Card>
+   544→                <CardHeader className="pb-2">
+   545→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   546→                    <TrendingUp className="size-3.5 text-purple-500" />
+   547→                    Appointment Volume
+   548→                  </CardTitle>
+   549→                </CardHeader>
+   550→                <CardContent className="px-4 pb-4">
+   551→                  <div className="h-44 flex items-end gap-px">
+   552→                    {state.analytics?.appointmentVolume?.map((d, idx) => {
+   553→                      const heightPct = (d.count / maxVolume) * 100;
+   554→                      const showLabel =
+   555→                        (state.analytics?.period?.days ?? 0) <= 7 ||
+   556→                        idx === 0 ||
+   557→                        idx === (state.analytics?.appointmentVolume?.length ?? 1) - 1 ||
+   558→                        idx === Math.floor((state.analytics?.appointmentVolume?.length ?? 1) / 2);
+   559→                      return (
+   560→                        <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-0">
+   561→                          <div className="absolute bottom-full mb-1.5 hidden group-hover:block z-10 bg-popover border border-border rounded-md px-2 py-1 shadow-md whitespace-nowrap">
+   562→                            <p className="text-[11px] font-medium">{format(parseISO(d.date), "MMM d")}</p>
+   563→                            <p className="text-[11px] text-muted-foreground">{d.count} appts</p>
+   564→                          </div>
+   565→                          <div
+   566→                            className="w-full bg-purple-500/80 hover:bg-purple-600 rounded-t-sm transition-colors min-h-[2px]"
+   567→                            style={{ height: `${Math.max(heightPct, 1)}%` }}
+   568→                          />
+   569→                          {showLabel && (
+   570→                            <span className="text-[9px] text-muted-foreground mt-1 truncate w-full text-center">
+   571→                              {format(parseISO(d.date), "MMM d")}
+   572→                            </span>
+   573→                          )}
+   574→                        </div>
+   575→                      );
+   576→                    })}
+   577→                  </div>
+   578→                  {(state.analytics?.appointmentVolume?.every(d => d.count === 0) ?? true) && (
+   579→                    <p className="text-xs text-muted-foreground text-center py-6">No appointment data for this period</p>
+   580→                  )}
+   581→                </CardContent>
+   582→              </Card>
+   583→
+   584→              {/* Telehealth vs. In-Person (Donut Chart) */}
+   585→              <Card>
+   586→                <CardHeader className="pb-2">
+   587→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   588→                    <Activity className="size-3.5 text-emerald-500" />
+   589→                    Telehealth vs. In-Person
+   590→                  </CardTitle>
+   591→                </CardHeader>
+   592→                <CardContent className="px-4 pb-4">
+   593→                  {totalModality === 0 ? (
+   594→                    <p className="text-xs text-muted-foreground text-center py-6">No modality data for this period</p>
+   595→                  ) : (
+   596→                    <div className="flex items-center gap-6">
+   597→                      {/* SVG Donut */}
+   598→                      <div className="relative size-32 shrink-0">
+   599→                        <svg viewBox="0 0 36 36" className="size-full -rotate-90">
+   600→                          <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="4" className="text-muted/20" />
+   601→                          <circle
+   602→                            cx="18" cy="18" r="14" fill="none"
+   603→                            stroke="currentColor" strokeWidth="4"
+   604→                            strokeDasharray={`${inPersonPct} ${100 - inPersonPct}`}
+   605→                            className="text-purple-500"
+   606→                            strokeLinecap="round"
+   607→                          />
+   608→                          <circle
+   609→                            cx="18" cy="18" r="14" fill="none"
+   610→                            stroke="currentColor" strokeWidth="4"
+   611→                            strokeDasharray={`${videoPct} ${100 - videoPct}`}
+   612→                            strokeDashoffset={`-${inPersonPct}`}
+   613→                            className="text-emerald-500"
+   614→                            strokeLinecap="round"
+   615→                          />
+   616→                        </svg>
+   617→                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+   618→                          <span className="text-lg font-bold">{fmtNumber(totalModality)}</span>
+   619→                          <span className="text-[10px] text-muted-foreground">total</span>
+   620→                        </div>
+   621→                      </div>
+   622→                      {/* Legend */}
+   623→                      <div className="space-y-3 flex-1">
+   624→                        <div className="flex items-center gap-2">
+   625→                          <div className="size-3 rounded-full bg-purple-500" />
+   626→                          <div>
+   627→                            <p className="text-sm font-medium">In-Person</p>
+   628→                            <p className="text-xs text-muted-foreground">
+   629→                              {fmtNumber(state.analytics?.modalitySplit?.inPerson ?? 0)} ({inPersonPct}%)
+   630→                            </p>
+   631→                          </div>
+   632→                        </div>
+   633→                        <div className="flex items-center gap-2">
+   634→                          <div className="size-3 rounded-full bg-emerald-500" />
+   635→                          <div>
+   636→                            <p className="text-sm font-medium">Video / Telehealth</p>
+   637→                            <p className="text-xs text-muted-foreground">
+   638→                              {fmtNumber(state.analytics?.modalitySplit?.video ?? 0)} ({videoPct}%)
+   639→                            </p>
+   640→                          </div>
+   641→                        </div>
+   642→                      </div>
+   643→                    </div>
+   644→                  )}
+   645→                </CardContent>
+   646→              </Card>
+   647→
+   648→              {/* No-Show Distribution (Bar Chart) */}
+   649→              <Card>
+   650→                <CardHeader className="pb-2">
+   651→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   652→                    <XCircle className="size-3.5 text-amber-500" />
+   653→                    No-Show Distribution
+   654→                  </CardTitle>
+   655→                  <CardDescription className="text-xs">By day of week</CardDescription>
+   656→                </CardHeader>
+   657→                <CardContent className="px-4 pb-4">
+   658→                  <div className="h-36 flex items-end gap-2 px-2">
+   659→                    {state.analytics?.noShowDistribution?.map(d => {
+   660→                      const heightPct = (d.count / maxNoShow) * 100;
+   661→                      return (
+   662→                        <div key={d.day} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+   663→                          <div className="absolute bottom-full mb-1 hidden group-hover:block z-10 bg-popover border border-border rounded-md px-2 py-1 shadow-md whitespace-nowrap">
+   664→                            <p className="text-[11px] font-medium">{d.day}</p>
+   665→                            <p className="text-[11px] text-muted-foreground">{d.count} no-shows</p>
+   666→                          </div>
+   667→                          <div
+   668→                            className="w-full bg-amber-400 hover:bg-amber-500 rounded-t-sm transition-colors min-h-[2px]"
+   669→                            style={{ height: `${Math.max(heightPct, 1)}%` }}
+   670→                          />
+   671→                          <span className="text-[9px] text-muted-foreground mt-1.5">{d.day}</span>
+   672→                        </div>
+   673→                      );
+   674→                    })}
+   675→                  </div>
+   676→                  {(state.analytics?.noShowDistribution?.every(d => d.count === 0) ?? true) && (
+   677→                    <p className="text-xs text-muted-foreground text-center py-6">No no-show data for this period</p>
+   678→                  )}
+   679→                </CardContent>
+   680→              </Card>
+   681→
+   682→              {/* Deposit Capture Volume (Area Chart) */}
+   683→              <Card>
+   684→                <CardHeader className="pb-2">
+   685→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   686→                    <CreditCard className="size-3.5 text-emerald-500" />
+   687→                    Deposit Capture
+   688→                  </CardTitle>
+   689→                  <CardDescription className="text-xs">Financial performance over time</CardDescription>
+   690→                </CardHeader>
+   691→                <CardContent className="px-4 pb-4">
+   692→                  <div className="space-y-3">
+   693→                    <div className="grid grid-cols-2 gap-3">
+   694→                      <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 p-3">
+   695→                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Captured</p>
+   696→                        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+   697→                          {fmtCents(state.analytics?.depositCapture?.capturedCents ?? 0)}
+   698→                        </p>
+   699→                      </div>
+   700→                      <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 p-3">
+   701→                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Refunded</p>
+   702→                        <p className="text-lg font-bold text-red-700 dark:text-red-400">
+   703→                          {fmtCents(state.analytics?.depositCapture?.refundedCents ?? 0)}
+   704→                        </p>
+   705→                      </div>
+   706→                      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 p-3">
+   707→                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Forfeited</p>
+   708→                        <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
+   709→                          {fmtCents(state.analytics?.depositCapture?.forfeitedCents ?? 0)}
+   710→                        </p>
+   711→                      </div>
+   712→                      <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-3">
+   713→                        <p className="text-[10px] font-medium text-muted-foreground uppercase">Authorized</p>
+   714→                        <p className="text-lg font-bold text-foreground">
+   715→                          {fmtCents(state.analytics?.depositCapture?.totalDepositCents ?? 0)}
+   716→                        </p>
+   717→                      </div>
+   718→                    </div>
+   719→                    {/* Capture Rate Bar */}
+   720→                    {state.analytics && state.analytics.depositCapture.totalDepositCents > 0 && (
+   721→                      <div>
+   722→                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+   723→                          <span>Capture Rate</span>
+   724→                          <span>
+   725→                            {Math.round((state.analytics.depositCapture.capturedCents / state.analytics.depositCapture.totalDepositCents) * 100)}%
+   726→                          </span>
+   727→                        </div>
+   728→                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+   729→                          <div
+   730→                            className="h-full bg-emerald-500 rounded-full transition-all"
+   731→                            style={{
+   732→                              width: `${Math.min(100, (state.analytics.depositCapture.capturedCents / state.analytics.depositCapture.totalDepositCents) * 100)}%`,
+   733→                            }}
+   734→                          />
+   735→                        </div>
+   736→                      </div>
+   737→                    )}
+   738→                  </div>
+   739→                </CardContent>
+   740→              </Card>
+   741→            </div>
+   742→          </div>
+   743→
+   744→          {/* =================================================================== */}
+   745→          {/* SECTION 4: System Health & Technical Monitoring                     */}
+   746→          {/* =================================================================== */}
+   747→          <div>
+   748→            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+   749→              <Server className="size-4 text-emerald-500" />
+   750→              System Health
+   751→            </h2>
+   752→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   753→              {/* Cron Job Status */}
+   754→              <Card>
+   755→                <CardHeader className="pb-2">
+   756→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   757→                    <Clock className="size-3.5 text-amber-500" />
+   758→                    Background Jobs
+   759→                  </CardTitle>
+   760→                  <CardDescription className="text-xs">WP-Cron style status indicators</CardDescription>
+   761→                </CardHeader>
+   762→                <CardContent className="px-4 pb-4">
+   763→                  <div className="space-y-2.5">
+   764→                    {state.cron?.jobs?.map(job => (
+   765→                      <div key={job.key} className="flex items-center justify-between gap-3">
+   766→                        <div className="flex items-center gap-2.5 min-w-0">
+   767→                          <Badge className={`${getCronStatusColor(job.status)} text-[10px] px-2 py-0.5`}>
+   768→                            {job.status === "RUNNING" && <Loader2 className="size-2.5 mr-1 animate-spin" />}
+   769→                            {job.status}
+   770→                          </Badge>
+   771→                          <div className="min-w-0">
+   772→                            <p className="text-xs font-medium text-foreground truncate">{job.name}</p>
+   773→                            <p className="text-[10px] text-muted-foreground truncate">{job.description}</p>
+   774→                          </div>
+   775→                        </div>
+   776→                        {job.lastRun && (
+   777→                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+   778→                            {formatDistanceToNow(new Date(job.lastRun), { addSuffix: true })}
+   779→                          </span>
+   780→                        )}
+   781→                      </div>
+   782→                    ))}
+   783→                    {state.cron?.counts && (
+   784→                      <div className="flex gap-3 pt-2 border-t border-border/60 mt-2">
+   785→                        <span className="text-[10px] text-muted-foreground">
+   786→                          <span className="font-medium text-amber-600">{state.cron.counts.expiredLocks}</span> expired locks
+   787→                        </span>
+   788→                        <span className="text-[10px] text-muted-foreground">
+   789→                          <span className="font-medium text-sky-600">{state.cron.counts.activeWaitlist}</span> waitlist active
+   790→                        </span>
+   791→                        <span className="text-[10px] text-muted-foreground">
+   792→                          <span className="font-medium text-emerald-600">{state.cron.counts.pendingAppointments}</span> pending
+   793→                        </span>
+   794→                      </div>
+   795→                    )}
+   796→                  </div>
+   797→                </CardContent>
+   798→              </Card>
+   799→
+   800→              {/* Integration / API Status */}
+   801→              <Card>
+   802→                <CardHeader className="pb-2">
+   803→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   804→                    <Wifi className="size-3.5 text-sky-500" />
+   805→                    API Connections
+   806→                  </CardTitle>
+   807→                  <CardDescription className="text-xs">External service integrations</CardDescription>
+   808→                </CardHeader>
+   809→                <CardContent className="px-4 pb-4">
+   810→                  <div className="space-y-2.5">
+   811→                    {/* Stripe */}
+   812→                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/40">
+   813→                      <div className="flex items-center gap-2.5">
+   814→                        <div className={`size-7 rounded-lg flex items-center justify-center ${state.integrations?.stripe?.configured ? "bg-emerald-100 dark:bg-emerald-950/50" : "bg-red-100 dark:bg-red-950/50"}`}>
+   815→                          {state.integrations?.stripe?.configured
+   816→                            ? <CheckCircle2 className="size-3.5 text-emerald-600" />
+   817→                            : <WifiOff className="size-3.5 text-red-500" />
+   818→                          }
+   819→                        </div>
+   820→                        <div>
+   821→                          <p className="text-xs font-medium">Stripe</p>
+   822→                          <p className="text-[10px] text-muted-foreground">
+   823→                            {state.integrations?.stripe?.configured
+   824→                              ? `Connected (${state.integrations.stripe.publicKey})`
+   825→                              : "Not configured"}
+   826→                          </p>
+   827→                        </div>
+   828→                      </div>
+   829→                      <Badge variant={state.integrations?.stripe?.configured ? "default" : "destructive"} className="text-[10px]">
+   830→                        {state.integrations?.stripe?.configured ? "OK" : "Missing"}
+   831→                      </Badge>
+   832→                    </div>
+   833→
+   834→                    {/* JWT / NextAuth */}
+   835→                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/40">
+   836→                      <div className="flex items-center gap-2.5">
+   837→                        <div className={`size-7 rounded-lg flex items-center justify-center ${state.integrations?.jwt?.configured ? "bg-emerald-100 dark:bg-emerald-950/50" : "bg-red-100 dark:bg-red-950/50"}`}>
+   838→                          {state.integrations?.jwt?.configured
+   839→                            ? <Shield className="size-3.5 text-emerald-600" />
+   840→                            : <WifiOff className="size-3.5 text-red-500" />
+   841→                          }
+   842→                        </div>
+   843→                        <div>
+   844→                          <p className="text-xs font-medium">JWT / NextAuth</p>
+   845→                          <p className="text-[10px] text-muted-foreground">
+   846→                            {state.integrations?.jwt?.configured
+   847→                              ? `Active (${state.integrations.jwt.secretMasked})`
+   848→                              : "No secret configured"}
+   849→                          </p>
+   850→                        </div>
+   851→                      </div>
+   852→                      <Badge variant={state.integrations?.jwt?.configured ? "default" : "destructive"} className="text-[10px]">
+   853→                        {state.integrations?.jwt?.configured ? "OK" : "Critical"}
+   854→                      </Badge>
+   855→                    </div>
+   856→
+   857→                    {/* Gravity Forms */}
+   858→                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/40">
+   859→                      <div className="flex items-center gap-2.5">
+   860→                        <div className="size-7 rounded-lg flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
+   861→                          <Database className="size-3.5 text-zinc-400" />
+   862→                        </div>
+   863→                        <div>
+   864→                          <p className="text-xs font-medium">Gravity Forms</p>
+   865→                          <p className="text-[10px] text-muted-foreground">WordPress integration</p>
+   866→                        </div>
+   867→                      </div>
+   868→                      <Badge variant="outline" className="text-[10px]">N/A</Badge>
+   869→                    </div>
+   870→                  </div>
+   871→                </CardContent>
+   872→              </Card>
+   873→            </div>
+   874→          </div>
+   875→
+   876→          {/* =================================================================== */}
+   877→          {/* SECTION 5: Operational Exceptions & Alerts                          */}
+   878→          {/* =================================================================== */}
+   879→          <div>
+   880→            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+   881→              <AlertTriangle className="size-4 text-amber-500" />
+   882→              Action Required
+   883→            </h2>
+   884→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   885→              {/* Payment Exception Queue */}
+   886→              <Card>
+   887→                <CardHeader className="pb-2">
+   888→                  <div className="flex items-center justify-between">
+   889→                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   890→                      <CreditCard className="size-3.5 text-red-500" />
+   891→                      Payment Exceptions
+   892→                    </CardTitle>
+   893→                    <Link href="/staff/dashboard/admin/financial">
+   894→                      <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2">
+   895→                        View All <ArrowRight className="size-3 ml-1" />
+   896→                      </Button>
+   897→                    </Link>
+   898→                  </div>
+   899→                </CardHeader>
+   900→                <CardContent className="px-4 pb-4">
+   901→                  {state.paymentExceptions.length === 0 ? (
+   902→                    <div className="text-center py-4">
+   903→                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   904→                      <p className="text-xs text-muted-foreground">No payment exceptions</p>
+   905→                    </div>
+   906→                  ) : (
+   907→                    <div className="space-y-2 max-h-48 overflow-y-auto">
+   908→                      {state.paymentExceptions.slice(0, 5).map(ex => (
+   909→                        <div key={ex.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/30">
+   910→                          <div className="min-w-0 flex-1">
+   911→                            <div className="flex items-center gap-1.5 mb-0.5">
+   912→                              {getExceptionTypeBadge(ex.type)}
+   913→                              {ex.resolved && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">Resolved</Badge>}
+   914→                            </div>
+   915→                            <p className="text-[11px] text-foreground truncate">{ex.patientName}</p>
+   916→                            <p className="text-[10px] text-muted-foreground">{ex.clinicName} · {fmtCents(ex.amountCents)}</p>
+   917→                          </div>
+   918→                          <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+   919→                            {formatDistanceToNow(new Date(ex.createdAt), { addSuffix: true })}
+   920→                          </span>
+   921→                        </div>
+   922→                      ))}
+   923→                    </div>
+   924→                  )}
+   925→                </CardContent>
+   926→              </Card>
+   927→
+   928→              {/* Anonymous Conflict Alerts */}
+   929→              <Card>
+   930→                <CardHeader className="pb-2">
+   931→                  <div className="flex items-center justify-between">
+   932→                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   933→                      <Users className="size-3.5 text-orange-500" />
+   934→                      Patient Conflicts
+   935→                    </CardTitle>
+   936→                    <Badge variant={state.patientMatches.length > 0 ? "destructive" : "secondary"} className="text-[10px]">
+   937→                      {state.patientMatches.length} flagged
+   938→                    </Badge>
+   939→                  </div>
+   940→                </CardHeader>
+   941→                <CardContent className="px-4 pb-4">
+   942→                  {state.patientMatches.length === 0 ? (
+   943→                    <div className="text-center py-4">
+   944→                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   945→                      <p className="text-xs text-muted-foreground">No conflicts detected</p>
+   946→                    </div>
+   947→                  ) : (
+   948→                    <div className="space-y-2 max-h-48 overflow-y-auto">
+   949→                      {state.patientMatches.slice(0, 5).map((match, idx) => (
+   950→                        <div key={idx} className="p-2 rounded-lg bg-orange-50/50 dark:bg-orange-950/20 border border-orange-100/50 dark:border-orange-900/30">
+   951→                          <div className="flex items-center gap-1.5 mb-0.5">
+   952→                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-orange-700 border-orange-200">
+   953→                              {match.matchType === "email" ? "Email" : "Phone"} match
+   954→                            </Badge>
+   955→                            {match.hasNameMismatch && <Badge className="text-[9px] px-1 py-0 bg-red-100 text-red-700 border-red-200">Name mismatch</Badge>}
+   956→                          </div>
+   957→                          <p className="text-[11px] font-mono text-foreground truncate">{match.matchValue}</p>
+   958→                          <p className="text-[10px] text-muted-foreground">
+   959→                            {match.appointments.length} bookings
+   960→                            {match.hasCrossClinic && " · Cross-clinic"}
+   961→                          </p>
+   962→                        </div>
+   963→                      ))}
+   964→                    </div>
+   965→                  )}
+   966→                </CardContent>
+   967→              </Card>
+   968→
+   969→              {/* Draft / Pending Clinics */}
+   970→              <Card>
+   971→                <CardHeader className="pb-2">
+   972→                  <div className="flex items-center justify-between">
+   973→                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   974→                      <Building2 className="size-3.5 text-amber-500" />
+   975→                      Unassigned Clinics
+   976→                    </CardTitle>
+   977→                    <Link href="/staff/dashboard/admin/clinics">
+   978→                      <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2">
+   979→                        Manage <ArrowRight className="size-3 ml-1" />
+   980→                      </Button>
+   981→                    </Link>
+   982→                  </div>
+   983→                </CardHeader>
+   984→                <CardContent className="px-4 pb-4">
+   985→                  {state.draftClinics === 0 ? (
+   986→                    <div className="text-center py-4">
+   987→                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   988→                      <p className="text-xs text-muted-foreground">All clinics are published</p>
+   989→                    </div>
+   990→                  ) : (
+   991→                    <div className="text-center py-4">
+   992→                      <AlertTriangle className="size-6 text-amber-500 mx-auto mb-1.5" />
+   993→                      <p className="text-sm font-medium text-foreground">{state.draftClinics}</p>
+   994→                      <p className="text-xs text-muted-foreground">clinic(s) in Draft or Pending status</p>
+   995→                      <Link href="/staff/dashboard/admin/clinics">
+   996→                        <Button size="sm" variant="outline" className="mt-3 text-xs h-7">
+   997→                          Review & Publish
+   998→                        </Button>
+   999→                      </Link>
+  1000→                    </div>
+  1001→                  )}
+  1002→                </CardContent>
+  1003→              </Card>
+  1004→            </div>
+  1005→          </div>
+  1006→
+  1007→          {/* =================================================================== */}
+  1008→          {/* SECTION 6: Recent Activity & Quick Links                            */}
+  1009→          {/* =================================================================== */}
+  1010→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1011→            {/* Audit Log */}
+  1012→            <Card className="lg:col-span-2">
+  1013→              <CardHeader className="pb-2">
+  1014→                <div className="flex items-center justify-between">
+  1015→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1016→                    <ClipboardList className="size-3.5 text-slate-500" />
+  1017→                    Latest Audit Log
+  1018→                  </CardTitle>
+  1019→                  <Link href="/staff/dashboard/admin/analytics">
+  1020→                    <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2">
+  1021→                      View Full Log <ArrowRight className="size-3 ml-1" />
+  1022→                    </Button>
+  1023→                  </Link>
+  1024→                </div>
+  1025→              </CardHeader>
+  1026→              <CardContent className="px-4 pb-4">
+  1027→                {state.auditLogs.length === 0 ? (
+  1028→                  <p className="text-xs text-muted-foreground text-center py-6">No audit log entries</p>
+  1029→                ) : (
+  1030→                  <div className="overflow-x-auto">
+  1031→                    <table className="w-full text-xs">
+  1032→                      <thead>
+  1033→                        <tr className="border-b border-border/60">
+  1034→                          <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">User</th>
+  1035→                          <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Action</th>
+  1036→                          <th className="text-left py-1.5 px-2 font-medium text-muted-foreground hidden md:table-cell">Clinic</th>
+  1037→                          <th className="text-left py-1.5 px-2 font-medium text-muted-foreground hidden lg:table-cell">Target</th>
+  1038→                          <th className="text-right py-1.5 px-2 font-medium text-muted-foreground">Time</th>
+  1039→                        </tr>
+  1040→                      </thead>
+  1041→                      <tbody>
+  1042→                        {state.auditLogs.map(log => (
+  1043→                          <tr key={log.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+  1044→                            <td className="py-1.5 px-2 font-medium text-foreground max-w-[120px] truncate">{log.userName}</td>
+  1045→                            <td className="py-1.5 px-2 text-muted-foreground">{actionToLabel(log.action)}</td>
+  1046→                            <td className="py-1.5 px-2 text-muted-foreground hidden md:table-cell max-w-[100px] truncate">{log.userClinic || "—"}</td>
+  1047→                            <td className="py-1.5 px-2 text-muted-foreground hidden lg:table-cell">
+  1048→                              {log.targetType ? `${log.targetType}` : "—"}
+  1049→                            </td>
+  1050→                            <td className="py-1.5 px-2 text-muted-foreground text-right whitespace-nowrap">
+  1051→                              {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+  1052→                            </td>
+  1053→                          </tr>
+  1054→                        ))}
+  1055→                      </tbody>
+  1056→                    </table>
+  1057→                  </div>
+  1058→                )}
+  1059→              </CardContent>
+  1060→            </Card>
+  1061→
+  1062→            {/* Quick Actions */}
+  1063→            <Card>
+  1064→              <CardHeader className="pb-2">
+  1065→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1066→                  <Settings2 className="size-3.5 text-purple-500" />
+  1067→                  Quick Actions
+  1068→                </CardTitle>
+  1069→              </CardHeader>
+  1070→              <CardContent className="px-4 pb-4">
+  1071→                <div className="space-y-2">
+  1072→                  <Link href="/staff/dashboard/admin/clinics" className="block">
+  1073→                    <Button variant="outline" className="w-full justify-start text-xs h-9 gap-2">
+  1074→                      <CalendarPlus className="size-3.5 text-emerald-600" />
+  1075→                      Add New Clinic
+  1076→                    </Button>
+  1077→                  </Link>
+  1078→                  <Link href="/staff/dashboard/admin/taxonomy" className="block">
+  1079→                    <Button variant="outline" className="w-full justify-start text-xs h-9 gap-2">
+  1080→                      <Database className="size-3.5 text-purple-600" />
+  1081→                      Manage Global Taxonomies
+  1082→                    </Button>
+  1083→                  </Link>
+  1084→                  <Link href="/staff/dashboard/admin/policy" className="block">
+  1085→                    <Button variant="outline" className="w-full justify-start text-xs h-9 gap-2">
+  1086→                      <Settings2 className="size-3.5 text-amber-600" />
+  1087→                      Configure Platform Policies
+  1088→                    </Button>
+  1089→                  </Link>
+  1090→                  <Link href="/staff/dashboard/admin/appointments" className="block">
+  1091→                    <Button variant="outline" className="w-full justify-start text-xs h-9 gap-2">
+  1092→                      <ClipboardList className="size-3.5 text-sky-600" />
+  1093→                      View Full Audit Log
+  1094→                    </Button>
+  1095→                  </Link>
+  1096→                  <Link href="/staff/dashboard/admin/infrastructure" className="block">
+  1097→                    <Button variant="outline" className="w-full justify-start text-xs h-9 gap-2">
+  1098→                      <Server className="size-3.5 text-slate-600" />
+  1099→                      Infrastructure & Crons
+  1100→                    </Button>
+  1101→                  </Link>
+  1102→                </div>
+  1103→              </CardContent>
+  1104→            </Card>
+  1105→          </div>
+  1106→        </>
+  1107→      )}
+  1108→    </div>
+  1109→  );
+  1110→}

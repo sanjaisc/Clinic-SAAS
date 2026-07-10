@@ -1,0 +1,929 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback } from "react";
+     4→import { toast } from "sonner";
+     5→import {
+     6→  UserPlus,
+     7→  Search,
+     8→  Send,
+     9→  Loader2,
+    10→  Shield,
+    11→  Eye,
+    12→  EyeOff,
+    13→  Users,
+    14→  Mail,
+    15→  Clock,
+    16→  CheckCircle2,
+    17→  XCircle,
+    18→  AlertTriangle,
+    19→  Pencil,
+    20→  Ban,
+    21→  Copy,
+    22→  Link2,
+    23→} from "lucide-react";
+    24→
+    25→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Input } from "@/components/ui/input";
+    28→import { Label } from "@/components/ui/label";
+    29→import { Badge } from "@/components/ui/badge";
+    30→import { Skeleton } from "@/components/ui/skeleton";
+    31→import {
+    32→  Table,
+    33→  TableBody,
+    34→  TableCell,
+    35→  TableHead,
+    36→  TableHeader,
+    37→  TableRow,
+    38→} from "@/components/ui/table";
+    39→import {
+    40→  Select,
+    41→  SelectContent,
+    42→  SelectItem,
+    43→  SelectTrigger,
+    44→  SelectValue,
+    45→} from "@/components/ui/select";
+    46→import {
+    47→  Dialog,
+    48→  DialogContent,
+    49→  DialogDescription,
+    50→  DialogFooter,
+    51→  DialogHeader,
+    52→  DialogTitle,
+    53→} from "@/components/ui/dialog";
+    54→import {
+    55→  AlertDialog,
+    56→  AlertDialogAction,
+    57→  AlertDialogCancel,
+    58→  AlertDialogContent,
+    59→  AlertDialogDescription,
+    60→  AlertDialogFooter,
+    61→  AlertDialogHeader,
+    62→  AlertDialogTitle,
+    63→} from "@/components/ui/alert-dialog";
+    64→
+    65→// ---- Types ----
+    66→interface ClinicOption {
+    67→  id: string;
+    68→  name: string;
+    69→  city: string | null;
+    70→  status: string;
+    71→}
+    72→
+    73→interface UserRecord {
+    74→  id: string;
+    75→  email: string;
+    76→  name: string;
+    77→  role: string;
+    78→  clinicId: string | null;
+    79→  isActive: boolean;
+    80→  lastLoginAt: string | null;
+    81→  createdAt: string;
+    82→  clinicName: string | null;
+    83→  invitedByName: string | null;
+    84→  invitationInfo: {
+    85→    inviterName: string | null;
+    86→    invitationRole: string;
+    87→    invitationCreatedAt: string;
+    88→    invitationAcceptedAt: string | null;
+    89→  } | null;
+    90→}
+    91→
+    92→interface InvitationRecord {
+    93→  id: string;
+    94→  email: string;
+    95→  role: string;
+    96→  clinicId: string;
+    97→  clinicName: string;
+    98→  invitedByName: string | null;
+    99→  status: "Pending" | "Accepted" | "Expired";
+   100→  createdAt: string;
+   101→  expiresAt: string;
+   102→  acceptedAt: string | null;
+   103→  acceptedByName: string | null;
+   104→}
+   105→
+   106→// ---- Role Helpers ----
+   107→const ROLE_LABELS: Record<string, string> = {
+   108→  SYSTEM_MANAGER: "System Manager",
+   109→  CLINIC_ADMIN: "Clinic Admin",
+   110→  CLINIC_RECEPTION: "Receptionist",
+   111→};
+   112→
+   113→const ROLE_COLORS: Record<string, string> = {
+   114→  SYSTEM_MANAGER: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+   115→  CLINIC_ADMIN: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+   116→  CLINIC_RECEPTION: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+   117→};
+   118→
+   119→const INVITATION_STATUS_STYLES: Record<string, string> = {
+   120→  Pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+   121→  Accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+   122→  Expired: "bg-muted text-muted-foreground",
+   123→};
+   124→
+   125→function formatDate(iso: string | null) {
+   126→  if (!iso) return "—";
+   127→  return new Date(iso).toLocaleDateString("en-US", {
+   128→    month: "short",
+   129→    day: "numeric",
+   130→    year: "numeric",
+   131→    hour: "2-digit",
+   132→    minute: "2-digit",
+   133→  });
+   134→}
+   135→
+   136→function formatShortDate(iso: string | null) {
+   137→  if (!iso) return "—";
+   138→  return new Date(iso).toLocaleDateString("en-US", {
+   139→    month: "short",
+   140→    day: "numeric",
+   141→    year: "numeric",
+   142→  });
+   143→}
+   144→
+   145→// ---- Component ----
+   146→export default function AdminUsersPage() {
+   147→  // Data states
+   148→  const [users, setUsers] = useState<UserRecord[]>([]);
+   149→  const [invitations, setInvitations] = useState<InvitationRecord[]>([]);
+   150→  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+   151→  const [loading, setLoading] = useState(true);
+   152→  const [invitationsLoading, setInvitationsLoading] = useState(true);
+   153→
+   154→  // Search / filter
+   155→  const [searchQuery, setSearchQuery] = useState("");
+   156→  const [roleFilter, setRoleFilter] = useState<string>("ALL");
+   157→
+   158→  // Create user form
+   159→  const [showInviteForm, setShowInviteForm] = useState(false);
+   160→  const [createForm, setCreateForm] = useState({
+   161→    name: "",
+   162→    email: "",
+   163→    password: "",
+   164→    role: "CLINIC_RECEPTION" as string,
+   165→    clinicId: "" as string,
+   166→  });
+   167→  const [createLoading, setCreateLoading] = useState(false);
+   168→  const [showPassword, setShowPassword] = useState(false);
+   169→
+   170→  // Invite form
+   171→  const [inviteForm, setInviteForm] = useState({
+   172→    email: "",
+   173→    role: "CLINIC_ADMIN" as string,
+   174→    clinicId: "" as string,
+   175→  });
+   176→  const [inviteLoading, setInviteLoading] = useState(false);
+   177→  const [inviteLink, setInviteLink] = useState<string | null>(null);
+   178→
+   179→  // Edit dialog
+   180→  const [editUser, setEditUser] = useState<UserRecord | null>(null);
+   181→  const [editForm, setEditForm] = useState({
+   182→    name: "",
+   183→    role: "" as string,
+   184→    clinicId: "" as string,
+   185→    newPassword: "",
+   186→  });
+   187→  const [editLoading, setEditLoading] = useState(false);
+   188→
+   189→  // Deactivate dialog
+   190→  const [deactivateUser, setDeactivateUser] = useState<UserRecord | null>(null);
+   191→  const [deactivateLoading, setDeactivateLoading] = useState(false);
+   192→
+   193→  // Fetch data
+   194→  const fetchUsers = useCallback(async () => {
+   195→    try {
+   196→      const res = await fetch("/api/staff/admin/users");
+   197→      if (!res.ok) throw new Error("Failed to fetch users");
+   198→      const data = await res.json();
+   199→      setUsers(data.users || []);
+   200→    } catch {
+   201→      toast.error("Failed to load users");
+   202→    }
+   203→  }, []);
+   204→
+   205→  const fetchInvitations = useCallback(async () => {
+   206→    try {
+   207→      const res = await fetch("/api/staff/admin/users/invitations");
+   208→      if (!res.ok) throw new Error("Failed to fetch invitations");
+   209→      const data = await res.json();
+   210→      setInvitations(data.invitations || []);
+   211→    } catch {
+   212→      toast.error("Failed to load invitations");
+   213→    }
+   214→  }, []);
+   215→
+   216→  const fetchClinics = useCallback(async () => {
+   217→    try {
+   218→      const res = await fetch("/api/staff/admin/users/clinics");
+   219→      if (!res.ok) throw new Error("Failed to fetch clinics");
+   220→      const data = await res.json();
+   221→      setClinics(data.clinics || []);
+   222→    } catch {
+   223→      toast.error("Failed to load clinics");
+   224→    }
+   225→  }, []);
+   226→
+   227→  useEffect(() => {
+   228→    Promise.all([fetchUsers(), fetchInvitations(), fetchClinics()]).finally(() => {
+   229→      setLoading(false);
+   230→      setInvitationsLoading(false);
+   231→    });
+   232→  }, [fetchUsers, fetchInvitations, fetchClinics]);
+   233→
+   234→  // ---- Handlers ----
+   235→  const handleCreateUser = async (e: React.FormEvent) => {
+   236→    e.preventDefault();
+   237→    setCreateLoading(true);
+   238→    try {
+   239→      const payload: Record<string, string | null> = {
+   240→        name: createForm.name,
+   241→        email: createForm.email,
+   242→        password: createForm.password,
+   243→        role: createForm.role,
+   244→        clinicId: createForm.role === "SYSTEM_MANAGER" ? null : createForm.clinicId,
+   245→      };
+   246→      const res = await fetch("/api/staff/admin/users", {
+   247→        method: "POST",
+   248→        headers: { "Content-Type": "application/json" },
+   249→        body: JSON.stringify(payload),
+   250→      });
+   251→      const data = await res.json();
+   252→      if (!res.ok) throw new Error(data.error || "Failed to create user");
+   253→      toast.success(`User "${createForm.name}" created successfully`);
+   254→      setCreateForm({ name: "", email: "", password: "", role: "CLINIC_RECEPTION", clinicId: "" });
+   255→      fetchUsers();
+   256→    } catch (err) {
+   257→      toast.error(err instanceof Error ? err.message : "Failed to create user");
+   258→    } finally {
+   259→      setCreateLoading(false);
+   260→    }
+   261→  };
+   262→
+   263→  const handleInvite = async (e: React.FormEvent) => {
+   264→    e.preventDefault();
+   265→    setInviteLoading(true);
+   266→    setInviteLink(null);
+   267→    try {
+   268→      const payload: Record<string, string> = {
+   269→        email: inviteForm.email,
+   270→        role: inviteForm.role,
+   271→        clinicId: inviteForm.clinicId,
+   272→      };
+   273→      const res = await fetch("/api/staff/admin/users/invite", {
+   274→        method: "POST",
+   275→        headers: { "Content-Type": "application/json" },
+   276→        body: JSON.stringify(payload),
+   277→      });
+   278→      const data = await res.json();
+   279→      if (!res.ok) throw new Error(data.error || "Failed to send invitation");
+   280→      toast.success(`Invitation sent to ${inviteForm.email}`);
+   281→      setInviteLink(data.invitationLink || null);
+   282→      setInviteForm({ email: "", role: "CLINIC_ADMIN", clinicId: "" });
+   283→      fetchInvitations();
+   284→    } catch (err) {
+   285→      toast.error(err instanceof Error ? err.message : "Failed to send invitation");
+   286→    } finally {
+   287→      setInviteLoading(false);
+   288→    }
+   289→  };
+   290→
+   291→  const handleEdit = (user: UserRecord) => {
+   292→    setEditUser(user);
+   293→    setEditForm({
+   294→      name: user.name,
+   295→      role: user.role,
+   296→      clinicId: user.clinicId || "",
+   297→      newPassword: "",
+   298→    });
+   299→  };
+   300→
+   301→  const handleSaveEdit = async () => {
+   302→    if (!editUser) return;
+   303→    setEditLoading(true);
+   304→    try {
+   305→      const payload: Record<string, unknown> = {
+   306→        name: editForm.name,
+   307→        role: editForm.role,
+   308→        clinicId: editForm.role === "SYSTEM_MANAGER" ? null : (editForm.clinicId || null),
+   309→      };
+   310→      if (editForm.newPassword) {
+   311→        payload.newPassword = editForm.newPassword;
+   312→      }
+   313→      const res = await fetch(`/api/staff/admin/users/${editUser.id}`, {
+   314→        method: "PATCH",
+   315→        headers: { "Content-Type": "application/json" },
+   316→        body: JSON.stringify(payload),
+   317→      });
+   318→      const data = await res.json();
+   319→      if (!res.ok) throw new Error(data.error || "Failed to update user");
+   320→      toast.success(`User "${editForm.name}" updated`);
+   321→      setEditUser(null);
+   322→      fetchUsers();
+   323→    } catch (err) {
+   324→      toast.error(err instanceof Error ? err.message : "Failed to update user");
+   325→    } finally {
+   326→      setEditLoading(false);
+   327→    }
+   328→  };
+   329→
+   330→  const handleDeactivate = async () => {
+   331→    if (!deactivateUser) return;
+   332→    setDeactivateLoading(true);
+   333→    try {
+   334→      const res = await fetch(`/api/staff/admin/users/${deactivateUser.id}`, {
+   335→        method: "DELETE",
+   336→      });
+   337→      const data = await res.json();
+   338→      if (!res.ok) throw new Error(data.error || "Failed to deactivate user");
+   339→      toast.success(data.message || "User deactivated");
+   340→      setDeactivateUser(null);
+   341→      fetchUsers();
+   342→    } catch (err) {
+   343→      toast.error(err instanceof Error ? err.message : "Failed to deactivate user");
+   344→    } finally {
+   345→      setDeactivateLoading(false);
+   346→    }
+   347→  };
+   348→
+   349→  // Filtered users
+   350→  const filteredUsers = users.filter((u) => {
+   351→    const matchesSearch =
+   352→      !searchQuery ||
+   353→      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   354→      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+   355→    const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
+   356→    return matchesSearch && matchesRole;
+   357→  });
+   358→
+   359→  // ---- Render ----
+   360→  if (loading) {
+   361→    return (
+   362→      <div className="space-y-6">
+   363→        {[1, 2, 3].map((i) => (
+   364→          <Skeleton key={i} className="h-64 w-full rounded-xl" />
+   365→        ))}
+   366→      </div>
+   367→    );
+   368→  }
+   369→
+   370→  return (
+   371→    <div className="space-y-6">
+   372→      {/* =================== CARD 1: Create User / Invite =================== */}
+   373→      <Card>
+   374→        <CardHeader>
+   375→          <div className="flex items-center gap-3">
+   376→            <div className="flex items-center justify-center size-9 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+   377→              <UserPlus className="size-5 text-purple-700 dark:text-purple-400" />
+   378→            </div>
+   379→            <div>
+   380→              <CardTitle className="text-lg">Create User</CardTitle>
+   381→              <CardDescription>
+   382→                Create staff accounts directly or send invitation links
+   383→              </CardDescription>
+   384→            </div>
+   385→          </div>
+   386→        </CardHeader>
+   387→        <CardContent>
+   388→          {/* Toggle between create and invite */}
+   389→          <div className="flex gap-2 mb-5">
+   390→            <Button
+   391→              variant={!showInviteForm ? "default" : "outline"}
+   392→              size="sm"
+   393→              onClick={() => setShowInviteForm(false)}
+   394→              className={!showInviteForm ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
+   395→            >
+   396→              <UserPlus className="size-4 mr-1.5" />
+   397→              Create User
+   398→            </Button>
+   399→            <Button
+   400→              variant={showInviteForm ? "default" : "outline"}
+   401→              size="sm"
+   402→              onClick={() => { setShowInviteForm(true); setInviteLink(null); }}
+   403→              className={showInviteForm ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
+   404→            >
+   405→              <Send className="size-4 mr-1.5" />
+   406→              Send Invitation Link
+   407→            </Button>
+   408→          </div>
+   409→
+   410→          {!showInviteForm ? (
+   411→            /* Create User Form */
+   412→            <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   413→              <div className="space-y-2">
+   414→                <Label htmlFor="create-name">Name</Label>
+   415→                <Input
+   416→                  id="create-name"
+   417→                  placeholder="John Doe"
+   418→                  value={createForm.name}
+   419→                  onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+   420→                  required
+   421→                />
+   422→              </div>
+   423→              <div className="space-y-2">
+   424→                <Label htmlFor="create-email">Email</Label>
+   425→                <Input
+   426→                  id="create-email"
+   427→                  type="email"
+   428→                  placeholder="user@example.com"
+   429→                  value={createForm.email}
+   430→                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+   431→                  required
+   432→                />
+   433→              </div>
+   434→              <div className="space-y-2">
+   435→                <Label htmlFor="create-password">Password</Label>
+   436→                <div className="relative">
+   437→                  <Input
+   438→                    id="create-password"
+   439→                    type={showPassword ? "text" : "password"}
+   440→                    placeholder="Min 8 characters"
+   441→                    value={createForm.password}
+   442→                    onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+   443→                    required
+   444→                    className="pr-10"
+   445→                  />
+   446→                  <Button
+   447→                    type="button"
+   448→                    variant="ghost"
+   449→                    size="sm"
+   450→                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+   451→                    onClick={() => setShowPassword(!showPassword)}
+   452→                  >
+   453→                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+   454→                  </Button>
+   455→                </div>
+   456→              </div>
+   457→              <div className="space-y-2">
+   458→                <Label htmlFor="create-role">Role</Label>
+   459→                <Select
+   460→                  value={createForm.role}
+   461→                  onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v, clinicId: v === "SYSTEM_MANAGER" ? "" : f.clinicId }))}
+   462→                >
+   463→                  <SelectTrigger id="create-role">
+   464→                    <SelectValue />
+   465→                  </SelectTrigger>
+   466→                  <SelectContent>
+   467→                    <SelectItem value="SYSTEM_MANAGER">System Manager</SelectItem>
+   468→                    <SelectItem value="CLINIC_ADMIN">Clinic Admin</SelectItem>
+   469→                    <SelectItem value="CLINIC_RECEPTION">Receptionist</SelectItem>
+   470→                  </SelectContent>
+   471→                </Select>
+   472→              </div>
+   473→              {createForm.role !== "SYSTEM_MANAGER" && (
+   474→                <div className="space-y-2">
+   475→                  <Label htmlFor="create-clinic">Clinic</Label>
+   476→                  <Select
+   477→                    value={createForm.clinicId}
+   478→                    onValueChange={(v) => setCreateForm((f) => ({ ...f, clinicId: v }))}
+   479→                  >
+   480→                    <SelectTrigger id="create-clinic">
+   481→                      <SelectValue placeholder="Select clinic" />
+   482→                    </SelectTrigger>
+   483→                    <SelectContent>
+   484→                      {clinics.map((c) => (
+   485→                        <SelectItem key={c.id} value={c.id}>
+   486→                          {c.name}
+   487→                        </SelectItem>
+   488→                      ))}
+   489→                    </SelectContent>
+   490→                  </Select>
+   491→                </div>
+   492→              )}
+   493→              <div className="flex items-end">
+   494→                <Button
+   495→                  type="submit"
+   496→                  disabled={createLoading || !createForm.name || !createForm.email || !createForm.password || (createForm.role !== "SYSTEM_MANAGER" && !createForm.clinicId)}
+   497→                  className="bg-purple-600 hover:bg-purple-700 text-white"
+   498→                >
+   499→                  {createLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <UserPlus className="size-4 mr-2" />}
+   500→                  Create User
+   501→                </Button>
+   502→              </div>
+   503→            </form>
+   504→          ) : (
+   505→            /* Invitation Form */
+   506→            <form onSubmit={handleInvite} className="space-y-4">
+   507→              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   508→                <div className="space-y-2">
+   509→                  <Label htmlFor="invite-email">Email</Label>
+   510→                  <Input
+   511→                    id="invite-email"
+   512→                    type="email"
+   513→                    placeholder="user@example.com"
+   514→                    value={inviteForm.email}
+   515→                    onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+   516→                    required
+   517→                  />
+   518→                </div>
+   519→                <div className="space-y-2">
+   520→                  <Label htmlFor="invite-role">Role</Label>
+   521→                  <Select
+   522→                    value={inviteForm.role}
+   523→                    onValueChange={(v) => setInviteForm((f) => ({ ...f, role: v, clinicId: v === "SYSTEM_MANAGER" ? "" : f.clinicId }))}
+   524→                  >
+   525→                    <SelectTrigger id="invite-role">
+   526→                      <SelectValue />
+   527→                    </SelectTrigger>
+   528→                    <SelectContent>
+   529→                      <SelectItem value="CLINIC_ADMIN">Clinic Admin</SelectItem>
+   530→                      <SelectItem value="CLINIC_RECEPTION">Receptionist</SelectItem>
+   531→                    </SelectContent>
+   532→                  </Select>
+   533→                </div>
+   534→                {inviteForm.role !== "SYSTEM_MANAGER" && (
+   535→                  <div className="space-y-2">
+   536→                    <Label htmlFor="invite-clinic">Clinic</Label>
+   537→                    <Select
+   538→                      value={inviteForm.clinicId}
+   539→                      onValueChange={(v) => setInviteForm((f) => ({ ...f, clinicId: v }))}
+   540→                    >
+   541→                      <SelectTrigger id="invite-clinic">
+   542→                        <SelectValue placeholder="Select clinic" />
+   543→                      </SelectTrigger>
+   544→                      <SelectContent>
+   545→                        {clinics.map((c) => (
+   546→                          <SelectItem key={c.id} value={c.id}>
+   547→                            {c.name}
+   548→                          </SelectItem>
+   549→                        ))}
+   550→                      </SelectContent>
+   551→                    </Select>
+   552→                  </div>
+   553→                )}
+   554→              </div>
+   555→              <div className="flex items-center gap-3">
+   556→                <Button
+   557→                  type="submit"
+   558→                  disabled={inviteLoading || !inviteForm.email || (inviteForm.role !== "SYSTEM_MANAGER" && !inviteForm.clinicId)}
+   559→                  className="bg-purple-600 hover:bg-purple-700 text-white"
+   560→                >
+   561→                  {inviteLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Send className="size-4 mr-2" />}
+   562→                  Send Invitation
+   563→                </Button>
+   564→              </div>
+   565→
+   566→              {/* Show invite link after sending */}
+   567→              {inviteLink && (
+   568→                <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+   569→                  <div className="flex items-start gap-2">
+   570→                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+   571→                    <div className="flex-1 min-w-0">
+   572→                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+   573→                        Invitation link generated!
+   574→                      </p>
+   575→                      <div className="flex items-center gap-2 mt-1.5">
+   576→                        <code className="text-xs bg-muted/50 px-2 py-1 rounded border truncate max-w-md block">
+   577→                          {inviteLink}
+   578→                        </code>
+   579→                        <Button
+   580→                          type="button"
+   581→                          variant="outline"
+   582→                          size="sm"
+   583→                          className="shrink-0"
+   584→                          onClick={() => {
+   585→                            navigator.clipboard.writeText(inviteLink);
+   586→                            toast.success("Link copied to clipboard");
+   587→                          }}
+   588→                        >
+   589→                          <Copy className="size-3.5 mr-1" />
+   590→                          Copy
+   591→                        </Button>
+   592→                      </div>
+   593→                    </div>
+   594→                  </div>
+   595→                </div>
+   596→              )}
+   597→            </form>
+   598→          )}
+   599→        </CardContent>
+   600→      </Card>
+   601→
+   602→      {/* =================== CARD 2: Staff Directory =================== */}
+   603→      <Card>
+   604→        <CardHeader>
+   605→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   606→            <div className="flex items-center gap-3">
+   607→              <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   608→                <Users className="size-5 text-emerald-700 dark:text-emerald-400" />
+   609→              </div>
+   610→              <div>
+   611→                <CardTitle className="text-lg">Staff Directory</CardTitle>
+   612→                <CardDescription>
+   613→                  {users.length} staff {users.length === 1 ? "member" : "members"} across all clinics
+   614→                </CardDescription>
+   615→              </div>
+   616→            </div>
+   617→            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+   618→              <div className="relative flex-1 sm:w-64">
+   619→                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   620→                <Input
+   621→                  placeholder="Search name or email..."
+   622→                  value={searchQuery}
+   623→                  onChange={(e) => setSearchQuery(e.target.value)}
+   624→                  className="pl-8"
+   625→                />
+   626→              </div>
+   627→              <Select value={roleFilter} onValueChange={setRoleFilter}>
+   628→                <SelectTrigger className="w-full sm:w-44">
+   629→                  <SelectValue />
+   630→                </SelectTrigger>
+   631→                <SelectContent>
+   632→                  <SelectItem value="ALL">All Roles</SelectItem>
+   633→                  <SelectItem value="SYSTEM_MANAGER">System Manager</SelectItem>
+   634→                  <SelectItem value="CLINIC_ADMIN">Clinic Admin</SelectItem>
+   635→                  <SelectItem value="CLINIC_RECEPTION">Receptionist</SelectItem>
+   636→                </SelectContent>
+   637→              </Select>
+   638→            </div>
+   639→          </div>
+   640→        </CardHeader>
+   641→        <CardContent>
+   642→          {filteredUsers.length === 0 ? (
+   643→            <div className="text-center py-10">
+   644→              <Users className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+   645→              <p className="text-sm text-muted-foreground">
+   646→                {searchQuery || roleFilter !== "ALL"
+   647→                  ? "No users match your filters"
+   648→                  : "No staff users found"}
+   649→              </p>
+   650→            </div>
+   651→          ) : (
+   652→            <div className="max-h-96 overflow-y-auto rounded-md border">
+   653→              <Table>
+   654→                <TableHeader>
+   655→                  <TableRow>
+   656→                    <TableHead>Name</TableHead>
+   657→                    <TableHead className="hidden md:table-cell">Email</TableHead>
+   658→                    <TableHead>Role</TableHead>
+   659→                    <TableHead className="hidden lg:table-cell">Clinic</TableHead>
+   660→                    <TableHead className="hidden lg:table-cell">Invited By</TableHead>
+   661→                    <TableHead>Status</TableHead>
+   662→                    <TableHead className="hidden md:table-cell">Last Login</TableHead>
+   663→                    <TableHead className="text-right">Actions</TableHead>
+   664→                  </TableRow>
+   665→                </TableHeader>
+   666→                <TableBody>
+   667→                  {filteredUsers.map((user) => (
+   668→                    <TableRow key={user.id} className={!user.isActive ? "opacity-50" : ""}>
+   669→                      <TableCell className="font-medium">{user.name}</TableCell>
+   670→                      <TableCell className="hidden md:table-cell text-muted-foreground">
+   671→                        {user.email}
+   672→                      </TableCell>
+   673→                      <TableCell>
+   674→                        <Badge variant="secondary" className={ROLE_COLORS[user.role] || ""}>
+   675→                          {ROLE_LABELS[user.role] || user.role}
+   676→                        </Badge>
+   677→                      </TableCell>
+   678→                      <TableCell className="hidden lg:table-cell">
+   679→                        {user.clinicName || <span className="text-muted-foreground">—</span>}
+   680→                      </TableCell>
+   681→                      <TableCell className="hidden lg:table-cell">
+   682→                        {user.invitedByName || <span className="text-muted-foreground">—</span>}
+   683→                      </TableCell>
+   684→                      <TableCell>
+   685→                        {user.isActive ? (
+   686→                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+   687→                            Active
+   688→                          </Badge>
+   689→                        ) : (
+   690→                          <Badge variant="secondary" className="bg-muted text-muted-foreground">
+   691→                            Inactive
+   692→                          </Badge>
+   693→                        )}
+   694→                      </TableCell>
+   695→                      <TableCell className="hidden md:table-cell text-muted-foreground">
+   696→                        {formatShortDate(user.lastLoginAt)}
+   697→                      </TableCell>
+   698→                      <TableCell className="text-right">
+   699→                        <div className="flex items-center justify-end gap-1">
+   700→                          <Button
+   701→                            variant="ghost"
+   702→                            size="sm"
+   703→                            className="h-8 w-8 p-0"
+   704→                            onClick={() => handleEdit(user)}
+   705→                            title="Edit user"
+   706→                          >
+   707→                            <Pencil className="size-3.5" />
+   708→                          </Button>
+   709→                          {user.isActive && (
+   710→                            <Button
+   711→                              variant="ghost"
+   712→                              size="sm"
+   713→                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+   714→                              onClick={() => setDeactivateUser(user)}
+   715→                              title="Deactivate user"
+   716→                            >
+   717→                              <Ban className="size-3.5" />
+   718→                            </Button>
+   719→                          )}
+   720→                        </div>
+   721→                      </TableCell>
+   722→                    </TableRow>
+   723→                  ))}
+   724→                </TableBody>
+   725→              </Table>
+   726→            </div>
+   727→          )}
+   728→        </CardContent>
+   729→      </Card>
+   730→
+   731→      {/* =================== CARD 3: Invitation History =================== */}
+   732→      <Card>
+   733→        <CardHeader>
+   734→          <div className="flex items-center gap-3">
+   735→            <div className="flex items-center justify-center size-9 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   736→              <Link2 className="size-5 text-amber-700 dark:text-amber-400" />
+   737→            </div>
+   738→            <div>
+   739→              <CardTitle className="text-lg">Invitation History</CardTitle>
+   740→              <CardDescription>
+   741→                All staff invitation records across all clinics
+   742→              </CardDescription>
+   743→            </div>
+   744→          </div>
+   745→        </CardHeader>
+   746→        <CardContent>
+   747→          {invitationsLoading ? (
+   748→            <div className="space-y-3">
+   749→              {[1, 2, 3].map((i) => (
+   750→                <Skeleton key={i} className="h-10 w-full" />
+   751→              ))}
+   752→            </div>
+   753→          ) : invitations.length === 0 ? (
+   754→            <div className="text-center py-10">
+   755→              <Mail className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+   756→              <p className="text-sm text-muted-foreground">
+   757→                No invitations have been sent yet
+   758→              </p>
+   759→            </div>
+   760→          ) : (
+   761→            <div className="max-h-96 overflow-y-auto rounded-md border">
+   762→              <Table>
+   763→                <TableHeader>
+   764→                  <TableRow>
+   765→                    <TableHead>Email</TableHead>
+   766→                    <TableHead>Role</TableHead>
+   767→                    <TableHead className="hidden lg:table-cell">Clinic</TableHead>
+   768→                    <TableHead className="hidden md:table-cell">Invited By</TableHead>
+   769→                    <TableHead>Status</TableHead>
+   770→                    <TableHead className="hidden md:table-cell">Created</TableHead>
+   771→                    <TableHead className="hidden xl:table-cell">Accepted At</TableHead>
+   772→                    <TableHead className="hidden xl:table-cell">Accepted By</TableHead>
+   773→                  </TableRow>
+   774→                </TableHeader>
+   775→                <TableBody>
+   776→                  {invitations.map((inv) => (
+   777→                    <TableRow key={inv.id}>
+   778→                      <TableCell className="font-medium">{inv.email}</TableCell>
+   779→                      <TableCell>
+   780→                        <Badge variant="secondary" className={ROLE_COLORS[inv.role] || ""}>
+   781→                          {ROLE_LABELS[inv.role] || inv.role}
+   782→                        </Badge>
+   783→                      </TableCell>
+   784→                      <TableCell className="hidden lg:table-cell">
+   785→                        {inv.clinicName}
+   786→                      </TableCell>
+   787→                      <TableCell className="hidden md:table-cell text-muted-foreground">
+   788→                        {inv.invitedByName || "—"}
+   789→                      </TableCell>
+   790→                      <TableCell>
+   791→                        <Badge
+   792→                          variant="secondary"
+   793→                          className={INVITATION_STATUS_STYLES[inv.status] || ""}
+   794→                        >
+   795→                          {inv.status}
+   796→                        </Badge>
+   797→                      </TableCell>
+   798→                      <TableCell className="hidden md:table-cell text-muted-foreground">
+   799→                        {formatShortDate(inv.createdAt)}
+   800→                      </TableCell>
+   801→                      <TableCell className="hidden xl:table-cell text-muted-foreground">
+   802→                        {formatShortDate(inv.acceptedAt)}
+   803→                      </TableCell>
+   804→                      <TableCell className="hidden xl:table-cell text-muted-foreground">
+   805→                        {inv.acceptedByName || "—"}
+   806→                      </TableCell>
+   807→                    </TableRow>
+   808→                  ))}
+   809→                </TableBody>
+   810→              </Table>
+   811→            </div>
+   812→          )}
+   813→        </CardContent>
+   814→      </Card>
+   815→
+   816→      {/* =================== Edit User Dialog =================== */}
+   817→      <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
+   818→        <DialogContent className="sm:max-w-md">
+   819→          <DialogHeader>
+   820→            <DialogTitle>Edit User</DialogTitle>
+   821→            <DialogDescription>
+   822→              Update role, clinic assignment, or reset password for {editUser?.name}
+   823→            </DialogDescription>
+   824→          </DialogHeader>
+   825→          {editUser && (
+   826→            <div className="space-y-4 py-2">
+   827→              <div className="space-y-2">
+   828→                <Label>Name</Label>
+   829→                <Input
+   830→                  value={editForm.name}
+   831→                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+   832→                />
+   833→              </div>
+   834→              <div className="space-y-2">
+   835→                <Label>Role</Label>
+   836→                <Select
+   837→                  value={editForm.role}
+   838→                  onValueChange={(v) => setEditForm((f) => ({ ...f, role: v, clinicId: v === "SYSTEM_MANAGER" ? "" : f.clinicId }))}
+   839→                >
+   840→                  <SelectTrigger>
+   841→                    <SelectValue />
+   842→                  </SelectTrigger>
+   843→                  <SelectContent>
+   844→                    <SelectItem value="SYSTEM_MANAGER">System Manager</SelectItem>
+   845→                    <SelectItem value="CLINIC_ADMIN">Clinic Admin</SelectItem>
+   846→                    <SelectItem value="CLINIC_RECEPTION">Receptionist</SelectItem>
+   847→                  </SelectContent>
+   848→                </Select>
+   849→              </div>
+   850→              {editForm.role !== "SYSTEM_MANAGER" && (
+   851→                <div className="space-y-2">
+   852→                  <Label>Clinic</Label>
+   853→                  <Select
+   854→                    value={editForm.clinicId}
+   855→                    onValueChange={(v) => setEditForm((f) => ({ ...f, clinicId: v }))}
+   856→                  >
+   857→                    <SelectTrigger>
+   858→                      <SelectValue placeholder="Select clinic" />
+   859→                    </SelectTrigger>
+   860→                    <SelectContent>
+   861→                      {clinics.map((c) => (
+   862→                        <SelectItem key={c.id} value={c.id}>
+   863→                          {c.name}
+   864→                        </SelectItem>
+   865→                      ))}
+   866→                    </SelectContent>
+   867→                  </Select>
+   868→                </div>
+   869→              )}
+   870→              <div className="space-y-2">
+   871→                <Label>New Password (leave blank to keep current)</Label>
+   872→                <Input
+   873→                  type="password"
+   874→                  placeholder="Enter new password to reset"
+   875→                  value={editForm.newPassword}
+   876→                  onChange={(e) => setEditForm((f) => ({ ...f, newPassword: e.target.value }))}
+   877→                />
+   878→                <p className="text-xs text-muted-foreground">
+   879→                  Minimum 8 characters. Leave empty to keep the current password.
+   880→                </p>
+   881→              </div>
+   882→            </div>
+   883→          )}
+   884→          <DialogFooter>
+   885→            <Button variant="outline" onClick={() => setEditUser(null)}>
+   886→              Cancel
+   887→            </Button>
+   888→            <Button
+   889→              onClick={handleSaveEdit}
+   890→              disabled={editLoading || !editForm.name}
+   891→              className="bg-purple-600 hover:bg-purple-700 text-white"
+   892→            >
+   893→              {editLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+   894→              Save Changes
+   895→            </Button>
+   896→          </DialogFooter>
+   897→        </DialogContent>
+   898→      </Dialog>
+   899→
+   900→      {/* =================== Deactivate Confirmation =================== */}
+   901→      <AlertDialog open={!!deactivateUser} onOpenChange={(open) => !open && setDeactivateUser(null)}>
+   902→        <AlertDialogContent>
+   903→          <AlertDialogHeader>
+   904→            <AlertDialogTitle className="flex items-center gap-2">
+   905→              <Ban className="size-5 text-red-500" />
+   906→              Deactivate User
+   907→            </AlertDialogTitle>
+   908→            <AlertDialogDescription>
+   909→              Are you sure you want to deactivate{" "}
+   910→              <strong>{deactivateUser?.name}</strong> ({deactivateUser?.email})? They will
+   911→              no longer be able to log in. This can be reversed by editing the user later.
+   912→            </AlertDialogDescription>
+   913→          </AlertDialogHeader>
+   914→          <AlertDialogFooter>
+   915→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   916→            <AlertDialogAction
+   917→              onClick={handleDeactivate}
+   918→              disabled={deactivateLoading}
+   919→              className="bg-red-600 hover:bg-red-700 text-white"
+   920→            >
+   921→              {deactivateLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+   922→              Deactivate
+   923→            </AlertDialogAction>
+   924→          </AlertDialogFooter>
+   925→        </AlertDialogContent>
+   926→      </AlertDialog>
+   927→    </div>
+   928→  );
+   929→}

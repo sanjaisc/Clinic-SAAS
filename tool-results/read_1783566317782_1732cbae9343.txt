@@ -1,0 +1,1729 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback, useRef } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import {
+     6→  CalendarDays,
+     7→  TrendingUp,
+     8→  XCircle,
+     9→  BarChart3,
+    10→  AlertTriangle,
+    11→  RefreshCw,
+    12→  Star,
+    13→  Users,
+    14→  Activity,
+    15→  CheckCircle2,
+    16→  CalendarRange,
+    17→  DollarSign,
+    18→  UserX,
+    19→  Shield,
+    20→  ShieldCheck,
+    21→  Link2,
+    22→  ScrollText,
+    23→  AlertOctagon,
+    24→  CircleOff,
+    25→} from "lucide-react";
+    26→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    27→import { Button } from "@/components/ui/button";
+    28→import { Badge } from "@/components/ui/badge";
+    29→import { Skeleton } from "@/components/ui/skeleton";
+    30→import {
+    31→  Popover,
+    32→  PopoverContent,
+    33→  PopoverTrigger,
+    34→} from "@/components/ui/popover";
+    35→import { Calendar } from "@/components/ui/calendar";
+    36→import { format, parseISO } from "date-fns";
+    37→import {
+    38→  AreaChart,
+    39→  Area,
+    40→  XAxis,
+    41→  YAxis,
+    42→  CartesianGrid,
+    43→  Tooltip,
+    44→  ResponsiveContainer,
+    45→  PieChart,
+    46→  Pie,
+    47→  Cell,
+    48→  BarChart,
+    49→  Bar,
+    50→  LabelList,
+    51→} from "recharts";
+    52→import type { DoctASessionUser } from "@/lib/auth";
+    53→import { STAFF_ROLE } from "@/lib/enums";
+    54→import { useClinicContext } from "@/hooks/use-clinic-context";
+    55→import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
+    56→
+    57→// ---------------------------------------------------------------------------
+    58→// Types
+    59→// ---------------------------------------------------------------------------
+    60→type Period = "today" | "7d" | "30d" | "90d" | "custom";
+    61→
+    62→interface DailyTrend {
+    63→  date: string;
+    64→  booked: number;
+    65→  checkedIn: number;
+    66→  completed: number;
+    67→  cancelled: number;
+    68→  noShow: number;
+    69→}
+    70→
+    71→interface ModalityData {
+    72→  inPerson: number;
+    73→  video: number;
+    74→  total: number;
+    75→}
+    76→
+    77→interface ProviderPerf {
+    78→  name: string;
+    79→  total: number;
+    80→  completed: number;
+    81→  cancelled: number;
+    82→  noShowRate: number;
+    83→  avgRating: number;
+    84→}
+    85→
+    86→interface SummaryStats {
+    87→  totalAppointments: number;
+    88→  completionRate: number;
+    89→  cancellationRate: number;
+    90→  noShowRate: number;
+    91→  avgDaily: number;
+    92→}
+    93→
+    94→interface NoShowByDay {
+    95→  day: string;
+    96→  count: number;
+    97→}
+    98→
+    99→interface DepositCapture {
+   100→  date: string;
+   101→  amountCents: number;
+   102→  count: number;
+   103→}
+   104→
+   105→interface AnalyticsData {
+   106→  period: { start: string; end: string };
+   107→  dailyTrends: DailyTrend[];
+   108→  modality: ModalityData;
+   109→  providerPerformance: ProviderPerf[];
+   110→  summary: SummaryStats;
+   111→  busiestDay: string;
+   112→  busiestHour: string;
+   113→  noShowByDay: NoShowByDay[];
+   114→  depositCapture: DepositCapture[];
+   115→}
+   116→
+   117→// SYSTEM_MANAGER admin types
+   118→interface CronJob {
+   119→  name: string;
+   120→  key: string;
+   121→  status: string;
+   122→  lastRun: string | null;
+   123→  successRate: string | null;
+   124→  description: string;
+   125→}
+   126→
+   127→interface CronData {
+   128→  jobs: CronJob[];
+   129→  counts: { expiredLocks: number; activeWaitlist: number; pendingAppointments: number };
+   130→}
+   131→
+   132→interface IntegrationData {
+   133→  stripe: { configured: boolean; publicKey: string };
+   134→  jwt: { configured: boolean; secretMasked: string };
+   135→  gravityForms: { configured: boolean };
+   136→}
+   137→
+   138→interface PaymentException {
+   139→  id: string;
+   140→  type: string;
+   141→  appointmentId: string;
+   142→  patientName: string;
+   143→  clinicName: string;
+   144→  amountCents: number;
+   145→  createdAt: string;
+   146→  resolved: boolean;
+   147→}
+   148→
+   149→interface PatientMatchGroup {
+   150→  matchType: "email" | "phone";
+   151→  matchValue: string;
+   152→  hasNameMismatch: boolean;
+   153→  hasCrossClinic: boolean;
+   154→  appointments: {
+   155→    id: string;
+   156→    patientName: string;
+   157→    clinicName: string;
+   158→    providerName: string;
+   159→    serviceName: string;
+   160→    startTime: string;
+   161→    status: string;
+   162→  }[];
+   163→}
+   164→
+   165→interface AuditLogEntry {
+   166→  id: string;
+   167→  userName: string;
+   168→  userClinic: string | null;
+   169→  action: string;
+   170→  targetType: string;
+   171→  targetId: string;
+   172→  createdAt: string;
+   173→}
+   174→
+   175→// ---------------------------------------------------------------------------
+   176→// Colors
+   177→// ---------------------------------------------------------------------------
+   178→const COLORS = {
+   179→  completed: "#10b981",
+   180→  checkedIn: "#14b8a6",
+   181→  cancelled: "#f87171",
+   182→  noShow: "#fbbf24",
+   183→  inPerson: "#10b981",
+   184→  video: "#0d9488",
+   185→  noShowBar: "#f59e0b",
+   186→  deposit: "#059669",
+   187→};
+   188→
+   189→// ---------------------------------------------------------------------------
+   190→// Stat Card
+   191→// ---------------------------------------------------------------------------
+   192→function StatCard({
+   193→  title,
+   194→  value,
+   195→  subtitle,
+   196→  icon: Icon,
+   197→  gradient,
+   198→  iconBg,
+   199→}: {
+   200→  title: string;
+   201→  value: string | number;
+   202→  subtitle?: string;
+   203→  icon: React.ElementType;
+   204→  gradient: string;
+   205→  iconBg: string;
+   206→}) {
+   207→  return (
+   208→    <Card className="relative overflow-hidden border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300">
+   209→      <div className={`absolute inset-x-0 top-0 h-1 ${gradient}`} />
+   210→      <CardContent className="p-5">
+   211→        <div className="flex items-start justify-between">
+   212→          <div className="space-y-2">
+   213→            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+   214→            <p className="text-3xl font-bold tracking-tight text-foreground">
+   215→              {value}
+   216→            </p>
+   217→            {subtitle && (
+   218→              <p className="text-xs text-muted-foreground">{subtitle}</p>
+   219→            )}
+   220→          </div>
+   221→          <div
+   222→            className={`size-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}
+   223→          >
+   224→            <Icon className="size-5" />
+   225→          </div>
+   226→        </div>
+   227→      </CardContent>
+   228→    </Card>
+   229→  );
+   230→}
+   231→
+   232→// ---------------------------------------------------------------------------
+   233→// Custom Tooltip for Area Chart
+   234→// ---------------------------------------------------------------------------
+   235→function AreaTooltipContent({
+   236→  active,
+   237→  payload,
+   238→  label,
+   239→}: {
+   240→  active?: boolean;
+   241→  payload?: Array<{ value: number; dataKey: string; color: string }>;
+   242→  label?: string;
+   243→}) {
+   244→  if (!active || !payload?.length) return null;
+   245→
+   246→  const labelMap: Record<string, string> = {
+   247→    completed: "Completed",
+   248→    checkedIn: "Checked In",
+   249→    cancelled: "Cancelled",
+   250→    noShow: "No Show",
+   251→    booked: "Booked",
+   252→  };
+   253→
+   254→  return (
+   255→    <div className="rounded-xl border border-border/60 bg-background p-3 shadow-lg text-xs space-y-1.5">
+   256→      <p className="font-semibold text-foreground">
+   257→        {label ? format(parseISO(label), "MMM d, yyyy") : ""}
+   258→      </p>
+   259→      {payload.map((entry) => (
+   260→        <div key={entry.dataKey} className="flex items-center gap-2">
+   261→          <span
+   262→            className="size-2 rounded-full shrink-0"
+   263→            style={{ backgroundColor: entry.color }}
+   264→          />
+   265→          <span className="text-muted-foreground">
+   266→            {labelMap[entry.dataKey] ?? entry.dataKey}
+   267→          </span>
+   268→          <span className="ml-auto font-medium text-foreground">
+   269→            {entry.value}
+   270→          </span>
+   271→        </div>
+   272→      ))}
+   273→    </div>
+   274→  );
+   275→}
+   276→
+   277→// ---------------------------------------------------------------------------
+   278→// Pie chart label renderer for center text
+   279→// ---------------------------------------------------------------------------
+   280→function PieCenterLabel({
+   281→  cx,
+   282→  cy,
+   283→  viewBox,
+   284→  total,
+   285→}: {
+   286→  cx: number;
+   287→  cy: number;
+   288→  viewBox?: { width: number; height: number };
+   289→  total: number;
+   290→}) {
+   291→  if (!viewBox) return null;
+   292→
+   293→  return (
+   294→    <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="central">
+   295→      <tspan
+   296→        className="fill-foreground"
+   297→        style={{ fontSize: "20px", fontWeight: 700 }}
+   298→      >
+   299→        {total}
+   300→      </tspan>
+   301→      <tspan
+   302→        className="fill-muted-foreground"
+   303→        x={cx}
+   304→        y={cy + 14}
+   305→        style={{ fontSize: "10px" }}
+   306→      >
+   307→        total
+   308→      </tspan>
+   309→    </text>
+   310→  );
+   311→}
+   312→
+   313→// ---------------------------------------------------------------------------
+   314→// No-Show Bar Chart Tooltip
+   315→// ---------------------------------------------------------------------------
+   316→function NoShowTooltipContent({
+   317→  active,
+   318→  payload,
+   319→  label,
+   320→}: {
+   321→  active?: boolean;
+   322→  payload?: Array<{ value: number; dataKey: string }>;
+   323→  label?: string;
+   324→}) {
+   325→  if (!active || !payload?.length) return null;
+   326→  return (
+   327→    <div className="rounded-xl border border-border/60 bg-background p-3 shadow-lg text-xs">
+   328→      <p className="font-semibold text-foreground">{label}</p>
+   329→      <p className="text-muted-foreground">
+   330→        No-shows:{" "}
+   331→        <span className="font-medium text-foreground">{payload[0].value}</span>
+   332→      </p>
+   333→    </div>
+   334→  );
+   335→}
+   336→
+   337→// ---------------------------------------------------------------------------
+   338→// Deposit Bar Chart Tooltip
+   339→// ---------------------------------------------------------------------------
+   340→function DepositTooltipContent({
+   341→  active,
+   342→  payload,
+   343→  label,
+   344→}: {
+   345→  active?: boolean;
+   346→  payload?: Array<{ payload: { amount: number; count: number; amountCents: number } }>;
+   347→  label?: string;
+   348→}) {
+   349→  if (!active || !payload?.length) return null;
+   350→  const d = payload[0].payload;
+   351→  return (
+   352→    <div className="rounded-xl border border-border/60 bg-background p-3 shadow-lg text-xs">
+   353→      <p className="font-semibold text-foreground">
+   354→        {label ? format(parseISO(label), "MMM d, yyyy") : ""}
+   355→      </p>
+   356→      <p className="text-muted-foreground">
+   357→        Amount:{" "}
+   358→        <span className="font-medium text-foreground">
+   359→          ${d.amount.toFixed(2)}
+   360→        </span>
+   361→      </p>
+   362→      <p className="text-muted-foreground">
+   363→        Transactions:{" "}
+   364→        <span className="font-medium text-foreground">{d.count}</span>
+   365→      </p>
+   366→    </div>
+   367→  );
+   368→}
+   369→
+   370→// ---------------------------------------------------------------------------
+   371→// Period button group with Custom date range
+   372→// ---------------------------------------------------------------------------
+   373→function PeriodSelector({
+   374→  value,
+   375→  onChange,
+   376→  customFrom,
+   377→  customTo,
+   378→  onCustomRange,
+   379→}: {
+   380→  value: Period;
+   381→  onChange: (p: Period) => void;
+   382→  customFrom: Date | undefined;
+   383→  customTo: Date | undefined;
+   384→  onCustomRange: (from: Date | undefined, to: Date | undefined) => void;
+   385→}) {
+   386→  const [open, setOpen] = useState(false);
+   387→  const [from, setFrom] = useState<Date | undefined>(customFrom);
+   388→  const [to, setTo] = useState<Date | undefined>(customTo);
+   389→  const applyRef = useRef<HTMLButtonElement>(null);
+   390→
+   391→  const options: { label: string; value: Period }[] = [
+   392→    { label: "Today", value: "today" },
+   393→    { label: "7 Days", value: "7d" },
+   394→    { label: "30 Days", value: "30d" },
+   395→    { label: "90 Days", value: "90d" },
+   396→    { label: "Custom", value: "custom" },
+   397→  ];
+   398→
+   399→  function handleApply() {
+   400→    if (from && to) {
+   401→      onCustomRange(from, to);
+   402→    }
+   403→    setOpen(false);
+   404→  }
+   405→
+   406→  function handleClear() {
+   407→    setFrom(undefined);
+   408→    setTo(undefined);
+   409→    onCustomRange(undefined, undefined);
+   410→    onChange("30d");
+   411→    setOpen(false);
+   412→  }
+   413→
+   414→  const customLabel =
+   415→    customFrom && customTo
+   416→      ? `${format(customFrom, "MMM d")} – ${format(customTo, "MMM d, yyyy")}`
+   417→      : "";
+   418→
+   419→  return (
+   420→    <div className="flex items-center gap-3">
+   421→      <div className="inline-flex items-center rounded-xl bg-muted/60 p-1 gap-0.5">
+   422→        {options.map((opt) => (
+   423→          <button
+   424→            key={opt.value}
+   425→            onClick={() => {
+   426→              if (opt.value !== "custom") {
+   427→                onChange(opt.value);
+   428→              } else {
+   429→                setOpen(true);
+   430→              }
+   431→            }}
+   432→            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer ${
+   433→              opt.value === "custom" && value === "custom"
+   434→                ? "bg-amber-500 text-white shadow-sm shadow-amber-500/25"
+   435→                : value === opt.value
+   436→                  ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25"
+   437→                  : "text-muted-foreground hover:text-foreground hover:bg-card/60"
+   438→            }`}
+   439→          >
+   440→            {opt.label}
+   441→          </button>
+   442→        ))}
+   443→      </div>
+   444→
+   445→      {/* Custom range label */}
+   446→      {value === "custom" && customLabel && (
+   447→        <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+   448→          <CalendarRange className="size-3.5" />
+   449→          {customLabel}
+   450→        </span>
+   451→      )}
+   452→
+   453→      {/* Custom date range popover */}
+   454→      <Popover open={open} onOpenChange={setOpen}>
+   455→        <PopoverTrigger asChild>
+   456→          <span className="sr-only">Pick date range</span>
+   457→        </PopoverTrigger>
+   458→        <PopoverContent className="w-auto p-4" align="end">
+   459→          <div className="space-y-3">
+   460→            <p className="text-sm font-semibold text-foreground">
+   461→              Custom Date Range
+   462→            </p>
+   463→            <div className="grid grid-cols-2 gap-3">
+   464→              <div className="space-y-1.5">
+   465→                <p className="text-xs font-medium text-muted-foreground">From</p>
+   466→                <Calendar
+   467→                  mode="single"
+   468→                  selected={from}
+   469→                  onSelect={setFrom}
+   470→                  className="rounded-md border"
+   471→                />
+   472→              </div>
+   473→              <div className="space-y-1.5">
+   474→                <p className="text-xs font-medium text-muted-foreground">To</p>
+   475→                <Calendar
+   476→                  mode="single"
+   477→                  selected={to}
+   478→                  onSelect={setTo}
+   479→                  disabled={(date) => (from ? date < from : false)}
+   480→                  className="rounded-md border"
+   481→                />
+   482→              </div>
+   483→            </div>
+   484→            <div className="flex items-center justify-between pt-1">
+   485→              <Button
+   486→                variant="ghost"
+   487→                size="sm"
+   488→                className="text-xs cursor-pointer"
+   489→                onClick={handleClear}
+   490→              >
+   491→                Clear
+   492→              </Button>
+   493→              <Button
+   494→                ref={applyRef}
+   495→                size="sm"
+   496→                className="text-xs bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+   497→                disabled={!from || !to}
+   498→                onClick={handleApply}
+   499→              >
+   500→                Apply Range
+   501→              </Button>
+   502→            </div>
+   503→          </div>
+   504→        </PopoverContent>
+   505→      </Popover>
+   506→    </div>
+   507→  );
+   508→}
+   509→
+   510→// ---------------------------------------------------------------------------
+   511→// Main Page
+   512→// ---------------------------------------------------------------------------
+   513→export default function AnalyticsPage() {
+   514→  const { data: session, status } = useSession();
+   515→  const user = session?.user as DoctASessionUser | undefined;
+   516→  const isSystemManager = user?.role === STAFF_ROLE.SYSTEM_MANAGER;
+   517→  const {
+   518→    clinicId: effectiveClinicId,
+   519→    clinics,
+   520→    setClinicId,
+   521→    clinicsLoading,
+   522→  } = useClinicContext();
+   523→
+   524→  const [period, setPeriod] = useState<Period>("30d");
+   525→  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+   526→  const [customTo, setCustomTo] = useState<Date | undefined>();
+   527→  const [data, setData] = useState<AnalyticsData | null>(null);
+   528→  const [loading, setLoading] = useState(true);
+   529→  const [error, setError] = useState<string | null>(null);
+   530→
+   531→  // SYSTEM_MANAGER admin state
+   532→  const [cronData, setCronData] = useState<CronData | null>(null);
+   533→  const [integrations, setIntegrations] = useState<IntegrationData | null>(null);
+   534→  const [paymentExceptions, setPaymentExceptions] = useState<PaymentException[]>([]);
+   535→  const [patientMatches, setPatientMatches] = useState<PatientMatchGroup[]>([]);
+   536→  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+   537→  const [adminLoading, setAdminLoading] = useState(false);
+   538→  // Platform-wide KPIs for SYSTEM_MANAGER
+   539→  const [platformKpis, setPlatformKpis] = useState<{
+   540→    totalBookings: number;
+   541→    activeClinics: number;
+   542→    activeProviders: number;
+   543→    depositCaptured: number;
+   544→    depositAuthorized: number;
+   545→  } | null>(null);
+   546→  const [conversionData, setConversionData] = useState<{
+   547→    searches: number;
+   548→    bookings: number;
+   549→    rate: number;
+   550→  } | null>(null);
+   551→
+   552→  const fetchAnalytics = useCallback(
+   553→    async (p: Period, from?: Date, to?: Date) => {
+   554→      // For non-SYSTEM_MANAGER, require a clinicId
+   555→      if (!isSystemManager && !effectiveClinicId) return;
+   556→      setLoading(true);
+   557→      setError(null);
+   558→      try {
+   559→        const params = new URLSearchParams();
+   560→        if (from && to) {
+   561→          params.set("dateFrom", format(from, "yyyy-MM-dd"));
+   562→          params.set("dateTo", format(to, "yyyy-MM-dd"));
+   563→        } else {
+   564→          params.set("period", p);
+   565→        }
+   566→        // For SYSTEM_MANAGER: if a specific clinic is selected, scope to it; otherwise platform-wide
+   567→        if (effectiveClinicId) {
+   568→          params.set("clinicId", effectiveClinicId);
+   569→        }
+   570→        const res = await fetch(`/api/staff/analytics?${params.toString()}`);
+   571→        if (!res.ok) throw new Error("Failed to fetch analytics");
+   572→        const json = await res.json();
+   573→        setData(json);
+   574→      } catch (err) {
+   575→        setError(err instanceof Error ? err.message : "Unknown error");
+   576→      } finally {
+   577→        setLoading(false);
+   578→      }
+   579→    },
+   580→    [isSystemManager, effectiveClinicId]
+   581→  );
+   582→
+   583→  // Fetch SYSTEM_MANAGER admin data
+   584→  useEffect(() => {
+   585→    if (!isSystemManager || status !== "authenticated") return;
+   586→    let cancelled = false;
+   587→    setAdminLoading(true);
+   588→
+   589→    (async () => {
+   590→      try {
+   591→        const [cronRes, intRes, excRes, pmRes, auditRes, kpiRes, convRes] = await Promise.allSettled([
+   592→          fetch("/api/staff/admin/cron"),
+   593→          fetch("/api/staff/admin/integrations"),
+   594→          fetch("/api/staff/admin/payments/exceptions?limit=5"),
+   595→          fetch("/api/staff/admin/patient-matches"),
+   596→          fetch("/api/staff/admin/audit-logs?limit=10"),
+   597→          fetch("/api/staff/admin"),
+   598→          fetch("/api/staff/admin/conversion"),
+   599→        ]);
+   600→
+   601→        if (cancelled) return;
+   602→
+   603→        if (cronRes.status === "fulfilled" && cronRes.value.ok) {
+   604→          setCronData(await cronRes.value.json());
+   605→        }
+   606→        if (intRes.status === "fulfilled" && intRes.value.ok) {
+   607→          setIntegrations(await intRes.value.json());
+   608→        }
+   609→        if (excRes.status === "fulfilled" && excRes.value.ok) {
+   610→          const excJson = await excRes.value.json();
+   611→          setPaymentExceptions(excJson.data ?? []);
+   612→        }
+   613→        if (pmRes.status === "fulfilled" && pmRes.value.ok) {
+   614→          const pmJson = await pmRes.value.json();
+   615→          setPatientMatches((pmJson.data ?? []).slice(0, 5));
+   616→        }
+   617→        if (auditRes.status === "fulfilled" && auditRes.value.ok) {
+   618→          const auditJson = await auditRes.value.json();
+   619→          setAuditLogs(auditJson.data ?? []);
+   620→        }
+   621→        if (kpiRes.status === "fulfilled" && kpiRes.value.ok) {
+   622→          const kpiJson = await kpiRes.value.json();
+   623→          setPlatformKpis({
+   624→            totalBookings: kpiJson.totalBookings ?? 0,
+   625→            activeClinics: kpiJson.activeClinics ?? 0,
+   626→            activeProviders: kpiJson.activeProviders ?? 0,
+   627→            depositCaptured: kpiJson.depositCapturedCents ?? 0,
+   628→            depositAuthorized: kpiJson.depositAuthorizedCents ?? 0,
+   629→          });
+   630→        }
+   631→        if (convRes.status === "fulfilled" && convRes.value.ok) {
+   632→          const convJson = await convRes.value.json();
+   633→          setConversionData({
+   634→            searches: convJson.searches ?? 0,
+   635→            bookings: convJson.bookings ?? 0,
+   636→            rate: convJson.rate ?? 0,
+   637→          });
+   638→        }
+   639→      } catch {
+   640→        // Silently ignore — admin panels are supplementary
+   641→      } finally {
+   642→        if (!cancelled) setAdminLoading(false);
+   643→      }
+   644→    })();
+   645→
+   646→    return () => { cancelled = true; };
+   647→  }, [isSystemManager, status]);
+   648→
+   649→  useEffect(() => {
+   650→    if (status === "authenticated") {
+   651→      // For SYSTEM_MANAGER, fetch immediately even without a clinic selected
+   652→      // For others, wait for clinicReady
+   653→      if (isSystemManager || effectiveClinicId) {
+   654→        fetchAnalytics(period, customFrom, customTo);
+   655→      }
+   656→    }
+   657→  }, [status, period, customFrom, customTo, fetchAnalytics, isSystemManager, effectiveClinicId]);
+   658→
+   659→  function handlePeriodChange(p: Period) {
+   660→    setPeriod(p);
+   661→    setCustomFrom(undefined);
+   662→    setCustomTo(undefined);
+   663→  }
+   664→
+   665→  function handleCustomRange(from: Date | undefined, to: Date | undefined) {
+   666→    if (from && to) {
+   667→      setCustomFrom(from);
+   668→      setCustomTo(to);
+   669→      setPeriod("custom");
+   670→    }
+   671→  }
+   672→
+   673→  // Period range label
+   674→  const dateRange =
+   675→    data?.period.start && data?.period.end
+   676→      ? `${format(parseISO(data.period.start), "MMM d")} – ${format(parseISO(data.period.end), "MMM d, yyyy")}`
+   677→      : "";
+   678→
+   679→  // Modality pie data
+   680→  const modalityPieData = data
+   681→    ? [
+   682→        { name: "In-Person", value: data.modality.inPerson, color: COLORS.inPerson },
+   683→        { name: "Video", value: data.modality.video, color: COLORS.video },
+   684→      ].filter((d) => d.value > 0)
+   685→    : [];
+   686→
+   687→  // Deposit chart data (convert cents to dollars)
+   688→  const depositChartData =
+   689→    data?.depositCapture.map((d) => ({
+   690→      ...d,
+   691→      amount: d.amountCents / 100,
+   692→    })) ?? [];
+   693→
+   694→  // -------------------------------------
+   695→  // Loading skeleton
+   696→  // -------------------------------------
+   697→  if (status === "loading" || loading) {
+   698→    return (
+   699→      <div className="space-y-6">
+   700→        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   701→          <Skeleton className="h-8 w-52" />
+   702→          <Skeleton className="h-9 w-80 rounded-xl" />
+   703→        </div>
+   704→        <Skeleton className="h-4 w-48" />
+   705→        {/* Full width chart skeleton */}
+   706→        <Skeleton className="h-[340px] rounded-xl" />
+   707→        {/* 2-column chart skeletons */}
+   708→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   709→          <Skeleton className="h-[360px] rounded-xl" />
+   710→          <Skeleton className="h-[360px] rounded-xl" />
+   711→        </div>
+   712→        {/* Full width chart skeleton */}
+   713→        <Skeleton className="h-[320px] rounded-xl" />
+   714→        {/* Stat cards */}
+   715→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   716→          {[1, 2, 3, 4].map((i) => (
+   717→            <Skeleton key={i} className="h-32 rounded-xl" />
+   718→          ))}
+   719→        </div>
+   720→        {/* Provider table skeleton */}
+   721→        <Skeleton className="h-[300px] rounded-xl" />
+   722→      </div>
+   723→    );
+   724→  }
+   725→
+   726→  // -------------------------------------
+   727→  // Error state
+   728→  // -------------------------------------
+   729→  if (error) {
+   730→    return (
+   731→      <Card className="border-red-200 bg-red-50/30 dark:bg-red-950/20">
+   732→        <CardContent className="flex flex-col items-center justify-center py-12">
+   733→          <AlertTriangle className="size-8 text-red-400 mb-3" />
+   734→          <p className="text-sm font-medium text-red-800 dark:text-red-300">
+   735→            Failed to load analytics
+   736→          </p>
+   737→          <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>
+   738→          <Button
+   739→            variant="outline"
+   740→            size="sm"
+   741→            className="mt-4 cursor-pointer"
+   742→            onClick={() => fetchAnalytics(period, customFrom, customTo)}
+   743→          >
+   744→            <RefreshCw className="size-3.5 mr-2" />
+   745→            Retry
+   746→          </Button>
+   747→        </CardContent>
+   748→      </Card>
+   749→    );
+   750→  }
+   751→
+   752→  if (!data && !loading) return null;
+   753→
+   754→  return (
+   755→    <div className="space-y-6 animate-in fade-in-0 duration-300">
+   756→      {/* Clinic selector for SYSTEM_MANAGER */}
+   757→      {isSystemManager && (
+   758→        <ClinicSelectorBar
+   759→          clinics={clinics}
+   760→          selectedId={effectiveClinicId}
+   761→          onSelect={setClinicId}
+   762→          loading={clinicsLoading}
+   763→        />
+   764→      )}
+   765→
+   766→      {/* Platform-wide badge for SYSTEM_MANAGER with no clinic selected */}
+   767→      {isSystemManager && !effectiveClinicId && (
+   768→        <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-800 rounded-lg px-3 py-1.5">
+   769→          <ShieldCheck className="size-3.5" />
+   770→          Platform-wide Analytics — All Clinics
+   771→        </div>
+   772→      )}
+   773→
+   774→      {/* Page header */}
+   775→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   776→        <div>
+   777→          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+   778→            Analytics
+   779→          </h1>
+   780→          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+   781→            <BarChart3 className="size-3.5" />
+   782→            {dateRange}
+   783→          </p>
+   784→        </div>
+   785→        <PeriodSelector
+   786→          value={period}
+   787→          onChange={handlePeriodChange}
+   788→          customFrom={customFrom}
+   789→          customTo={customTo}
+   790→          onCustomRange={handleCustomRange}
+   791→        />
+   792→      </div>
+   793→
+   794→      {/* ---------------------------------------------------------------- */}
+   795→      {/* Row 1: Appointment Volume — Full Width Area Chart                  */}
+   796→      {/* ---------------------------------------------------------------- */}
+   797→      <Card className="border-border/50 shadow-sm">
+   798→        <CardHeader className="pb-2">
+   799→          <div className="flex items-center gap-2">
+   800→            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+   801→              <Activity className="size-4 text-emerald-600 dark:text-emerald-400" />
+   802→            </div>
+   803→            <div>
+   804→              <CardTitle className="text-base">Appointment Volume</CardTitle>
+   805→              <p className="text-xs text-muted-foreground">
+   806→                Daily breakdown by status
+   807→              </p>
+   808→            </div>
+   809→          </div>
+   810→        </CardHeader>
+   811→        <CardContent className="px-2 pb-4">
+   812→          <div className="h-[320px] w-full">
+   813→            <ResponsiveContainer width="100%" height="100%">
+   814→              <AreaChart
+   815→                data={data.dailyTrends}
+   816→                margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+   817→              >
+   818→                <defs>
+   819→                  <linearGradient id="gCompleted" x1="0" y1="0" x2="0" y2="1">
+   820→                    <stop offset="5%" stopColor={COLORS.completed} stopOpacity={0.3} />
+   821→                    <stop offset="95%" stopColor={COLORS.completed} stopOpacity={0} />
+   822→                  </linearGradient>
+   823→                  <linearGradient id="gCheckedIn" x1="0" y1="0" x2="0" y2="1">
+   824→                    <stop offset="5%" stopColor={COLORS.checkedIn} stopOpacity={0.3} />
+   825→                    <stop offset="95%" stopColor={COLORS.checkedIn} stopOpacity={0} />
+   826→                  </linearGradient>
+   827→                  <linearGradient id="gCancelled" x1="0" y1="0" x2="0" y2="1">
+   828→                    <stop offset="5%" stopColor={COLORS.cancelled} stopOpacity={0.3} />
+   829→                    <stop offset="95%" stopColor={COLORS.cancelled} stopOpacity={0} />
+   830→                  </linearGradient>
+   831→                  <linearGradient id="gNoShow" x1="0" y1="0" x2="0" y2="1">
+   832→                    <stop offset="5%" stopColor={COLORS.noShow} stopOpacity={0.3} />
+   833→                    <stop offset="95%" stopColor={COLORS.noShow} stopOpacity={0} />
+   834→                  </linearGradient>
+   835→                </defs>
+   836→                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+   837→                <XAxis
+   838→                  dataKey="date"
+   839→                  tickFormatter={(v: string) => format(parseISO(v), "MMM dd")}
+   840→                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+   841→                  axisLine={false}
+   842→                  tickLine={false}
+   843→                />
+   844→                <YAxis
+   845→                  allowDecimals={false}
+   846→                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+   847→                  axisLine={false}
+   848→                  tickLine={false}
+   849→                />
+   850→                <Tooltip content={<AreaTooltipContent />} />
+   851→                <Area
+   852→                  type="monotone"
+   853→                  dataKey="completed"
+   854→                  stackId="1"
+   855→                  stroke={COLORS.completed}
+   856→                  fill="url(#gCompleted)"
+   857→                  strokeWidth={2}
+   858→                  dot={false}
+   859→                  activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   860→                />
+   861→                <Area
+   862→                  type="monotone"
+   863→                  dataKey="checkedIn"
+   864→                  stackId="1"
+   865→                  stroke={COLORS.checkedIn}
+   866→                  fill="url(#gCheckedIn)"
+   867→                  strokeWidth={2}
+   868→                  dot={false}
+   869→                  activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   870→                />
+   871→                <Area
+   872→                  type="monotone"
+   873→                  dataKey="cancelled"
+   874→                  stackId="1"
+   875→                  stroke={COLORS.cancelled}
+   876→                  fill="url(#gCancelled)"
+   877→                  strokeWidth={2}
+   878→                  dot={false}
+   879→                  activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   880→                />
+   881→                <Area
+   882→                  type="monotone"
+   883→                  dataKey="noShow"
+   884→                  stackId="1"
+   885→                  stroke={COLORS.noShow}
+   886→                  fill="url(#gNoShow)"
+   887→                  strokeWidth={2}
+   888→                  dot={false}
+   889→                  activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }}
+   890→                />
+   891→              </AreaChart>
+   892→            </ResponsiveContainer>
+   893→          </div>
+   894→        </CardContent>
+   895→      </Card>
+   896→
+   897→      {/* ---------------------------------------------------------------- */}
+   898→      {/* Row 2: Telehealth Pie (left) + No-Show Distribution (right)       */}
+   899→      {/* ---------------------------------------------------------------- */}
+   900→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   901→        {/* Telehealth vs In-Person Pie */}
+   902→        <Card className="border-border/50 shadow-sm">
+   903→          <CardHeader className="pb-2">
+   904→            <div className="flex items-center gap-2">
+   905→              <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+   906→                <Users className="size-4 text-emerald-600 dark:text-emerald-400" />
+   907→              </div>
+   908→              <div>
+   909→                <CardTitle className="text-base">Telehealth vs In-Person</CardTitle>
+   910→                <p className="text-xs text-muted-foreground">
+   911→                  Appointment modality split
+   912→                </p>
+   913→              </div>
+   914→            </div>
+   915→          </CardHeader>
+   916→          <CardContent className="flex flex-col items-center">
+   917→            {modalityPieData.length > 0 ? (
+   918→              <div className="h-[220px] w-full">
+   919→                <ResponsiveContainer width="100%" height="100%">
+   920→                  <PieChart>
+   921→                    <Pie
+   922→                      data={modalityPieData}
+   923→                      cx="50%"
+   924→                      cy="50%"
+   925→                      innerRadius={60}
+   926→                      outerRadius={90}
+   927→                      paddingAngle={3}
+   928→                      dataKey="value"
+   929→                      stroke="none"
+   930→                    >
+   931→                      {modalityPieData.map((entry, i) => (
+   932→                        <Cell key={`cell-${i}`} fill={entry.color} />
+   933→                      ))}
+   934→                    </Pie>
+   935→                    <PieCenterLabel
+   936→                      cx={0.5}
+   937→                      cy={0.5}
+   938→                      viewBox={{ width: 200, height: 200 }}
+   939→                      total={data.modality.total}
+   940→                    />
+   941→                    <Tooltip
+   942→                      contentStyle={{
+   943→                        borderRadius: "12px",
+   944→                        border: "1px solid hsl(var(--border))",
+   945→                        fontSize: "12px",
+   946→                        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+   947→                      }}
+   948→                      formatter={(value: number) => [`${value}`, "Appointments"]}
+   949→                    />
+   950→                  </PieChart>
+   951→                </ResponsiveContainer>
+   952→              </div>
+   953→            ) : (
+   954→              <div className="h-[220px] flex items-center justify-center">
+   955→                <p className="text-sm text-muted-foreground">
+   956→                  No appointments in this period
+   957→                </p>
+   958→              </div>
+   959→            )}
+   960→
+   961→            {/* Legend */}
+   962→            <div className="flex items-center justify-center gap-6 mt-2 mb-2">
+   963→              <div className="flex items-center gap-2">
+   964→                <span
+   965→                  className="size-3 rounded-full"
+   966→                  style={{ backgroundColor: COLORS.inPerson }}
+   967→                />
+   968→                <span className="text-xs font-medium text-muted-foreground">
+   969→                  In-Person
+   970→                </span>
+   971→                <span className="text-xs font-bold text-foreground">
+   972→                  {data.modality.inPerson}
+   973→                </span>
+   974→              </div>
+   975→              <div className="flex items-center gap-2">
+   976→                <span
+   977→                  className="size-3 rounded-full"
+   978→                  style={{ backgroundColor: COLORS.video }}
+   979→                />
+   980→                <span className="text-xs font-medium text-muted-foreground">
+   981→                  Video
+   982→                </span>
+   983→                <span className="text-xs font-bold text-foreground">
+   984→                  {data.modality.video}
+   985→                </span>
+   986→              </div>
+   987→            </div>
+   988→
+   989→            {/* Busiest info */}
+   990→            <div className="w-full grid grid-cols-2 gap-3 mt-2">
+   991→              <div className="rounded-xl bg-muted/50 dark:bg-muted/20 p-3 text-center">
+   992→                <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
+   993→                  Busiest Day
+   994→                </p>
+   995→                <p className="text-sm font-bold text-foreground">
+   996→                  {data.busiestDay}
+   997→                </p>
+   998→              </div>
+   999→              <div className="rounded-xl bg-muted/50 dark:bg-muted/20 p-3 text-center">
+  1000→                <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mb-1">
+  1001→                  Busiest Hour
+  1002→                </p>
+  1003→                <p className="text-sm font-bold text-foreground">
+  1004→                  {data.busiestHour}
+  1005→                </p>
+  1006→              </div>
+  1007→            </div>
+  1008→          </CardContent>
+  1009→        </Card>
+  1010→
+  1011→        {/* No-Show Distribution Bar Chart */}
+  1012→        <Card className="border-border/50 shadow-sm">
+  1013→          <CardHeader className="pb-2">
+  1014→            <div className="flex items-center gap-2">
+  1015→              <div className="size-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+  1016→                <UserX className="size-4 text-amber-600 dark:text-amber-400" />
+  1017→              </div>
+  1018→              <div>
+  1019→                <CardTitle className="text-base">No-Show Distribution</CardTitle>
+  1020→                <p className="text-xs text-muted-foreground">
+  1021→                  No-show counts by day of week
+  1022→                </p>
+  1023→              </div>
+  1024→            </div>
+  1025→          </CardHeader>
+  1026→          <CardContent className="px-2 pb-4">
+  1027→            <div className="h-[320px] w-full">
+  1028→              <ResponsiveContainer width="100%" height="100%">
+  1029→                <BarChart
+  1030→                  data={data.noShowByDay}
+  1031→                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+  1032→                >
+  1033→                  <CartesianGrid
+  1034→                    strokeDasharray="3 3"
+  1035→                    stroke="hsl(var(--border))"
+  1036→                    opacity={0.4}
+  1037→                    vertical={false}
+  1038→                  />
+  1039→                  <XAxis
+  1040→                    dataKey="day"
+  1041→                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+  1042→                    axisLine={false}
+  1043→                    tickLine={false}
+  1044→                  />
+  1045→                  <YAxis
+  1046→                    allowDecimals={false}
+  1047→                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+  1048→                    axisLine={false}
+  1049→                    tickLine={false}
+  1050→                  />
+  1051→                  <Tooltip content={<NoShowTooltipContent />} />
+  1052→                  <Bar
+  1053→                    dataKey="count"
+  1054→                    fill={COLORS.noShowBar}
+  1055→                    radius={[6, 6, 0, 0]}
+  1056→                    maxBarSize={48}
+  1057→                  >
+  1058→                    <LabelList
+  1059→                      dataKey="count"
+  1060→                      position="top"
+  1061→                      style={{
+  1062→                        fontSize: "11px",
+  1063→                        fontWeight: 600,
+  1064→                        fill: "hsl(var(--foreground))",
+  1065→                      }}
+  1066→                    />
+  1067→                  </Bar>
+  1068→                </BarChart>
+  1069→              </ResponsiveContainer>
+  1070→            </div>
+  1071→          </CardContent>
+  1072→        </Card>
+  1073→      </div>
+  1074→
+  1075→      {/* ---------------------------------------------------------------- */}
+  1076→      {/* Row 3: Deposit Capture Volume — Full Width Bar Chart              */}
+  1077→      {/* ---------------------------------------------------------------- */}
+  1078→      <Card className="border-border/50 shadow-sm">
+  1079→        <CardHeader className="pb-2">
+  1080→          <div className="flex items-center gap-2">
+  1081→            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+  1082→              <DollarSign className="size-4 text-emerald-600 dark:text-emerald-400" />
+  1083→            </div>
+  1084→            <div>
+  1085→              <CardTitle className="text-base">Deposit Capture Volume</CardTitle>
+  1086→              <p className="text-xs text-muted-foreground">
+  1087→                Daily deposit capture amounts
+  1088→              </p>
+  1089→            </div>
+  1090→          </div>
+  1091→        </CardHeader>
+  1092→        <CardContent className="px-2 pb-4">
+  1093→          <div className="h-[300px] w-full">
+  1094→            <ResponsiveContainer width="100%" height="100%">
+  1095→              <BarChart
+  1096→                data={depositChartData}
+  1097→                margin={{ top: 20, right: 10, left: -10, bottom: 0 }}
+  1098→              >
+  1099→                <CartesianGrid
+  1100→                  strokeDasharray="3 3"
+  1101→                  stroke="hsl(var(--border))"
+  1102→                  opacity={0.4}
+  1103→                  vertical={false}
+  1104→                />
+  1105→                <XAxis
+  1106→                  dataKey="date"
+  1107→                  tickFormatter={(v: string) => format(parseISO(v), "MMM dd")}
+  1108→                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+  1109→                  axisLine={false}
+  1110→                  tickLine={false}
+  1111→                />
+  1112→                <YAxis
+  1113→                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+  1114→                  axisLine={false}
+  1115→                  tickLine={false}
+  1116→                  tickFormatter={(v: number) => `$${v}`}
+  1117→                />
+  1118→                <Tooltip content={<DepositTooltipContent />} />
+  1119→                <Bar
+  1120→                  dataKey="amount"
+  1121→                  fill={COLORS.deposit}
+  1122→                  radius={[6, 6, 0, 0]}
+  1123→                  maxBarSize={40}
+  1124→                >
+  1125→                  <LabelList
+  1126→                    dataKey="count"
+  1127→                    position="top"
+  1128→                    formatter={(v: number) => (v > 0 ? `${v} txn` : "")}
+  1129→                    style={{
+  1130→                      fontSize: "10px",
+  1131→                      fontWeight: 600,
+  1132→                      fill: "hsl(var(--muted-foreground))",
+  1133→                    }}
+  1134→                  />
+  1135→                </Bar>
+  1136→              </BarChart>
+  1137→            </ResponsiveContainer>
+  1138→          </div>
+  1139→        </CardContent>
+  1140→      </Card>
+  1141→
+  1142→      {/* ---------------------------------------------------------------- */}
+  1143→      {/* Summary stat cards                                                */}
+  1144→      {/* ---------------------------------------------------------------- */}
+  1145→      {isSystemManager ? (
+  1146→        /* Platform-wide KPI cards for SYSTEM_MANAGER */
+  1147→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+  1148→          <StatCard
+  1149→            title="Total Platform Bookings"
+  1150→            value={platformKpis?.totalBookings ?? data.summary.totalAppointments}
+  1151→            subtitle={dateRange}
+  1152→            icon={CalendarDays}
+  1153→            gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
+  1154→            iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+  1155→          />
+  1156→          <StatCard
+  1157→            title="Deposit Captured"
+  1158→            value={`$${((platformKpis?.depositCaptured ?? 0) / 100).toFixed(2)}`}
+  1159→            subtitle={`Authorized: $${((platformKpis?.depositAuthorized ?? 0) / 100).toFixed(2)}`}
+  1160→            icon={DollarSign}
+  1161→            gradient="bg-gradient-to-r from-emerald-500 to-green-500"
+  1162→            iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+  1163→          />
+  1164→          <StatCard
+  1165→            title="Search → Booking"
+  1166→            value={`${conversionData?.rate ?? 0}%`}
+  1167→            subtitle={`${conversionData?.searches ?? 0} searches, ${conversionData?.bookings ?? 0} bookings`}
+  1168→            icon={TrendingUp}
+  1169→            gradient="bg-gradient-to-r from-violet-500 to-purple-500"
+  1170→            iconBg="bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+  1171→          />
+  1172→          <StatCard
+  1173→            title="Active Clinics"
+  1174→            value={platformKpis?.activeClinics ?? "—"}
+  1175→            subtitle="All published"
+  1176→            icon={BarChart3}
+  1177→            gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+  1178→            iconBg="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+  1179→          />
+  1180→          <StatCard
+  1181→            title="Active Providers"
+  1182→            value={platformKpis?.activeProviders ?? "—"}
+  1183→            subtitle="Across all clinics"
+  1184→            icon={Users}
+  1185→            gradient="bg-gradient-to-r from-sky-500 to-cyan-500"
+  1186→            iconBg="bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400"
+  1187→          />
+  1188→        </div>
+  1189→      ) : (
+  1190→        /* Clinic-scoped KPI cards */
+  1191→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  1192→          <StatCard
+  1193→            title="Total Appointments"
+  1194→            value={data.summary.totalAppointments}
+  1195→            subtitle={`${data.summary.avgDaily} per day average`}
+  1196→            icon={CalendarDays}
+  1197→            gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
+  1198→            iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+  1199→          />
+  1200→          <StatCard
+  1201→            title="Completion Rate"
+  1202→            value={`${data.summary.completionRate}%`}
+  1203→            subtitle={`${data.dailyTrends.reduce((s, d) => s + d.completed, 0)} completed`}
+  1204→            icon={CheckCircle2}
+  1205→            gradient="bg-gradient-to-r from-emerald-500 to-green-500"
+  1206→            iconBg="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+  1207→          />
+  1208→          <StatCard
+  1209→            title="Cancellation Rate"
+  1210→            value={`${data.summary.cancellationRate}%`}
+  1211→            subtitle={`${data.dailyTrends.reduce((s, d) => s + d.cancelled, 0)} cancelled`}
+  1212→            icon={XCircle}
+  1213→            gradient="bg-gradient-to-r from-red-400 to-rose-400"
+  1214→            iconBg="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+  1215→          />
+  1216→          <StatCard
+  1217→            title="Avg Daily"
+  1218→            value={data.summary.avgDaily}
+  1219→            subtitle={`${data.busiestDay} is busiest`}
+  1220→            icon={TrendingUp}
+  1221→            gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+  1222→            iconBg="bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+  1223→          />
+  1224→        </div>
+  1225→      )}
+  1226→
+  1227→      {/* ---------------------------------------------------------------- */}
+  1228→      {/* Provider Performance Table (hidden for SYSTEM_MANAGER platform-wide view) */}
+  1229→      {/* ---------------------------------------------------------------- */}
+  1230→      {isSystemManager ? null : (
+  1231→      <Card className="border-border/50 shadow-sm">
+  1232→        <CardHeader className="pb-3">
+  1233→          <div className="flex items-center gap-2">
+  1234→            <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+  1235→              <Star className="size-4 text-emerald-600 dark:text-emerald-400" />
+  1236→            </div>
+  1237→            <div>
+  1238→              <CardTitle className="text-base">Provider Performance</CardTitle>
+  1239→              <p className="text-xs text-muted-foreground">
+  1240→                Individual metrics for the selected period
+  1241→              </p>
+  1242→            </div>
+  1243→          </div>
+  1244→        </CardHeader>
+  1245→        <CardContent className="px-4 pb-4">
+  1246→          {data.providerPerformance.length === 0 ? (
+  1247→            <div className="flex flex-col items-center justify-center py-10 text-center">
+  1248→              <div className="size-12 rounded-full bg-muted/50 dark:bg-muted/20 flex items-center justify-center mb-3">
+  1249→                <Users className="size-5 text-muted-foreground" />
+  1250→              </div>
+  1251→              <p className="text-sm font-medium text-foreground">
+  1252→                No provider data
+  1253→              </p>
+  1254→              <p className="text-xs text-muted-foreground mt-1">
+  1255→                Appointments in this period will appear here.
+  1256→              </p>
+  1257→            </div>
+  1258→          ) : (
+  1259→            <div className="overflow-x-auto -mx-4 max-h-96 overflow-y-auto">
+  1260→              <table className="w-full text-sm">
+  1261→                <thead className="sticky top-0 bg-background z-10">
+  1262→                  <tr className="border-b border-border/60">
+  1263→                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1264→                      Provider
+  1265→                    </th>
+  1266→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1267→                      Total
+  1268→                    </th>
+  1269→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1270→                      Completed
+  1271→                    </th>
+  1272→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1273→                      Cancelled
+  1274→                    </th>
+  1275→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1276→                      No-Show Rate
+  1277→                    </th>
+  1278→                    <th className="text-center py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+  1279→                      Rating
+  1280→                    </th>
+  1281→                  </tr>
+  1282→                </thead>
+  1283→                <tbody>
+  1284→                  {data.providerPerformance.map((provider, idx) => (
+  1285→                    <tr
+  1286→                      key={idx}
+  1287→                      className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors"
+  1288→                    >
+  1289→                      <td className="py-3 px-4">
+  1290→                        <div className="flex items-center gap-2.5">
+  1291→                          <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+  1292→                            <Users className="size-3.5 text-emerald-700 dark:text-emerald-300" />
+  1293→                          </div>
+  1294→                          <span className="font-medium text-foreground text-sm">
+  1295→                            {provider.name}
+  1296→                          </span>
+  1297→                        </div>
+  1298→                      </td>
+  1299→                      <td className="text-center py-3 px-3 font-semibold text-foreground">
+  1300→                        {provider.total}
+  1301→                      </td>
+  1302→                      <td className="text-center py-3 px-3">
+  1303→                        <Badge
+  1304→                          variant="outline"
+  1305→                          className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 text-xs"
+  1306→                        >
+  1307→                          <CheckCircle2 className="size-3 mr-1" />
+  1308→                          {provider.completed}
+  1309→                        </Badge>
+  1310→                      </td>
+  1311→                      <td className="text-center py-3 px-3">
+  1312→                        <Badge
+  1313→                          variant="outline"
+  1314→                          className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 text-xs"
+  1315→                        >
+  1316→                          <XCircle className="size-3 mr-1" />
+  1317→                          {provider.cancelled}
+  1318→                        </Badge>
+  1319→                      </td>
+  1320→                      <td className="text-center py-3 px-3">
+  1321→                        <span
+  1322→                          className={`text-xs font-semibold ${
+  1323→                            provider.noShowRate >= 20
+  1324→                              ? "text-red-600 dark:text-red-400"
+  1325→                              : provider.noShowRate >= 10
+  1326→                                ? "text-amber-600 dark:text-amber-400"
+  1327→                                : "text-emerald-600 dark:text-emerald-400"
+  1328→                          }`}
+  1329→                        >
+  1330→                          {provider.noShowRate}%
+  1331→                        </span>
+  1332→                      </td>
+  1333→                      <td className="text-center py-3 px-3">
+  1334→                        {provider.avgRating > 0 ? (
+  1335→                          <div className="flex items-center justify-center gap-1">
+  1336→                            <Star className="size-3.5 fill-amber-400 text-amber-400" />
+  1337→                            <span className="text-xs font-semibold text-foreground">
+  1338→                              {provider.avgRating}
+  1339→                            </span>
+  1340→                          </div>
+  1341→                        ) : (
+  1342→                          <span className="text-xs text-muted-foreground">—</span>
+  1343→                        )}
+  1344→                      </td>
+  1345→                    </tr>
+  1346→                  ))}
+  1347→                </tbody>
+  1348→              </table>
+  1349→            </div>
+  1350→          )}
+  1351→        </CardContent>
+  1352→      </Card>
+  1353→      )}
+  1354→
+  1355→      {/* ================================================================== */}
+  1356→      {/* SYSTEM_MANAGER-ONLY SECTIONS                                        */}
+  1357→      {/* ================================================================== */}
+  1358→      {isSystemManager && (
+  1359→        <>
+  1360→          {/* Divider */}
+  1361→          <div className="flex items-center gap-3 pt-2">
+  1362→            <div className="h-px flex-1 bg-border/60" />
+  1363→            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+  1364→              <Shield className="size-3.5" />
+  1365→              System Administration
+  1366→            </span>
+  1367→            <div className="h-px flex-1 bg-border/60" />
+  1368→          </div>
+  1369→
+  1370→          {/* System Health Monitors + API Connections */}
+  1371→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1372→            {/* System Health Monitors */}
+  1373→            <Card className="border-border/50 shadow-sm">
+  1374→              <CardHeader className="pb-3">
+  1375→                <div className="flex items-center gap-2">
+  1376→                  <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+  1377→                    <Activity className="size-4 text-emerald-600 dark:text-emerald-400" />
+  1378→                  </div>
+  1379→                  <div>
+  1380→                    <CardTitle className="text-base">System Health</CardTitle>
+  1381→                    <p className="text-xs text-muted-foreground">Background job status monitors</p>
+  1382→                  </div>
+  1383→                </div>
+  1384→              </CardHeader>
+  1385→              <CardContent className="space-y-3">
+  1386→                {adminLoading ? (
+  1387→                  <div className="space-y-3">
+  1388→                    {[1, 2, 3, 4].map((i) => (
+  1389→                      <Skeleton key={i} className="h-12 rounded-lg" />
+  1390→                    ))}
+  1391→                  </div>
+  1392→                ) : cronData ? (
+  1393→                  <>
+  1394→                    {cronData.jobs.map((job) => {
+  1395→                      const statusColor =
+  1396→                        job.status === "RUNNING"
+  1397→                          ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+  1398→                          : job.status === "IDLE"
+  1399→                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
+  1400→                            : job.status === "ERROR"
+  1401→                              ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+  1402→                              : "bg-muted text-muted-foreground border-border";
+  1403→                      const dotColor =
+  1404→                        job.status === "RUNNING"
+  1405→                          ? "bg-amber-500"
+  1406→                          : job.status === "IDLE"
+  1407→                            ? "bg-emerald-500"
+  1408→                            : job.status === "ERROR"
+  1409→                              ? "bg-red-500"
+  1410→                              : "bg-muted-foreground";
+  1411→                      return (
+  1412→                        <div
+  1413→                          key={job.key}
+  1414→                          className={`flex items-center justify-between rounded-lg border p-3 ${statusColor}`}
+  1415→                        >
+  1416→                          <div className="flex items-center gap-3 min-w-0">
+  1417→                            <span className={`size-2.5 rounded-full shrink-0 ${dotColor}`} />
+  1418→                            <div className="min-w-0">
+  1419→                              <p className="text-sm font-medium truncate">{job.name}</p>
+  1420→                              <p className="text-[10px] opacity-75 truncate">{job.description}</p>
+  1421→                            </div>
+  1422→                          </div>
+  1423→                          <Badge variant="outline" className="text-[10px] font-semibold shrink-0 ml-3">
+  1424→                            {job.status}
+  1425→                          </Badge>
+  1426→                        </div>
+  1427→                      );
+  1428→                    })}
+  1429→                    {/* Counts row */}
+  1430→                    <div className="grid grid-cols-3 gap-2 pt-1">
+  1431→                      <div className="rounded-lg bg-muted/50 dark:bg-muted/20 p-2.5 text-center">
+  1432→                        <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Expired Locks</p>
+  1433→                        <p className="text-lg font-bold text-foreground mt-0.5">{cronData.counts.expiredLocks}</p>
+  1434→                      </div>
+  1435→                      <div className="rounded-lg bg-muted/50 dark:bg-muted/20 p-2.5 text-center">
+  1436→                        <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Waitlist</p>
+  1437→                        <p className="text-lg font-bold text-foreground mt-0.5">{cronData.counts.activeWaitlist}</p>
+  1438→                      </div>
+  1439→                      <div className="rounded-lg bg-muted/50 dark:bg-muted/20 p-2.5 text-center">
+  1440→                        <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Pending</p>
+  1441→                        <p className="text-lg font-bold text-foreground mt-0.5">{cronData.counts.pendingAppointments}</p>
+  1442→                      </div>
+  1443→                    </div>
+  1444→                  </>
+  1445→                ) : (
+  1446→                  <p className="text-sm text-muted-foreground text-center py-6">Unable to load health data</p>
+  1447→                )}
+  1448→              </CardContent>
+  1449→            </Card>
+  1450→
+  1451→            {/* API Connections */}
+  1452→            <Card className="border-border/50 shadow-sm">
+  1453→              <CardHeader className="pb-3">
+  1454→                <div className="flex items-center gap-2">
+  1455→                  <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+  1456→                    <Link2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+  1457→                  </div>
+  1458→                  <div>
+  1459→                    <CardTitle className="text-base">API Connections</CardTitle>
+  1460→                    <p className="text-xs text-muted-foreground">External integration status</p>
+  1461→                  </div>
+  1462→                </div>
+  1463→              </CardHeader>
+  1464→              <CardContent className="space-y-3">
+  1465→                {adminLoading ? (
+  1466→                  <div className="space-y-3">
+  1467→                    {[1, 2, 3].map((i) => (
+  1468→                      <Skeleton key={i} className="h-16 rounded-lg" />
+  1469→                    ))}
+  1470→                  </div>
+  1471→                ) : integrations ? (
+  1472→                  <>
+  1473→                    <IntegrationRow
+  1474→                      name="Stripe"
+  1475→                      configured={integrations.stripe.configured}
+  1476→                      detail={integrations.stripe.publicKey}
+  1477→                      icon={DollarSign}
+  1478→                    />
+  1479→                    <IntegrationRow
+  1480→                      name="JWT / NextAuth"
+  1481→                      configured={integrations.jwt.configured}
+  1482→                      detail={integrations.jwt.secretMasked}
+  1483→                      icon={Shield}
+  1484→                    />
+  1485→                    <IntegrationRow
+  1486→                      name="Gravity Forms"
+  1487→                      configured={integrations.gravityForms.configured}
+  1488→                      icon={ScrollText}
+  1489→                    />
+  1490→                  </>
+  1491→                ) : (
+  1492→                  <p className="text-sm text-muted-foreground text-center py-6">Unable to load integration data</p>
+  1493→                )}
+  1494→              </CardContent>
+  1495→            </Card>
+  1496→          </div>
+  1497→
+  1498→          {/* Operational Alerts Queue */}
+  1499→          <Card className="border-border/50 shadow-sm">
+  1500→            <CardHeader className="pb-3">
+  1501→              <div className="flex items-center gap-2">
+  1502→                <div className="size-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+  1503→                  <AlertOctagon className="size-4 text-amber-600 dark:text-amber-400" />
+  1504→                </div>
+  1505→                <div className="flex-1">
+  1506→                  <CardTitle className="text-base">Operational Alerts</CardTitle>
+  1507→                  <p className="text-xs text-muted-foreground">
+  1508→                    Payment exceptions & patient conflicts requiring attention
+  1509→                  </p>
+  1510→                </div>
+  1511→                <Badge
+  1512→                  variant="outline"
+  1513→                  className="text-xs font-semibold bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+  1514→                >
+  1515→                  {paymentExceptions.length + patientMatches.length} items
+  1516→                </Badge>
+  1517→              </div>
+  1518→            </CardHeader>
+  1519→            <CardContent>
+  1520→              {adminLoading ? (
+  1521→                <div className="space-y-2">
+  1522→                  {[1, 2, 3].map((i) => (
+  1523→                    <Skeleton key={i} className="h-12 rounded-lg" />
+  1524→                  ))}
+  1525→                </div>
+  1526→              ) : paymentExceptions.length === 0 && patientMatches.length === 0 ? (
+  1527→                <div className="flex flex-col items-center justify-center py-8 text-center">
+  1528→                  <div className="size-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-3">
+  1529→                    <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+  1530→                  </div>
+  1531→                  <p className="text-sm font-medium text-foreground">All clear</p>
+  1532→                  <p className="text-xs text-muted-foreground mt-1">No operational alerts at this time.</p>
+  1533→                </div>
+  1534→              ) : (
+  1535→                <div className="space-y-2 max-h-72 overflow-y-auto">
+  1536→                  {paymentExceptions.map((exc) => (
+  1537→                    <div
+  1538→                      key={exc.id}
+  1539→                      className="flex items-center justify-between rounded-lg border border-border/60 p-3 hover:bg-muted/30 transition-colors"
+  1540→                    >
+  1541→                      <div className="flex items-center gap-3 min-w-0">
+  1542→                        <div className="size-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+  1543→                          <AlertTriangle className="size-3.5 text-red-600 dark:text-red-400" />
+  1544→                        </div>
+  1545→                        <div className="min-w-0">
+  1546→                          <p className="text-sm font-medium truncate">
+  1547→                            {exc.type.replace(/_/g, " ")}
+  1548→                          </p>
+  1549→                          <p className="text-[11px] text-muted-foreground truncate">
+  1550→                            {exc.patientName} · {exc.clinicName} · ${((exc.amountCents ?? 0) / 100).toFixed(2)}
+  1551→                          </p>
+  1552→                        </div>
+  1553→                      </div>
+  1554→                      <div className="flex items-center gap-2 shrink-0 ml-2">
+  1555→                        <span className="text-[10px] text-muted-foreground hidden sm:block">
+  1556→                          {exc.createdAt ? format(parseISO(exc.createdAt), "MMM d, HH:mm") : ""}
+  1557→                        </span>
+  1558→                        {exc.resolved ? (
+  1559→                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Resolved</Badge>
+  1560→                        ) : (
+  1561→                          <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">Open</Badge>
+  1562→                        )}
+  1563→                      </div>
+  1564→                    </div>
+  1565→                  ))}
+  1566→                  {patientMatches.map((group, idx) => (
+  1567→                    <div
+  1568→                      key={`pm-${idx}`}
+  1569→                      className="flex items-center justify-between rounded-lg border border-border/60 p-3 hover:bg-muted/30 transition-colors"
+  1570→                    >
+  1571→                      <div className="flex items-center gap-3 min-w-0">
+  1572→                        <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${group.hasNameMismatch ? "bg-red-100 dark:bg-red-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+  1573→                          <Users className={`size-3.5 ${group.hasNameMismatch ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`} />
+  1574→                        </div>
+  1575→                        <div className="min-w-0">
+  1576→                          <p className="text-sm font-medium truncate">
+  1577→                            Patient Conflict ({group.matchType})
+  1578→                          </p>
+  1579→                          <p className="text-[11px] text-muted-foreground truncate">
+  1580→                            {group.matchValue} · {group.appointments.length} appointments
+  1581→                            {group.hasNameMismatch ? " · Name mismatch" : ""}
+  1582→                            {group.hasCrossClinic ? " · Cross-clinic" : ""}
+  1583→                          </p>
+  1584→                        </div>
+  1585→                      </div>
+  1586→                      <Badge
+  1587→                        variant="outline"
+  1588→                        className={`text-[10px] shrink-0 ml-2 ${group.hasNameMismatch ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800" : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"}`}
+  1589→                      >
+  1590→                        Review
+  1591→                      </Badge>
+  1592→                    </div>
+  1593→                  ))}
+  1594→                </div>
+  1595→              )}
+  1596→            </CardContent>
+  1597→          </Card>
+  1598→
+  1599→          {/* Recent Audit Log */}
+  1600→          <Card className="border-border/50 shadow-sm">
+  1601→            <CardHeader className="pb-3">
+  1602→              <div className="flex items-center gap-2">
+  1603→                <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+  1604→                  <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
+  1605→                </div>
+  1606→                <div>
+  1607→                  <CardTitle className="text-base">Recent Audit Log</CardTitle>
+  1608→                  <p className="text-xs text-muted-foreground">
+  1609→                    Last 10 admin actions across the platform
+  1610→                  </p>
+  1611→                </div>
+  1612→              </div>
+  1613→            </CardHeader>
+  1614→            <CardContent className="px-4 pb-4">
+  1615→              {adminLoading ? (
+  1616→                <div className="space-y-2">
+  1617→                  {[1, 2, 3, 4, 5].map((i) => (
+  1618→                    <Skeleton key={i} className="h-10 rounded-lg" />
+  1619→                  ))}
+  1620→                </div>
+  1621→              ) : auditLogs.length === 0 ? (
+  1622→                <div className="flex flex-col items-center justify-center py-8 text-center">
+  1623→                  <div className="size-12 rounded-full bg-muted/50 dark:bg-muted/20 flex items-center justify-center mb-3">
+  1624→                    <ScrollText className="size-5 text-muted-foreground" />
+  1625→                  </div>
+  1626→                  <p className="text-sm font-medium text-foreground">No audit logs yet</p>
+  1627→                  <p className="text-xs text-muted-foreground mt-1">Admin actions will appear here.</p>
+  1628→                </div>
+  1629→              ) : (
+  1630→                <div className="overflow-x-auto -mx-4">
+  1631→                  <table className="w-full text-sm">
+  1632→                    <thead className="sticky top-0 bg-background z-10">
+  1633→                      <tr className="border-b border-border/60">
+  1634→                        <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time</th>
+  1635→                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">User</th>
+  1636→                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
+  1637→                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Target</th>
+  1638→                        <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clinic</th>
+  1639→                      </tr>
+  1640→                    </thead>
+  1641→                    <tbody>
+  1642→                      {auditLogs.map((log) => (
+  1643→                        <tr key={log.id} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+  1644→                          <td className="py-2.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
+  1645→                            {log.createdAt ? format(parseISO(log.createdAt), "MMM d, HH:mm") : ""}
+  1646→                          </td>
+  1647→                          <td className="py-2.5 px-3 text-xs font-medium text-foreground truncate max-w-[120px]">
+  1648→                            {log.userName}
+  1649→                          </td>
+  1650→                          <td className="py-2.5 px-3">
+  1651→                            <Badge variant="outline" className="text-[10px] font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 whitespace-nowrap">
+  1652→                              {log.action.replace(/_/g, " ")}
+  1653→                            </Badge>
+  1654→                          </td>
+  1655→                          <td className="py-2.5 px-3 text-xs text-muted-foreground truncate max-w-[140px]">
+  1656→                            {log.targetType}{log.targetId ? ` · ${log.targetId.slice(0, 8)}…` : ""}
+  1657→                          </td>
+  1658→                          <td className="py-2.5 px-4 text-xs text-muted-foreground truncate max-w-[120px]">
+  1659→                            {log.userClinic || "—"}
+  1660→                          </td>
+  1661→                        </tr>
+  1662→                      ))}
+  1663→                    </tbody>
+  1664→                  </table>
+  1665→                </div>
+  1666→              )}
+  1667→            </CardContent>
+  1668→          </Card>
+  1669→        </>
+  1670→      )}
+  1671→    </div>
+  1672→  );
+  1673→}
+  1674→
+  1675→// ---------------------------------------------------------------------------
+  1676→// Integration Row Component
+  1677→// ---------------------------------------------------------------------------
+  1678→function IntegrationRow({
+  1679→  name,
+  1680→  configured,
+  1681→  detail,
+  1682→  icon: Icon,
+  1683→}: {
+  1684→  name: string;
+  1685→  configured: boolean;
+  1686→  detail?: string;
+  1687→  icon: React.ElementType;
+  1688→}) {
+  1689→  return (
+  1690→    <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
+  1691→      <div className="flex items-center gap-3 min-w-0">
+  1692→        <div
+  1693→          className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${
+  1694→            configured
+  1695→              ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+  1696→              : "bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400"
+  1697→          }`}
+  1698→        >
+  1699→          <Icon className="size-4" />
+  1700→        </div>
+  1701→        <div className="min-w-0">
+  1702→          <p className="text-sm font-medium text-foreground">{name}</p>
+  1703→          {detail && (
+  1704→            <p className="text-[11px] text-muted-foreground font-mono truncate">
+  1705→              {detail}
+  1706→            </p>
+  1707→          )}
+  1708→        </div>
+  1709→      </div>
+  1710→      {configured ? (
+  1711→        <Badge
+  1712→          variant="outline"
+  1713→          className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 shrink-0 ml-2"
+  1714→        >
+  1715→          <CheckCircle2 className="size-3 mr-1" />
+  1716→          Connected
+  1717→        </Badge>
+  1718→      ) : (
+  1719→        <Badge
+  1720→          variant="outline"
+  1721→          className="text-[10px] font-semibold bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 shrink-0 ml-2"
+  1722→        >
+  1723→          <CircleOff className="size-3 mr-1" />
+  1724→          Not Configured
+  1725→        </Badge>
+  1726→      )}
+  1727→    </div>
+  1728→  );
+  1729→}

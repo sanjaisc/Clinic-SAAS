@@ -1,0 +1,1081 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Plus,
+     8→  Pencil,
+     9→  Database,
+    10→  Stethoscope,
+    11→  ClipboardList,
+    12→  ShieldCheck,
+    13→  Building,
+    14→  Globe,
+    15→  Loader2,
+    16→  RefreshCw,
+    17→} from "lucide-react";
+    18→import type { DoctASessionUser } from "@/lib/auth";
+    19→
+    20→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Badge } from "@/components/ui/badge";
+    23→import { Input } from "@/components/ui/input";
+    24→import { Label } from "@/components/ui/label";
+    25→import { Switch } from "@/components/ui/switch";
+    26→import { Skeleton } from "@/components/ui/skeleton";
+    27→import {
+    28→  Table,
+    29→  TableBody,
+    30→  TableCell,
+    31→  TableHead,
+    32→  TableHeader,
+    33→  TableRow,
+    34→} from "@/components/ui/table";
+    35→import {
+    36→  Dialog,
+    37→  DialogContent,
+    38→  DialogDescription,
+    39→  DialogFooter,
+    40→  DialogHeader,
+    41→  DialogTitle,
+    42→} from "@/components/ui/dialog";
+    43→import {
+    44→  Select,
+    45→  SelectContent,
+    46→  SelectItem,
+    47→  SelectTrigger,
+    48→  SelectValue,
+    49→} from "@/components/ui/select";
+    50→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    51→
+    52→// ─── Types ────────────────────────────────────────────────────────────────────
+    53→
+    54→interface Specialty {
+    55→  id: string;
+    56→  name: string;
+    57→  slug: string;
+    58→  description: string | null;
+    59→  icon: string | null;
+    60→  isActive: boolean;
+    61→  sortOrder: number;
+    62→  _count?: { services: number };
+    63→}
+    64→
+    65→interface ServiceItem {
+    66→  id: string;
+    67→  name: string;
+    68→  slug: string;
+    69→  description: string | null;
+    70→  specialtyId: string;
+    71→  durationMinutes: number;
+    72→  selfPayPriceCents: number;
+    73→  selfPayPaymentType: string;
+    74→  isBookable: boolean;
+    75→  isActive: boolean;
+    76→  sortOrder: number;
+    77→  specialty: { id: string; name: string };
+    78→}
+    79→
+    80→interface Insurance {
+    81→  id: string;
+    82→  name: string;
+    83→  slug: string;
+    84→  isActive: boolean;
+    85→  isDemo: boolean;
+    86→  sortOrder: number;
+    87→  _count?: { serviceInsurances: number };
+    88→}
+    89→
+    90→interface Amenity {
+    91→  id: string;
+    92→  name: string;
+    93→  slug: string;
+    94→  icon: string | null;
+    95→  sortOrder: number;
+    96→}
+    97→
+    98→interface Language {
+    99→  id: string;
+   100→  name: string;
+   101→  code: string;
+   102→  sortOrder: number;
+   103→}
+   104→
+   105→// ─── Tab Config ───────────────────────────────────────────────────────────────
+   106→
+   107→type TabKey = "specialties" | "services" | "insurances" | "amenities" | "languages";
+   108→
+   109→const TAB_CONFIG: Record<TabKey, { label: string; icon: React.ElementType; endpoint: string }> = {
+   110→  specialties: { label: "Specialties", icon: Stethoscope, endpoint: "/api/staff/admin/taxonomy/specialties" },
+   111→  services: { label: "Services", icon: ClipboardList, endpoint: "/api/staff/admin/taxonomy/services" },
+   112→  insurances: { label: "Insurances", icon: ShieldCheck, endpoint: "/api/staff/admin/taxonomy/insurances" },
+   113→  amenities: { label: "Amenities", icon: Building, endpoint: "/api/staff/admin/taxonomy/amenities" },
+   114→  languages: { label: "Languages", icon: Globe, endpoint: "/api/staff/admin/taxonomy/languages" },
+   115→};
+   116→
+   117→// ─── Main Component ──────────────────────────────────────────────────────────
+   118→
+   119→export default function TaxonomyPage() {
+   120→  const { data: session } = useSession();
+   121→  const user = session?.user as DoctASessionUser | undefined;
+   122→
+   123→  const [activeTab, setActiveTab] = useState<TabKey>("specialties");
+   124→
+   125→  // Data states
+   126→  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+   127→  const [services, setServices] = useState<ServiceItem[]>([]);
+   128→  const [insurances, setInsurances] = useState<Insurance[]>([]);
+   129→  const [amenities, setAmenities] = useState<Amenity[]>([]);
+   130→  const [languages, setLanguages] = useState<Language[]>([]);
+   131→
+   132→  const [loading, setLoading] = useState<Record<TabKey, boolean>>({
+   133→    specialties: true,
+   134→    services: true,
+   135→    insurances: true,
+   136→    amenities: true,
+   137→    languages: true,
+   138→  });
+   139→
+   140→  // Dialog states
+   141→  const [dialogOpen, setDialogOpen] = useState(false);
+   142→  const [editingItem, setEditingItem] = useState<Record<string, unknown> | null>(null);
+   143→  const [saving, setSaving] = useState(false);
+   144→  const [togglingId, setTogglingId] = useState<string | null>(null);
+   145→
+   146→  // Form states
+   147→  const [formName, setFormName] = useState("");
+   148→  const [formSlug, setFormSlug] = useState("");
+   149→  const [formDescription, setFormDescription] = useState("");
+   150→  const [formIcon, setFormIcon] = useState("");
+   151→  const [formSortOrder, setFormSortOrder] = useState("0");
+   152→  const [formSpecialtyId, setFormSpecialtyId] = useState("");
+   153→  const [formDurationMinutes, setFormDurationMinutes] = useState("30");
+   154→  const [formPriceCents, setFormPriceCents] = useState("0");
+   155→  const [formPaymentType, setFormPaymentType] = useState("STANDARD_DEPOSIT");
+   156→  const [formIsBookable, setFormIsBookable] = useState(true);
+   157→  const [formIsDemo, setFormIsDemo] = useState(false);
+   158→  const [formCode, setFormCode] = useState("");
+   159→
+   160→  // ─── Fetch Helpers ──────────────────────────────────────────────────────────
+   161→
+   162→  const fetchData = useCallback(async (tab: TabKey) => {
+   163→    setLoading((prev) => ({ ...prev, [tab]: true }));
+   164→    try {
+   165→      const res = await fetch(TAB_CONFIG[tab].endpoint);
+   166→      if (!res.ok) throw new Error("Failed to fetch");
+   167→      const data = await res.json();
+   168→
+   169→      switch (tab) {
+   170→        case "specialties":
+   171→          setSpecialties(data);
+   172→          break;
+   173→        case "services":
+   174→          setServices(data);
+   175→          break;
+   176→        case "insurances":
+   177→          setInsurances(data);
+   178→          break;
+   179→        case "amenities":
+   180→          setAmenities(data);
+   181→          break;
+   182→        case "languages":
+   183→          setLanguages(data);
+   184→          break;
+   185→      }
+   186→    } catch {
+   187→      toast.error(`Failed to load ${TAB_CONFIG[tab].label.toLowerCase()}`);
+   188→    } finally {
+   189→      setLoading((prev) => ({ ...prev, [tab]: false }));
+   190→    }
+   191→  }, []);
+   192→
+   193→  // Load all data on mount
+   194→  useEffect(() => {
+   195→    (Object.keys(TAB_CONFIG) as TabKey[]).forEach((tab) => fetchData(tab));
+   196→  }, [fetchData]);
+   197→
+   198→  // ─── Toggle Active ──────────────────────────────────────────────────────────
+   199→
+   200→  const handleToggle = async (tab: TabKey, id: string) => {
+   201→    setTogglingId(id);
+   202→    try {
+   203→      const res = await fetch(`${TAB_CONFIG[tab].endpoint}/${id}`, { method: "DELETE" });
+   204→      if (!res.ok) {
+   205→        const err = await res.json().catch(() => ({ error: "Toggle failed" }));
+   206→        if (res.status === 405) {
+   207→          toast.info("Archive not supported for this entity type.");
+   208→        } else {
+   209→          throw new Error(err.error || "Toggle failed");
+   210→        }
+   211→        return;
+   212→      }
+   213→      const updated = await res.json();
+   214→      // Update local state
+   215→      const setState = {
+   216→        specialties: setSpecialties,
+   217→        services: setServices,
+   218→        insurances: setInsurances,
+   219→      }[tab];
+   220→      if (setState) {
+   221→        setState((prev: unknown[]) =>
+   222→          (prev as Array<Record<string, unknown>>).map((item) =>
+   223→            item.id === id ? { ...item, isActive: updated.isActive } : item
+   224→          )
+   225→        );
+   226→      }
+   227→      toast.success(updated.isActive ? "Activated successfully" : "Archived successfully");
+   228→    } catch (err) {
+   229→      toast.error(err instanceof Error ? err.message : "Toggle failed");
+   230→    } finally {
+   231→      setTogglingId(null);
+   232→    }
+   233→  };
+   234→
+   235→  // ─── Dialog Open/Close ─────────────────────────────────────────────────────
+   236→
+   237→  const openCreateDialog = () => {
+   238→    setEditingItem(null);
+   239→    resetForm();
+   240→    setDialogOpen(true);
+   241→  };
+   242→
+   243→  const openEditDialog = (tab: TabKey, item: Record<string, unknown>) => {
+   244→    setEditingItem(item);
+   245→    // Pre-fill form
+   246→    setFormName((item.name as string) || "");
+   247→    setFormSlug((item.slug as string) || "");
+   248→    setFormDescription((item.description as string) || "");
+   249→    setFormIcon((item.icon as string) || "");
+   250→    setFormSortOrder(String(item.sortOrder ?? 0));
+   251→    setFormSpecialtyId((item.specialtyId as string) || "");
+   252→    setFormDurationMinutes(String(item.durationMinutes ?? 30));
+   253→    setFormPriceCents(String(item.selfPayPriceCents ?? 0));
+   254→    setFormPaymentType((item.selfPayPaymentType as string) || "STANDARD_DEPOSIT");
+   255→    setFormIsBookable(item.isBookable !== false);
+   256→    setFormIsDemo(Boolean(item.isDemo));
+   257→    setFormCode((item.code as string) || "");
+   258→    setDialogOpen(true);
+   259→  };
+   260→
+   261→  const resetForm = () => {
+   262→    setFormName("");
+   263→    setFormSlug("");
+   264→    setFormDescription("");
+   265→    setFormIcon("");
+   266→    setFormSortOrder("0");
+   267→    setFormSpecialtyId("");
+   268→    setFormDurationMinutes("30");
+   269→    setFormPriceCents("0");
+   270→    setFormPaymentType("STANDARD_DEPOSIT");
+   271→    setFormIsBookable(true);
+   272→    setFormIsDemo(false);
+   273→    setFormCode("");
+   274→  };
+   275→
+   276→  // ─── Save (Create or Update) ───────────────────────────────────────────────
+   277→
+   278→  const handleSave = async () => {
+   279→    if (!formName.trim()) {
+   280→      toast.error("Name is required");
+   281→      return;
+   282→    }
+   283→
+   284→    setSaving(true);
+   285→    const endpoint = TAB_CONFIG[activeTab].endpoint;
+   286→    const isEdit = !!editingItem;
+   287→
+   288→    let body: Record<string, unknown> = { name: formName.trim(), sortOrder: Number(formSortOrder) || 0 };
+   289→
+   290→    switch (activeTab) {
+   291→      case "specialties":
+   292→        body.description = formDescription || null;
+   293→        body.icon = formIcon || null;
+   294→        break;
+   295→      case "services":
+   296→        if (!formSpecialtyId) {
+   297→          toast.error("Specialty is required");
+   298→          setSaving(false);
+   299→          return;
+   300→        }
+   301→        body.description = formDescription || null;
+   302→        body.specialtyId = formSpecialtyId;
+   303→        body.durationMinutes = Number(formDurationMinutes) || 30;
+   304→        body.selfPayPriceCents = Number(formPriceCents) || 0;
+   305→        body.selfPayPaymentType = formPaymentType;
+   306→        body.isBookable = formIsBookable;
+   307→        break;
+   308→      case "insurances":
+   309→        body.isDemo = formIsDemo;
+   310→        break;
+   311→      case "amenities":
+   312→        body.icon = formIcon || null;
+   313→        break;
+   314→      case "languages":
+   315→        if (!formCode.trim()) {
+   316→          toast.error("Language code is required");
+   317→          setSaving(false);
+   318→          return;
+   319→        }
+   320→        body.code = formCode.trim().toLowerCase();
+   321→        break;
+   322→    }
+   323→
+   324→    try {
+   325→      const url = isEdit ? `${endpoint}/${editingItem.id}` : endpoint;
+   326→      const res = await fetch(url, {
+   327→        method: isEdit ? "PATCH" : "POST",
+   328→        headers: { "Content-Type": "application/json" },
+   329→        body: JSON.stringify(body),
+   330→      });
+   331→
+   332→      if (!res.ok) {
+   333→        const err = await res.json().catch(() => ({ error: "Save failed" }));
+   334→        throw new Error(err.error || "Save failed");
+   335→      }
+   336→
+   337→      toast.success(isEdit ? "Updated successfully" : "Created successfully");
+   338→      setDialogOpen(false);
+   339→      fetchData(activeTab);
+   340→    } catch (err) {
+   341→      toast.error(err instanceof Error ? err.message : "Save failed");
+   342→    } finally {
+   343→      setSaving(false);
+   344→    }
+   345→  };
+   346→
+   347→  // ─── Render Helpers ────────────────────────────────────────────────────────
+   348→
+   349→  const formatPrice = (cents: number) => {
+   350→    if (cents === 0) return "$0.00";
+   351→    return `$${(cents / 100).toFixed(2)}`;
+   352→  };
+   353→
+   354→  // ─── Guard ─────────────────────────────────────────────────────────────────
+   355→
+   356→  if (!user || user.role !== "SYSTEM_MANAGER") {
+   357→    return (
+   358→      <div className="flex items-center justify-center min-h-[40vh]">
+   359→        <p className="text-sm text-muted-foreground">Access denied.</p>
+   360→      </div>
+   361→    );
+   362→  }
+   363→
+   364→  // ─── Render ────────────────────────────────────────────────────────────────
+   365→
+   366→  return (
+   367→    <div className="space-y-6">
+   368→      {/* Page Header */}
+   369→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   370→        <div className="flex items-center gap-3">
+   371→          <div className="flex items-center justify-center size-10 rounded-xl bg-purple-100 dark:bg-purple-950">
+   372→            <Database className="size-5 text-purple-600 dark:text-purple-400" />
+   373→          </div>
+   374→          <div>
+   375→            <h2 className="text-lg font-semibold text-foreground">Global Taxonomy</h2>
+   376→            <p className="text-sm text-muted-foreground">
+   377→              Manage specialties, services, insurances, amenities, and languages
+   378→            </p>
+   379→          </div>
+   380→        </div>
+   381→      </div>
+   382→
+   383→      {/* Tabbed Content */}
+   384→      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+   385→        <TabsList className="flex-wrap">
+   386→          {(Object.keys(TAB_CONFIG) as TabKey[]).map((key) => {
+   387→            const cfg = TAB_CONFIG[key];
+   388→            const Icon = cfg.icon;
+   389→            return (
+   390→              <TabsTrigger key={key} value={key} className="gap-1.5">
+   391→                <Icon className="size-4" />
+   392→                {cfg.label}
+   393→              </TabsTrigger>
+   394→            );
+   395→          })}
+   396→        </TabsList>
+   397→
+   398→        {/* ─── Specialties Tab ─────────────────────────────────────────────── */}
+   399→        <TabsContent value="specialties">
+   400→          <TaxonomyCard
+   401→            title="Specialties"
+   402→            description="Medical specialties that group related services"
+   403→            loading={loading.specialties}
+   404→            onAdd={openCreateDialog}
+   405→            onRefresh={() => fetchData("specialties")}
+   406→          >
+   407→            <SpecialtyTable
+   408→              data={specialties}
+   409→              onEdit={(item) => openEditDialog("specialties", item)}
+   410→              onToggle={(id) => handleToggle("specialties", id)}
+   411→              togglingId={togglingId}
+   412→            />
+   413→          </TaxonomyCard>
+   414→        </TabsContent>
+   415→
+   416→        {/* ─── Services Tab ────────────────────────────────────────────────── */}
+   417→        <TabsContent value="services">
+   418→          <TaxonomyCard
+   419→            title="Services"
+   420→            description="Individual services linked to specialties with pricing"
+   421→            loading={loading.services}
+   422→            onAdd={openCreateDialog}
+   423→            onRefresh={() => fetchData("services")}
+   424→          >
+   425→            <ServiceTable
+   426→              data={services}
+   427→              onEdit={(item) => openEditDialog("services", item)}
+   428→              onToggle={(id) => handleToggle("services", id)}
+   429→              togglingId={togglingId}
+   430→            />
+   431→          </TaxonomyCard>
+   432→        </TabsContent>
+   433→
+   434→        {/* ─── Insurances Tab ──────────────────────────────────────────────── */}
+   435→        <TabsContent value="insurances">
+   436→          <TaxonomyCard
+   437→            title="Insurances"
+   438→            description="Insurance providers accepted by clinics"
+   439→            loading={loading.insurances}
+   440→            onAdd={openCreateDialog}
+   441→            onRefresh={() => fetchData("insurances")}
+   442→          >
+   443→            <InsuranceTable
+   444→              data={insurances}
+   445→              onEdit={(item) => openEditDialog("insurances", item)}
+   446→              onToggle={(id) => handleToggle("insurances", id)}
+   447→              togglingId={togglingId}
+   448→            />
+   449→          </TaxonomyCard>
+   450→        </TabsContent>
+   451→
+   452→        {/* ─── Amenities Tab ───────────────────────────────────────────────── */}
+   453→        <TabsContent value="amenities">
+   454→          <TaxonomyCard
+   455→            title="Amenities"
+   456→            description="Facility features and conveniences"
+   457→            loading={loading.amenities}
+   458→            onAdd={openCreateDialog}
+   459→            onRefresh={() => fetchData("amenities")}
+   460→          >
+   461→            <AmenityTable
+   462→              data={amenities}
+   463→              onEdit={(item) => openEditDialog("amenities", item)}
+   464→            />
+   465→          </TaxonomyCard>
+   466→        </TabsContent>
+   467→
+   468→        {/* ─── Languages Tab ───────────────────────────────────────────────── */}
+   469→        <TabsContent value="languages">
+   470→          <TaxonomyCard
+   471→            title="Languages"
+   472→            description="Spoken languages for provider profiles"
+   473→            loading={loading.languages}
+   474→            onAdd={openCreateDialog}
+   475→            onRefresh={() => fetchData("languages")}
+   476→          >
+   477→            <LanguageTable
+   478→              data={languages}
+   479→              onEdit={(item) => openEditDialog("languages", item)}
+   480→            />
+   481→          </TaxonomyCard>
+   482→        </TabsContent>
+   483→      </Tabs>
+   484→
+   485→      {/* ─── Create/Edit Dialog ────────────────────────────────────────────── */}
+   486→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   487→        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+   488→          <DialogHeader>
+   489→            <DialogTitle>
+   490→              {editingItem
+   491→                ? `Edit ${TAB_CONFIG[activeTab].label.replace(/s$/, "")}`
+   492→                : `Add ${TAB_CONFIG[activeTab].label.replace(/s$/, "")}`}
+   493→            </DialogTitle>
+   494→            <DialogDescription>
+   495→              {editingItem ? "Update the fields below." : "Fill in the details to create a new entry."}
+   496→            </DialogDescription>
+   497→          </DialogHeader>
+   498→
+   499→          <div className="grid gap-4 py-4">
+   500→            {/* Name (all) */}
+   501→            <div className="grid gap-2">
+   502→              <Label htmlFor="form-name">Name *</Label>
+   503→              <Input
+   504→                id="form-name"
+   505→                value={formName}
+   506→                onChange={(e) => setFormName(e.target.value)}
+   507→                placeholder="Enter name..."
+   508→              />
+   509→            </div>
+   510→
+   511→            {/* Slug (all except languages) */}
+   512→            {activeTab !== "languages" && (
+   513→              <div className="grid gap-2">
+   514→                <Label htmlFor="form-slug">Slug</Label>
+   515→                <Input
+   516→                  id="form-slug"
+   517→                  value={formSlug}
+   518→                  disabled
+   519→                  className="bg-muted text-muted-foreground"
+   520→                />
+   521→                <p className="text-xs text-muted-foreground">Auto-generated from name</p>
+   522→              </div>
+   523→            )}
+   524→
+   525→            {/* Description (specialties, services) */}
+   526→            {(activeTab === "specialties" || activeTab === "services") && (
+   527→              <div className="grid gap-2">
+   528→                <Label htmlFor="form-description">Description</Label>
+   529→                <Input
+   530→                  id="form-description"
+   531→                  value={formDescription}
+   532→                  onChange={(e) => setFormDescription(e.target.value)}
+   533→                  placeholder="Brief description..."
+   534→                />
+   535→              </div>
+   536→            )}
+   537→
+   538→            {/* Icon (specialties, amenities) */}
+   539→            {(activeTab === "specialties" || activeTab === "amenities") && (
+   540→              <div className="grid gap-2">
+   541→                <Label htmlFor="form-icon">Icon</Label>
+   542→                <Input
+   543→                  id="form-icon"
+   544→                  value={formIcon}
+   545→                  onChange={(e) => setFormIcon(e.target.value)}
+   546→                  placeholder="Emoji or icon name..."
+   547→                />
+   548→              </div>
+   549→            )}
+   550→
+   551→            {/* Specialty select (services only) */}
+   552→            {activeTab === "services" && (
+   553→              <div className="grid gap-2">
+   554→                <Label>Specialty *</Label>
+   555→                <Select value={formSpecialtyId} onValueChange={setFormSpecialtyId}>
+   556→                  <SelectTrigger className="w-full">
+   557→                    <SelectValue placeholder="Select specialty..." />
+   558→                  </SelectTrigger>
+   559→                  <SelectContent className="max-h-60 overflow-y-auto">
+   560→                    {specialties.map((s) => (
+   561→                      <SelectItem key={s.id} value={s.id}>
+   562→                        {s.name}
+   563→                      </SelectItem>
+   564→                    ))}
+   565→                  </SelectContent>
+   566→                </Select>
+   567→              </div>
+   568→            )}
+   569→
+   570→            {/* Duration (services only) */}
+   571→            {activeTab === "services" && (
+   572→              <div className="grid gap-2">
+   573→                <Label htmlFor="form-duration">Duration (minutes)</Label>
+   574→                <Input
+   575→                  id="form-duration"
+   576→                  type="number"
+   577→                  min={5}
+   578→                  step={5}
+   579→                  value={formDurationMinutes}
+   580→                  onChange={(e) => setFormDurationMinutes(e.target.value)}
+   581→                />
+   582→              </div>
+   583→            )}
+   584→
+   585→            {/* Price (services only) */}
+   586→            {activeTab === "services" && (
+   587→              <div className="grid gap-2">
+   588→                <Label htmlFor="form-price">Self-Pay Price ($)</Label>
+   589→                <div className="relative">
+   590→                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+   591→                    $
+   592→                  </span>
+   593→                  <Input
+   594→                    id="form-price"
+   595→                    type="number"
+   596→                    min={0}
+   597→                    step={0.01}
+   598→                    className="pl-7"
+   599→                    value={formPriceCents ? (Number(formPriceCents) / 100).toFixed(2) : "0.00"}
+   600→                    onChange={(e) => setFormPriceCents(String(Math.round(Number(e.target.value) * 100)))}
+   601→                  />
+   602→                </div>
+   603→              </div>
+   604→            )}
+   605→
+   606→            {/* Payment Type (services only) */}
+   607→            {activeTab === "services" && (
+   608→              <div className="grid gap-2">
+   609→                <Label>Payment Type</Label>
+   610→                <Select value={formPaymentType} onValueChange={setFormPaymentType}>
+   611→                  <SelectTrigger className="w-full">
+   612→                    <SelectValue />
+   613→                  </SelectTrigger>
+   614→                  <SelectContent>
+   615→                    <SelectItem value="STANDARD_DEPOSIT">Standard Deposit</SelectItem>
+   616→                    <SelectItem value="FULL_UPFRONT">Full Upfront</SelectItem>
+   617→                  </SelectContent>
+   618→                </Select>
+   619→              </div>
+   620→            )}
+   621→
+   622→            {/* Is Bookable (services only) */}
+   623→            {activeTab === "services" && (
+   624→              <div className="flex items-center justify-between rounded-lg border p-3">
+   625→                <div>
+   626→                  <Label>Bookable Online</Label>
+   627→                  <p className="text-xs text-muted-foreground">
+   628→                    Allow patients to book this service
+   629→                  </p>
+   630→                </div>
+   631→                <Switch checked={formIsBookable} onCheckedChange={setFormIsBookable} />
+   632→              </div>
+   633→            )}
+   634→
+   635→            {/* Is Demo (insurances only) */}
+   636→            {activeTab === "insurances" && (
+   637→              <div className="flex items-center justify-between rounded-lg border p-3">
+   638→                <div>
+   639→                  <Label>Demo Insurance</Label>
+   640→                  <p className="text-xs text-muted-foreground">
+   641→                    Mark as demo/test insurance
+   642→                  </p>
+   643→                </div>
+   644→                <Switch checked={formIsDemo} onCheckedChange={setFormIsDemo} />
+   645→              </div>
+   646→            )}
+   647→
+   648→            {/* Code (languages only) */}
+   649→            {activeTab === "languages" && (
+   650→              <div className="grid gap-2">
+   651→                <Label htmlFor="form-code">Language Code *</Label>
+   652→                <Input
+   653→                  id="form-code"
+   654→                  value={formCode}
+   655→                  onChange={(e) => setFormCode(e.target.value)}
+   656→                  placeholder="ISO 639-1 code, e.g. en, es, zh..."
+   657→                />
+   658→              </div>
+   659→            )}
+   660→
+   661→            {/* Sort Order (all) */}
+   662→            <div className="grid gap-2">
+   663→              <Label htmlFor="form-sort">Sort Order</Label>
+   664→              <Input
+   665→                id="form-sort"
+   666→                type="number"
+   667→                min={0}
+   668→                value={formSortOrder}
+   669→                onChange={(e) => setFormSortOrder(e.target.value)}
+   670→              />
+   671→              <p className="text-xs text-muted-foreground">Lower values appear first</p>
+   672→            </div>
+   673→          </div>
+   674→
+   675→          <DialogFooter>
+   676→            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+   677→              Cancel
+   678→            </Button>
+   679→            <Button onClick={handleSave} disabled={saving || !formName.trim()}>
+   680→              {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
+   681→              {editingItem ? "Save Changes" : "Create"}
+   682→            </Button>
+   683→          </DialogFooter>
+   684→        </DialogContent>
+   685→      </Dialog>
+   686→    </div>
+   687→  );
+   688→}
+   689→
+   690→// ─── Taxonomy Card Wrapper ────────────────────────────────────────────────────
+   691→
+   692→function TaxonomyCard({
+   693→  title,
+   694→  description,
+   695→  loading,
+   696→  onAdd,
+   697→  onRefresh,
+   698→  children,
+   699→}: {
+   700→  title: string;
+   701→  description: string;
+   702→  loading: boolean;
+   703→  onAdd: () => void;
+   704→  onRefresh: () => void;
+   705→  children: React.ReactNode;
+   706→}) {
+   707→  return (
+   708→    <Card>
+   709→      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+   710→        <div>
+   711→          <CardTitle className="text-base font-semibold">{title}</CardTitle>
+   712→          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+   713→        </div>
+   714→        <div className="flex items-center gap-2">
+   715→          <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh">
+   716→            <RefreshCw className="size-4" />
+   717→          </Button>
+   718→          <Button size="sm" onClick={onAdd}>
+   719→            <Plus className="size-4 mr-1.5" />
+   720→            Add New
+   721→          </Button>
+   722→        </div>
+   723→      </CardHeader>
+   724→      <CardContent>
+   725→        {loading ? (
+   726→          <div className="space-y-3">
+   727→            <Skeleton className="h-10 w-full" />
+   728→            <Skeleton className="h-10 w-full" />
+   729→            <Skeleton className="h-10 w-full" />
+   730→          </div>
+   731→        ) : (
+   732→          children
+   733→        )}
+   734→      </CardContent>
+   735→    </Card>
+   736→  );
+   737→}
+   738→
+   739→// ─── Status Badge ────────────────────────────────────────────────────────────
+   740→
+   741→function StatusBadge({ active }: { active: boolean }) {
+   742→  return (
+   743→    <Badge
+   744→      variant={active ? "default" : "secondary"}
+   745→      className={
+   746→        active
+   747→          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+   748→          : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+   749→      }
+   750→    >
+   751→      {active ? "Active" : "Inactive"}
+   752→    </Badge>
+   753→  );
+   754→}
+   755→
+   756→// ─── Specialty Table ──────────────────────────────────────────────────────────
+   757→
+   758→function SpecialtyTable({
+   759→  data,
+   760→  onEdit,
+   761→  onToggle,
+   762→  togglingId,
+   763→}: {
+   764→  data: Specialty[];
+   765→  onEdit: (item: Record<string, unknown>) => void;
+   766→  onToggle: (id: string) => void;
+   767→  togglingId: string | null;
+   768→}) {
+   769→  if (data.length === 0) {
+   770→    return <EmptyState message="No specialties found. Add one to get started." />;
+   771→  }
+   772→
+   773→  return (
+   774→    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+   775→      <Table>
+   776→        <TableHeader>
+   777→          <TableRow>
+   778→            <TableHead className="w-[40%]">Name</TableHead>
+   779→            <TableHead className="w-[25%]">Slug</TableHead>
+   780→            <TableHead className="w-[15%]">Status</TableHead>
+   781→            <TableHead className="w-[10%]">Sort</TableHead>
+   782→            <TableHead className="w-[10%] text-right">Actions</TableHead>
+   783→          </TableRow>
+   784→        </TableHeader>
+   785→        <TableBody>
+   786→          {data.map((item) => (
+   787→            <TableRow key={item.id} className={!item.isActive ? "opacity-60" : ""}>
+   788→              <TableCell>
+   789→                <div className="flex items-center gap-2">
+   790→                  {item.icon && <span className="text-base">{item.icon}</span>}
+   791→                  <div>
+   792→                    <span className="font-medium">{item.name}</span>
+   793→                    {item._count && (
+   794→                      <span className="ml-2 text-xs text-muted-foreground">
+   795→                        ({item._count.services} services)
+   796→                      </span>
+   797→                    )}
+   798→                  </div>
+   799→                </div>
+   800→              </TableCell>
+   801→              <TableCell className="text-muted-foreground font-mono text-xs">{item.slug}</TableCell>
+   802→              <TableCell>
+   803→                <button
+   804→                  onClick={() => onToggle(item.id)}
+   805→                  disabled={togglingId === item.id}
+   806→                  className="cursor-pointer"
+   807→                  title="Click to toggle status"
+   808→                >
+   809→                  {togglingId === item.id ? (
+   810→                    <Loader2 className="size-4 animate-spin" />
+   811→                  ) : (
+   812→                    <StatusBadge active={item.isActive} />
+   813→                  )}
+   814→                </button>
+   815→              </TableCell>
+   816→              <TableCell className="text-muted-foreground">{item.sortOrder}</TableCell>
+   817→              <TableCell className="text-right">
+   818→                <Button variant="ghost" size="icon" onClick={() => onEdit(item as unknown as Record<string, unknown>)} title="Edit">
+   819→                  <Pencil className="size-4" />
+   820→                </Button>
+   821→              </TableCell>
+   822→            </TableRow>
+   823→          ))}
+   824→        </TableBody>
+   825→      </Table>
+   826→    </div>
+   827→  );
+   828→}
+   829→
+   830→// ─── Service Table ────────────────────────────────────────────────────────────
+   831→
+   832→function ServiceTable({
+   833→  data,
+   834→  onEdit,
+   835→  onToggle,
+   836→  togglingId,
+   837→}: {
+   838→  data: ServiceItem[];
+   839→  onEdit: (item: Record<string, unknown>) => void;
+   840→  onToggle: (id: string) => void;
+   841→  togglingId: string | null;
+   842→}) {
+   843→  if (data.length === 0) {
+   844→    return <EmptyState message="No services found. Add one to get started." />;
+   845→  }
+   846→
+   847→  return (
+   848→    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+   849→      <Table>
+   850→        <TableHeader>
+   851→          <TableRow>
+   852→            <TableHead className="w-[20%]">Name</TableHead>
+   853→            <TableHead className="w-[14%]">Specialty</TableHead>
+   854→            <TableHead className="w-[10%]">Duration</TableHead>
+   855→            <TableHead className="w-[10%]">Price</TableHead>
+   856→            <TableHead className="w-[10%]">Bookable</TableHead>
+   857→            <TableHead className="w-[10%]">Status</TableHead>
+   858→            <TableHead className="w-[8%]">Sort</TableHead>
+   859→            <TableHead className="w-[8%] text-right">Actions</TableHead>
+   860→          </TableRow>
+   861→        </TableHeader>
+   862→        <TableBody>
+   863→          {data.map((item) => (
+   864→            <TableRow key={item.id} className={!item.isActive ? "opacity-60" : ""}>
+   865→              <TableCell className="font-medium">{item.name}</TableCell>
+   866→              <TableCell className="text-muted-foreground">{item.specialty?.name || "—"}</TableCell>
+   867→              <TableCell>{item.durationMinutes} min</TableCell>
+   868→              <TableCell className="font-mono text-sm">{formatPrice(item.selfPayPriceCents)}</TableCell>
+   869→              <TableCell>
+   870→                <Badge
+   871→                  variant={item.isBookable ? "default" : "secondary"}
+   872→                  className={
+   873→                    item.isBookable
+   874→                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+   875→                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+   876→                  }
+   877→                >
+   878→                  {item.isBookable ? "Yes" : "No"}
+   879→                </Badge>
+   880→              </TableCell>
+   881→              <TableCell>
+   882→                <button
+   883→                  onClick={() => onToggle(item.id)}
+   884→                  disabled={togglingId === item.id}
+   885→                  className="cursor-pointer"
+   886→                  title="Click to toggle status"
+   887→                >
+   888→                  {togglingId === item.id ? (
+   889→                    <Loader2 className="size-4 animate-spin" />
+   890→                  ) : (
+   891→                    <StatusBadge active={item.isActive} />
+   892→                  )}
+   893→                </button>
+   894→              </TableCell>
+   895→              <TableCell className="text-muted-foreground">{item.sortOrder}</TableCell>
+   896→              <TableCell className="text-right">
+   897→                <Button variant="ghost" size="icon" onClick={() => onEdit(item as unknown as Record<string, unknown>)} title="Edit">
+   898→                  <Pencil className="size-4" />
+   899→                </Button>
+   900→              </TableCell>
+   901→            </TableRow>
+   902→          ))}
+   903→        </TableBody>
+   904→      </Table>
+   905→    </div>
+   906→  );
+   907→}
+   908→
+   909→// ─── Insurance Table ──────────────────────────────────────────────────────────
+   910→
+   911→function InsuranceTable({
+   912→  data,
+   913→  onEdit,
+   914→  onToggle,
+   915→  togglingId,
+   916→}: {
+   917→  data: Insurance[];
+   918→  onEdit: (item: Record<string, unknown>) => void;
+   919→  onToggle: (id: string) => void;
+   920→  togglingId: string | null;
+   921→}) {
+   922→  if (data.length === 0) {
+   923→    return <EmptyState message="No insurances found. Add one to get started." />;
+   924→  }
+   925→
+   926→  return (
+   927→    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+   928→      <Table>
+   929→        <TableHeader>
+   930→          <TableRow>
+   931→            <TableHead className="w-[35%]">Name</TableHead>
+   932→            <TableHead className="w-[20%]">Slug</TableHead>
+   933→            <TableHead className="w-[10%]">Demo</TableHead>
+   934→            <TableHead className="w-[15%]">Status</TableHead>
+   935→            <TableHead className="w-[10%]">Sort</TableHead>
+   936→            <TableHead className="w-[10%] text-right">Actions</TableHead>
+   937→          </TableRow>
+   938→        </TableHeader>
+   939→        <TableBody>
+   940→          {data.map((item) => (
+   941→            <TableRow key={item.id} className={!item.isActive ? "opacity-60" : ""}>
+   942→              <TableCell className="font-medium">
+   943→                <div className="flex items-center gap-2">
+   944→                  {item.name}
+   945→                  {item.isDemo && (
+   946→                    <Badge variant="outline" className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700">
+   947→                      Demo
+   948→                    </Badge>
+   949→                  )}
+   950→                </div>
+   951→              </TableCell>
+   952→              <TableCell className="text-muted-foreground font-mono text-xs">{item.slug}</TableCell>
+   953→              <TableCell>{item.isDemo ? "Yes" : "No"}</TableCell>
+   954→              <TableCell>
+   955→                <button
+   956→                  onClick={() => onToggle(item.id)}
+   957→                  disabled={togglingId === item.id}
+   958→                  className="cursor-pointer"
+   959→                  title="Click to toggle status"
+   960→                >
+   961→                  {togglingId === item.id ? (
+   962→                    <Loader2 className="size-4 animate-spin" />
+   963→                  ) : (
+   964→                    <StatusBadge active={item.isActive} />
+   965→                  )}
+   966→                </button>
+   967→              </TableCell>
+   968→              <TableCell className="text-muted-foreground">{item.sortOrder}</TableCell>
+   969→              <TableCell className="text-right">
+   970→                <Button variant="ghost" size="icon" onClick={() => onEdit(item as unknown as Record<string, unknown>)} title="Edit">
+   971→                  <Pencil className="size-4" />
+   972→                </Button>
+   973→              </TableCell>
+   974→            </TableRow>
+   975→          ))}
+   976→        </TableBody>
+   977→      </Table>
+   978→    </div>
+   979→  );
+   980→}
+   981→
+   982→// ─── Amenity Table ────────────────────────────────────────────────────────────
+   983→
+   984→function AmenityTable({
+   985→  data,
+   986→  onEdit,
+   987→}: {
+   988→  data: Amenity[];
+   989→  onEdit: (item: Record<string, unknown>) => void;
+   990→}) {
+   991→  if (data.length === 0) {
+   992→    return <EmptyState message="No amenities found. Add one to get started." />;
+   993→  }
+   994→
+   995→  return (
+   996→    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+   997→      <Table>
+   998→        <TableHeader>
+   999→          <TableRow>
+  1000→            <TableHead className="w-[30%]">Name</TableHead>
+  1001→            <TableHead className="w-[25%]">Slug</TableHead>
+  1002→            <TableHead className="w-[20%]">Icon</TableHead>
+  1003→            <TableHead className="w-[15%]">Sort</TableHead>
+  1004→            <TableHead className="w-[10%] text-right">Actions</TableHead>
+  1005→          </TableRow>
+  1006→        </TableHeader>
+  1007→        <TableBody>
+  1008→          {data.map((item) => (
+  1009→            <TableRow key={item.id}>
+  1010→              <TableCell className="font-medium">{item.name}</TableCell>
+  1011→              <TableCell className="text-muted-foreground font-mono text-xs">{item.slug}</TableCell>
+  1012→              <TableCell>{item.icon || "—"}</TableCell>
+  1013→              <TableCell className="text-muted-foreground">{item.sortOrder}</TableCell>
+  1014→              <TableCell className="text-right">
+  1015→                <Button variant="ghost" size="icon" onClick={() => onEdit(item as unknown as Record<string, unknown>)} title="Edit">
+  1016→                  <Pencil className="size-4" />
+  1017→                </Button>
+  1018→              </TableCell>
+  1019→            </TableRow>
+  1020→          ))}
+  1021→        </TableBody>
+  1022→      </Table>
+  1023→    </div>
+  1024→  );
+  1025→}
+  1026→
+  1027→// ─── Language Table ───────────────────────────────────────────────────────────
+  1028→
+  1029→function LanguageTable({
+  1030→  data,
+  1031→  onEdit,
+  1032→}: {
+  1033→  data: Language[];
+  1034→  onEdit: (item: Record<string, unknown>) => void;
+  1035→}) {
+  1036→  if (data.length === 0) {
+  1037→    return <EmptyState message="No languages found. Add one to get started." />;
+  1038→  }
+  1039→
+  1040→  return (
+  1041→    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+  1042→      <Table>
+  1043→        <TableHeader>
+  1044→          <TableRow>
+  1045→            <TableHead className="w-[35%]">Name</TableHead>
+  1046→            <TableHead className="w-[20%]">Code</TableHead>
+  1047→            <TableHead className="w-[25%]">Sort</TableHead>
+  1048→            <TableHead className="w-[20%] text-right">Actions</TableHead>
+  1049→          </TableRow>
+  1050→        </TableHeader>
+  1051→        <TableBody>
+  1052→          {data.map((item) => (
+  1053→            <TableRow key={item.id}>
+  1054→              <TableCell className="font-medium">{item.name}</TableCell>
+  1055→              <TableCell>
+  1056→                <Badge variant="outline" className="font-mono">{item.code}</Badge>
+  1057→              </TableCell>
+  1058→              <TableCell className="text-muted-foreground">{item.sortOrder}</TableCell>
+  1059→              <TableCell className="text-right">
+  1060→                <Button variant="ghost" size="icon" onClick={() => onEdit(item as unknown as Record<string, unknown>)} title="Edit">
+  1061→                  <Pencil className="size-4" />
+  1062→                </Button>
+  1063→              </TableCell>
+  1064→            </TableRow>
+  1065→          ))}
+  1066→        </TableBody>
+  1067→      </Table>
+  1068→    </div>
+  1069→  );
+  1070→}
+  1071→
+  1072→// ─── Empty State ──────────────────────────────────────────────────────────────
+  1073→
+  1074→function EmptyState({ message }: { message: string }) {
+  1075→  return (
+  1076→    <div className="flex flex-col items-center justify-center py-12 text-center">
+  1077→      <Database className="size-10 text-muted-foreground/40 mb-3" />
+  1078→      <p className="text-sm text-muted-foreground">{message}</p>
+  1079→    </div>
+  1080→  );
+  1081→}

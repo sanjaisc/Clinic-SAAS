@@ -1,0 +1,820 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useEffect, useState, useRef, useCallback } from "react";
+     4→     4→import { useParams } from "next/navigation";
+     5→     5→import { motion, AnimatePresence } from "framer-motion";
+     6→     6→import { format } from "date-fns";
+     7→     7→
+     8→     8→import {
+     9→     9→  Card,
+    10→    10→  CardContent,
+    11→    11→  CardHeader,
+    12→    12→  CardTitle,
+    13→    13→  CardDescription,
+    14→    14→} from "@/components/ui/card";
+    15→    15→import { Badge } from "@/components/ui/badge";
+    16→    16→import { Button } from "@/components/ui/button";
+    17→    17→import { Label } from "@/components/ui/label";
+    18→    18→import { Textarea } from "@/components/ui/textarea";
+    19→    19→import { Input } from "@/components/ui/input";
+    20→    20→import { Skeleton } from "@/components/ui/skeleton";
+    21→    21→import { Separator } from "@/components/ui/separator";
+    22→    22→import {
+    23→    23→  FileText,
+    24→    24→  Calendar,
+    25→    25→  Clock,
+    26→    26→  MapPin,
+    27→    27→  User,
+    28→    28→  Building2,
+    29→    29→  Loader2,
+    30→    30→  AlertCircle,
+    31→    31→  CheckCircle2,
+    32→    32→  Heart,
+    33→    33→  Shield,
+    34→    34→  Stethoscope,
+    35→    35→  Pill,
+    36→    36→  AlertTriangle,
+    37→    37→  History,
+    38→    38→  Users,
+    39→    39→  Phone,
+    40→    40→  StickyNote,
+    41→    41→} from "lucide-react";
+    42→    42→import Link from "next/link";
+    43→    43→
+    44→    44→// ---- Types ----
+    45→    45→
+    46→    46→interface IntakeData {
+    47→    47→  appointment: {
+    48→    48→    id: string;
+    49→    49→    patientName: string;
+    50→    50→    provider: {
+    51→    51→      firstName: string;
+    52→    52→      lastName: string;
+    53→    53→      credentials: string | null;
+    54→    54→    };
+    55→    55→    clinic: {
+    56→    56→      name: string;
+    57→    57→      streetAddress: string;
+    58→    58→      city: string;
+    59→    59→      state: string;
+    60→    60→      zipCode: string;
+    61→    61→    };
+    62→    62→    service: {
+    63→    63→      name: string;
+    64→    64→    };
+    65→    65→    specialty: {
+    66→    66→      name: string;
+    67→    67→    };
+    68→    68→    insurance: {
+    69→    69→      name: string;
+    70→    70→    } | null;
+    71→    71→    startTime: string;
+    72→    72→    endTime: string;
+    73→    73→    modality: string;
+    74→    74→    intakeCompleted: boolean;
+    75→    75→  };
+    76→    76→  existingIntakeData: Record<string, string> | null;
+    77→    77→}
+    78→    78→
+    79→    79→type PageState = "loading" | "valid" | "expired" | "not_found" | "already_submitted" | "error";
+    80→    80→
+    81→    81→// ---- Animation variants ----
+    82→    82→
+    83→    83→const fadeInUp = {
+    84→    84→  initial: { opacity: 0, y: 20 },
+    85→    85→  animate: { opacity: 1, y: 0 },
+    86→    86→  exit: { opacity: 0, y: -10 },
+    87→    87→  transition: { duration: 0.5, ease: "easeOut" as const },
+    88→    88→} as const;
+    89→    89→
+    90→    90→const staggerContainer = {
+    91→    91→  animate: { transition: { staggerChildren: 0.08 } },
+    92→    92→};
+    93→    93→
+    94→    94→const checkmarkVariants = {
+    95→    95→  initial: { scale: 0, opacity: 0 },
+    96→    96→  animate: {
+    97→    97→    scale: 1,
+    98→    98→    opacity: 1,
+    99→    99→    transition: { type: "spring" as const, stiffness: 200, damping: 15, delay: 0.2 },
+   100→   100→  },
+   101→   101→} as const;
+   102→   102→
+   103→   103→const checkCirclePathVariants = {
+   104→   104→  initial: { pathLength: 0, opacity: 0 },
+   105→   105→  animate: {
+   106→   106→    pathLength: 1,
+   107→   107→    opacity: 1,
+   108→   108→    transition: {
+   109→   109→      pathLength: { duration: 0.6, ease: "easeInOut" as const, delay: 0.5 },
+   110→   110→      opacity: { duration: 0.1, delay: 0.5 },
+   111→   111→    },
+   112→   112→  },
+   113→   113→} as const;
+   114→   114→
+   115→   115→// ---- Form section wrapper with emerald left border ----
+   116→   116→
+   117→   117→function IntakeSection({
+   118→   118→  title,
+   119→   119→  icon,
+   120→   120→  children,
+   121→   121→  required,
+   122→   122→}: {
+   123→   123→  title: string;
+   124→   124→  icon: React.ReactNode;
+   125→   125→  children: React.ReactNode;
+   126→   126→  required?: boolean;
+   127→   127→}) {
+   128→   128→  return (
+   129→   129→    <motion.div {...fadeInUp}>
+   130→   130→      <div className="border border-border rounded-lg overflow-hidden">
+   131→   131→        <div className="border-l-4 border-l-emerald-500">
+   132→   132→          <div className="flex items-center gap-2.5 px-5 py-3.5 bg-muted/30">
+   133→   133→            <div className="w-7 h-7 rounded-md bg-emerald-100 flex items-center justify-center shrink-0">
+   134→   134→              {icon}
+   135→   135→            </div>
+   136→   136→            <h3 className="font-semibold text-foreground text-sm">
+   137→   137→              {title}
+   138→   138→              {required && <span className="text-red-500 ml-1">*</span>}
+   139→   139→            </h3>
+   140→   140→          </div>
+   141→   141→          <div className="px-5 py-4">{children}</div>
+   142→   142→        </div>
+   143→   143→      </div>
+   144→   144→    </motion.div>
+   145→   145→  );
+   146→   146→}
+   147→   147→
+   148→   148→// ---- Loading Skeleton ----
+   149→   149→
+   150→   150→function LoadingSkeleton() {
+   151→   151→  return (
+   152→   152→    <div className="max-w-2xl mx-auto space-y-5">
+   153→   153→      <div className="text-center mb-2">
+   154→   154→        <Skeleton className="h-8 w-64 mx-auto mb-2" />
+   155→   155→        <Skeleton className="h-4 w-48 mx-auto" />
+   156→   156→      </div>
+   157→   157→      <Card className="border-0 shadow-lg">
+   158→   158→        <CardContent className="p-6 space-y-4">
+   159→   159→          <Skeleton className="h-5 w-40" />
+   160→   160→          <div className="grid grid-cols-2 gap-4">
+   161→   161→            <Skeleton className="h-16 w-full" />
+   162→   162→            <Skeleton className="h-16 w-full" />
+   163→   163→          </div>
+   164→   164→          <Skeleton className="h-4 w-56" />
+   165→   165→          <Skeleton className="h-4 w-48" />
+   166→   166→        </CardContent>
+   167→   167→      </Card>
+   168→   168→      {[1, 2, 3, 4].map((i) => (
+   169→   169→        <Skeleton key={i} className="h-36 w-full rounded-lg" />
+   170→   170→      ))}
+   171→   171→      <Skeleton className="h-12 w-full rounded-lg" />
+   172→   172→    </div>
+   173→   173→  );
+   174→   174→}
+   175→   175→
+   176→   176→// ---- Main Page Component ----
+   177→   177→
+   178→   178→export default function IntakeFormPage() {
+   179→   179→  const params = useParams();
+   180→   180→  const token = params.token as string;
+   181→   181→  const [pageState, setPageState] = useState<PageState>("loading");
+   182→   182→  const [data, setData] = useState<IntakeData | null>(null);
+   183→   183→  const [submitting, setSubmitting] = useState(false);
+   184→   184→  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+   185→   185→  const [success, setSuccess] = useState(false);
+   186→   186→  const fetchedRef = useRef(false);
+   187→   187→
+   188→   188→  // ---- Form fields ----
+   189→   189→  const [chiefComplaint, setChiefComplaint] = useState("");
+   190→   190→  const [medications, setMedications] = useState("");
+   191→   191→  const [allergies, setAllergies] = useState("");
+   192→   192→  const [medicalHistory, setMedicalHistory] = useState("");
+   193→   193→  const [familyHistory, setFamilyHistory] = useState("");
+   194→   194→  const [emergencyName, setEmergencyName] = useState("");
+   195→   195→  const [emergencyPhone, setEmergencyPhone] = useState("");
+   196→   196→  const [emergencyRelation, setEmergencyRelation] = useState("");
+   197→   197→  const [additionalNotes, setAdditionalNotes] = useState("");
+   198→   198→
+   199→   199→  // ---- Fetch appointment data ----
+   200→   200→  useEffect(() => {
+   201→   201→    if (!token || fetchedRef.current) return;
+   202→   202→    fetchedRef.current = true;
+   203→   203→
+   204→   204→    let cancelled = false;
+   205→   205→
+   206→   206→    (async () => {
+   207→   207→      try {
+   208→   208→        const res = await fetch(`/api/intake?token=${encodeURIComponent(token)}`);
+   209→   209→        if (cancelled) return;
+   210→   210→
+   211→   211→        if (res.status === 404) {
+   212→   212→          setPageState("not_found");
+   213→   213→          return;
+   214→   214→        }
+   215→   215→
+   216→   216→        if (res.status === 410) {
+   217→   217→          setPageState("expired");
+   218→   218→          return;
+   219→   219→        }
+   220→   220→
+   221→   221→        if (!res.ok) {
+   222→   222→          const body = await res.json();
+   223→   223→          if (body.error?.includes("already been submitted")) {
+   224→   224→            setPageState("already_submitted");
+   225→   225→          } else {
+   226→   226→            setPageState("error");
+   227→   227→            setErrorMessage(body.error || "Something went wrong");
+   228→   228→          }
+   229→   229→          return;
+   230→   230→        }
+   231→   231→
+   232→   232→        const body = await res.json();
+   233→   233→        if (cancelled) return;
+   234→   234→
+   235→   235→        setData(body);
+   236→   236→        setPageState("valid");
+   237→   237→
+   238→   238→        // Populate form with existing data if available
+   239→   239→        if (body.existingIntakeData) {
+   240→   240→          const d = body.existingIntakeData;
+   241→   241→          if (d.chiefComplaint) setChiefComplaint(d.chiefComplaint);
+   242→   242→          if (d.medications) setMedications(d.medications);
+   243→   243→          if (d.allergies) setAllergies(d.allergies);
+   244→   244→          if (d.medicalHistory) setMedicalHistory(d.medicalHistory);
+   245→   245→          if (d.familyHistory) setFamilyHistory(d.familyHistory);
+   246→   246→          if (d.emergencyName) setEmergencyName(d.emergencyName);
+   247→   247→          if (d.emergencyPhone) setEmergencyPhone(d.emergencyPhone);
+   248→   248→          if (d.emergencyRelation) setEmergencyRelation(d.emergencyRelation);
+   249→   249→          if (d.additionalNotes) setAdditionalNotes(d.additionalNotes);
+   250→   250→        }
+   251→   251→      } catch {
+   252→   252→        if (cancelled) return;
+   253→   253→        setPageState("error");
+   254→   254→        setErrorMessage("Unable to connect. Please check your internet and try again.");
+   255→   255→      }
+   256→   256→    })();
+   257→   257→
+   258→   258→    return () => {
+   259→   259→      cancelled = true;
+   260→   260→    };
+   261→   261→  }, [token]);
+   262→   262→
+   263→   263→  // ---- Submit handler ----
+   264→   264→  const handleSubmit = useCallback(async () => {
+   265→   265→    if (!token || !data) return;
+   266→   266→
+   267→   267→    // Validate required field
+   268→   268→    if (!chiefComplaint.trim()) {
+   269→   269→      setErrorMessage("Please describe your chief complaint (reason for visit).");
+   270→   270→      return;
+   271→   271→    }
+   272→   272→
+   273→   273→    setSubmitting(true);
+   274→   274→    setErrorMessage(null);
+   275→   275→
+   276→   276→    try {
+   277→   277→      const formData: Record<string, string> = {
+   278→   278→        chiefComplaint: chiefComplaint.trim(),
+   279→   279→      };
+   280→   280→      if (medications.trim()) formData.medications = medications.trim();
+   281→   281→      if (allergies.trim()) formData.allergies = allergies.trim();
+   282→   282→      if (medicalHistory.trim()) formData.medicalHistory = medicalHistory.trim();
+   283→   283→      if (familyHistory.trim()) formData.familyHistory = familyHistory.trim();
+   284→   284→      if (emergencyName.trim()) formData.emergencyName = emergencyName.trim();
+   285→   285→      if (emergencyPhone.trim()) formData.emergencyPhone = emergencyPhone.trim();
+   286→   286→      if (emergencyRelation.trim()) formData.emergencyRelation = emergencyRelation.trim();
+   287→   287→      if (additionalNotes.trim()) formData.additionalNotes = additionalNotes.trim();
+   288→   288→
+   289→   289→      const res = await fetch("/api/intake", {
+   290→   290→        method: "POST",
+   291→   291→        headers: { "Content-Type": "application/json" },
+   292→   292→        body: JSON.stringify({ token, formData }),
+   293→   293→      });
+   294→   294→
+   295→   295→      if (!res.ok) {
+   296→   296→        const body = await res.json();
+   297→   297→        if (body.error?.includes("already been submitted")) {
+   298→   298→          setPageState("already_submitted");
+   299→   299→        } else {
+   300→   300→          setErrorMessage(body.error || "Failed to submit intake form. Please try again.");
+   301→   301→        }
+   302→   302→        return;
+   303→   303→      }
+   304→   304→
+   305→   305→      setSuccess(true);
+   306→   306→    } catch {
+   307→   307→      setErrorMessage("Unable to connect. Please check your internet and try again.");
+   308→   308→    } finally {
+   309→   309→      setSubmitting(false);
+   310→   310→    }
+   311→   311→  }, [token, data, chiefComplaint, medications, allergies, medicalHistory, familyHistory, emergencyName, emergencyPhone, emergencyRelation, additionalNotes]);
+   312→   312→
+   313→   313→  // ---- Render: Loading State ----
+   314→   314→
+   315→   315→  if (pageState === "loading") {
+   316→   316→    return (
+   317→   317→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   318→   318→        <Header />
+   319→   319→        <main className="flex-1 py-8 px-4">
+   320→   320→          <LoadingSkeleton />
+   321→   321→        </main>
+   322→   322→        <Footer />
+   323→   323→      </div>
+   324→   324→    );
+   325→   325→  }
+   326→   326→
+   327→   327→  // ---- Render: Error / Expired / Not Found States ----
+   328→   328→
+   329→   329→  if (
+   330→   330→    pageState === "not_found" ||
+   331→   331→    pageState === "expired" ||
+   332→   332→    pageState === "already_submitted" ||
+   333→   333→    pageState === "error"
+   334→   334→  ) {
+   335→   335→    return (
+   336→   336→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   337→   337→        <Header />
+   338→   338→        <main className="flex-1 flex items-center justify-center p-4">
+   339→   339→          <motion.div className="max-w-md w-full" {...fadeInUp}>
+   340→   340→            <Card className="text-center border-0 shadow-lg">
+   341→   341→              <CardContent className="pt-10 pb-8 px-8">
+   342→   342→                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-5">
+   343→   343→                  <AlertCircle className="size-8 text-amber-500" />
+   344→   344→                </div>
+   345→   345→
+   346→   346→                {pageState === "not_found" && (
+   347→   347→                  <>
+   348→   348→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   349→   349→                      Link Not Found
+   350→   350→                    </h2>
+   351→   351→                    <p className="text-muted-foreground mb-6">
+   352→   352→                      We couldn&apos;t find an intake form associated with this link.
+   353→   353→                      It may have been removed or the link may be incorrect.
+   354→   354→                    </p>
+   355→   355→                  </>
+   356→   356→                )}
+   357→   357→
+   358→   358→                {pageState === "expired" && (
+   359→   359→                  <>
+   360→   360→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   361→   361→                      Link Expired
+   362→   362→                    </h2>
+   363→   363→                    <p className="text-muted-foreground mb-6">
+   364→   364→                      This intake form link has expired. Please contact the clinic
+   365→   365→                      if you need to update your information.
+   366→   366→                    </p>
+   367→   367→                  </>
+   368→   368→                )}
+   369→   369→
+   370→   370→                {pageState === "already_submitted" && (
+   371→   371→                  <>
+   372→   372→                    <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
+   373→   373→                      <CheckCircle2 className="size-8 text-emerald-500" />
+   374→   374→                    </div>
+   375→   375→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   376→   376→                      Already Submitted
+   377→   377→                    </h2>
+   378→   378→                    <p className="text-muted-foreground mb-6">
+   379→   379→                      Your intake form has already been submitted. Your provider will
+   380→   380→                      review this information before your appointment.
+   381→   381→                    </p>
+   382→   382→                  </>
+   383→   383→                )}
+   384→   384→
+   385→   385→                {pageState === "error" && (
+   386→   386→                  <>
+   387→   387→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   388→   388→                      Something Went Wrong
+   389→   389→                    </h2>
+   390→   390→                    <p className="text-muted-foreground mb-6">
+   391→   391→                      {errorMessage || "An unexpected error occurred. Please try again."}
+   392→   392→                    </p>
+   393→   393→                  </>
+   394→   394→                )}
+   395→   395→
+   396→   396→                <Separator className="my-6" />
+   397→   397→                <Button asChild className="w-full" variant="outline">
+   398→   398→                  <Link href="/">Back to Home</Link>
+   399→   399→                </Button>
+   400→   400→              </CardContent>
+   401→   401→            </Card>
+   402→   402→          </motion.div>
+   403→   403→        </main>
+   404→   404→        <Footer />
+   405→   405→      </div>
+   406→   406→    );
+   407→   407→  }
+   408→   408→
+   409→   409→  // ---- Render: Success State ----
+   410→   410→
+   411→   411→  if (success) {
+   412→   412→    return (
+   413→   413→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   414→   414→        <Header />
+   415→   415→        <main className="flex-1 flex items-center justify-center p-4">
+   416→   416→          <motion.div className="max-w-md w-full text-center" {...fadeInUp}>
+   417→   417→            <Card className="border-0 shadow-lg">
+   418→   418→              <CardContent className="pt-10 pb-8 px-8">
+   419→   419→                <motion.div
+   420→   420→                  className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5"
+   421→   421→                  variants={checkmarkVariants}
+   422→   422→                  initial="initial"
+   423→   423→                  animate="animate"
+   424→   424→                >
+   425→   425→                  <motion.svg
+   426→   426→                    className="size-10 text-emerald-600"
+   427→   427→                    viewBox="0 0 24 24"
+   428→   428→                    fill="none"
+   429→   429→                    stroke="currentColor"
+   430→   430→                    strokeWidth={3}
+   431→   431→                    strokeLinecap="round"
+   432→   432→                    strokeLinejoin="round"
+   433→   433→                  >
+   434→   434→                    <motion.path
+   435→   435→                      d="M5 13l4 4L19 7"
+   436→   436→                      variants={checkCirclePathVariants}
+   437→   437→                      initial="initial"
+   438→   438→                      animate="animate"
+   439→   439→                    />
+   440→   440→                  </motion.svg>
+   441→   441→                </motion.div>
+   442→   442→                <h2 className="text-2xl font-bold text-foreground mb-2">
+   443→   443→                  Intake Form Submitted!
+   444→   444→                </h2>
+   445→   445→                <p className="text-muted-foreground mb-8">
+   446→   446→                  Your provider will review this information before your appointment.
+   447→   447→                </p>
+   448→   448→                <Button asChild className="w-full" variant="outline" size="lg">
+   449→   449→                  <Link href="/">Back to Home</Link>
+   450→   450→                </Button>
+   451→   451→              </CardContent>
+   452→   452→            </Card>
+   453→   453→          </motion.div>
+   454→   454→        </main>
+   455→   455→        <Footer />
+   456→   456→      </div>
+   457→   457→    );
+   458→   458→  }
+   459→   459→
+   460→   460→  // ---- Render: Valid — The Intake Form ----
+   461→   461→
+   462→   462→  if (pageState === "valid" && data) {
+   463→   463→    const startTime = new Date(data.appointment.startTime);
+   464→   464→    const providerName = `${data.appointment.provider.firstName} ${data.appointment.provider.lastName}${data.appointment.provider.credentials ? `, ${data.appointment.provider.credentials}` : ""}`;
+   465→   465→
+   466→   466→    return (
+   467→   467→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   468→   468→        <Header />
+   469→   469→
+   470→   470→        <main className="flex-1 py-6 px-4">
+   471→   471→          <div className="max-w-2xl mx-auto space-y-5">
+   472→   472→            {/* Page Header */}
+   473→   473→            <motion.div className="text-center" {...fadeInUp}>
+   474→   474→              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100 mb-3">
+   475→   475→                <FileText className="size-6 text-emerald-600" />
+   476→   476→              </div>
+   477→   477→              <h1 className="text-2xl font-bold text-foreground">
+   478→   478→                Pre-Visit Intake Form
+   479→   479→              </h1>
+   480→   480→              <p className="text-muted-foreground mt-1">
+   481→   481→                Please complete this form to help your provider prepare for your visit
+   482→   482→              </p>
+   483→   483→            </motion.div>
+   484→   484→
+   485→   485→            {/* Appointment Summary Card */}
+   486→   486→            <motion.div {...fadeInUp}>
+   487→   487→              <Card className="border-0 shadow-lg overflow-hidden">
+   488→   488→                <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+   489→   489→                <CardHeader className="pb-3">
+   490→   490→                  <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
+   491→   491→                    <Calendar className="size-4 text-emerald-600" />
+   492→   492→                    Appointment Summary
+   493→   493→                  </CardTitle>
+   494→   494→                </CardHeader>
+   495→   495→                <CardContent className="space-y-3">
+   496→   496→                  <div className="grid gap-3 sm:grid-cols-2">
+   497→   497→                    <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
+   498→   498→                      <Calendar className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+   499→   499→                      <div>
+   500→   500→                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Date &amp; Time</p>
+   501→   501→                        <p className="text-sm font-medium text-foreground mt-0.5">
+   502→   502→                          {format(startTime, "EEEE, MMMM d, yyyy")} at {format(startTime, "h:mm a")}
+   503→   503→                        </p>
+   504→   504→                      </div>
+   505→   505→                    </div>
+   506→   506→                    <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
+   507→   507→                      <User className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+   508→   508→                      <div>
+   509→   509→                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Provider</p>
+   510→   510→                        <p className="text-sm font-medium text-foreground mt-0.5">{providerName}</p>
+   511→   511→                      </div>
+   512→   512→                    </div>
+   513→   513→                    <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
+   514→   514→                      <Building2 className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+   515→   515→                      <div>
+   516→   516→                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Clinic</p>
+   517→   517→                        <p className="text-sm font-medium text-foreground mt-0.5">{data.appointment.clinic.name}</p>
+   518→   518→                        <p className="text-xs text-muted-foreground mt-0.5">
+   519→   519→                          {data.appointment.clinic.streetAddress}, {data.appointment.clinic.city},{" "}
+   520→   520→                          {data.appointment.clinic.state} {data.appointment.clinic.zipCode}
+   521→   521→                        </p>
+   522→   522→                      </div>
+   523→   523→                    </div>
+   524→   524→                    <div className="flex items-start gap-2.5 bg-muted/40 rounded-lg p-3">
+   525→   525→                      <Stethoscope className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+   526→   526→                      <div>
+   527→   527→                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Service</p>
+   528→   528→                        <p className="text-sm font-medium text-foreground mt-0.5">
+   529→   529→                          {data.appointment.service.name}
+   530→   530→                        </p>
+   531→   531→                        <p className="text-xs text-muted-foreground mt-0.5">{data.appointment.specialty.name}</p>
+   532→   532→                      </div>
+   533→   533→                    </div>
+   534→   534→                  </div>
+   535→   535→
+   536→   536→                  {/* Insurance badge */}
+   537→   537→                  {data.appointment.insurance && (
+   538→   538→                    <div className="flex items-center gap-2 pt-1">
+   539→   539→                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 px-3 py-1 text-sm">
+   540→   540→                        <Shield className="size-3.5 mr-1.5" />
+   541→   541→                        {data.appointment.insurance.name}
+   542→   542→                      </Badge>
+   543→   543→                      {data.appointment.modality === "VIDEO" && (
+   544→   544→                        <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 px-3 py-1 text-sm">
+   545→   545→                          Video Visit
+   546→   546→                        </Badge>
+   547→   547→                      )}
+   548→   548→                    </div>
+   549→   549→                  )}
+   550→   550→                </CardContent>
+   551→   551→              </Card>
+   552→   552→            </motion.div>
+   553→   553→
+   554→   554→            {/* Error message */}
+   555→   555→            {errorMessage && (
+   556→   556→              <motion.div {...fadeInUp}>
+   557→   557→                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+   558→   558→                  <AlertCircle className="size-5 text-red-500 shrink-0 mt-0.5" />
+   559→   559→                  <p className="text-sm text-red-800">{errorMessage}</p>
+   560→   560→                </div>
+   561→   561→              </motion.div>
+   562→   562→            )}
+   563→   563→
+   564→   564→            {/* Form Sections */}
+   565→   565→            <motion.div className="space-y-4" variants={staggerContainer} initial="initial" animate="animate">
+   566→   566→              {/* Chief Complaint */}
+   567→   567→              <IntakeSection
+   568→   568→                title="Chief Complaint"
+   569→   569→                icon={<Stethoscope className="size-3.5 text-emerald-700" />}
+   570→   570→                required
+   571→   571→              >
+   572→   572→                <div className="space-y-2">
+   573→   573→                  <Label htmlFor="chiefComplaint" className="text-sm font-medium">
+   574→   574→                    What brings you in today?
+   575→   575→                    <span className="text-red-500 ml-1">*</span>
+   576→   576→                  </Label>
+   577→   577→                  <Textarea
+   578→   578→                    id="chiefComplaint"
+   579→   579→                    placeholder="Describe your symptoms, concerns, or reason for this visit..."
+   580→   580→                    value={chiefComplaint}
+   581→   581→                    onChange={(e) => {
+   582→   582→                      setChiefComplaint(e.target.value);
+   583→   583→                      setErrorMessage(null);
+   584→   584→                    }}
+   585→   585→                    rows={4}
+   586→   586→                    className="resize-none"
+   587→   587→                  />
+   588→   588→                </div>
+   589→   589→              </IntakeSection>
+   590→   590→
+   591→   591→              {/* Current Medications */}
+   592→   592→              <IntakeSection
+   593→   593→                title="Current Medications"
+   594→   594→                icon={<Pill className="size-3.5 text-emerald-700" />}
+   595→   595→              >
+   596→   596→                <div className="space-y-2">
+   597→   597→                  <Label htmlFor="medications" className="text-sm font-medium">
+   598→   598→                    Current Medications
+   599→   599→                  </Label>
+   600→   600→                  <Textarea
+   601→   601→                    id="medications"
+   602→   602→                    placeholder='e.g., Lisinopril 10mg - once daily, Metformin 500mg - twice daily with meals'
+   603→   603→                    value={medications}
+   604→   604→                    onChange={(e) => setMedications(e.target.value)}
+   605→   605→                    rows={3}
+   606→   606→                    className="resize-none"
+   607→   607→                  />
+   608→   608→                  <p className="text-xs text-muted-foreground">
+   609→   609→                    List all medications, dosages, and frequency
+   610→   610→                  </p>
+   611→   611→                </div>
+   612→   612→              </IntakeSection>
+   613→   613→
+   614→   614→              {/* Allergies */}
+   615→   615→              <IntakeSection
+   616→   616→                title="Allergies"
+   617→   617→                icon={<AlertTriangle className="size-3.5 text-emerald-700" />}
+   618→   618→              >
+   619→   619→                <div className="space-y-2">
+   620→   620→                  <Label htmlFor="allergies" className="text-sm font-medium">
+   621→   621→                    Known Allergies
+   622→   622→                  </Label>
+   623→   623→                  <Textarea
+   624→   624→                    id="allergies"
+   625→   625→                    placeholder="e.g., Penicillin - causes rash, Shellfish - severe reaction, Latex"
+   626→   626→                    value={allergies}
+   627→   627→                    onChange={(e) => setAllergies(e.target.value)}
+   628→   628→                    rows={3}
+   629→   629→                    className="resize-none"
+   630→   630→                  />
+   631→   631→                  <p className="text-xs text-muted-foreground">
+   632→   632→                    List any known allergies (medications, food, environmental)
+   633→   633→                  </p>
+   634→   634→                </div>
+   635→   635→              </IntakeSection>
+   636→   636→
+   637→   637→              {/* Medical History */}
+   638→   638→              <IntakeSection
+   639→   639→                title="Medical History"
+   640→   640→                icon={<History className="size-3.5 text-emerald-700" />}
+   641→   641→              >
+   642→   642→                <div className="space-y-2">
+   643→   643→                  <Label htmlFor="medicalHistory" className="text-sm font-medium">
+   644→   644→                    Medical History
+   645→   645→                  </Label>
+   646→   646→                  <Textarea
+   647→   647→                    id="medicalHistory"
+   648→   648→                    placeholder="e.g., Type 2 Diabetes (diagnosed 2018), Hypertension, Appendectomy (2015)"
+   649→   649→                    value={medicalHistory}
+   650→   650→                    onChange={(e) => setMedicalHistory(e.target.value)}
+   651→   651→                    rows={3}
+   652→   652→                    className="resize-none"
+   653→   653→                  />
+   654→   654→                  <p className="text-xs text-muted-foreground">
+   655→   655→                    List any chronic conditions, past surgeries, or hospitalizations
+   656→   656→                  </p>
+   657→   657→                </div>
+   658→   658→              </IntakeSection>
+   659→   659→
+   660→   660→              {/* Family History */}
+   661→   661→              <IntakeSection
+   662→   662→                title="Family History"
+   663→   663→                icon={<Users className="size-3.5 text-emerald-700" />}
+   664→   664→              >
+   665→   665→                <div className="space-y-2">
+   666→   666→                  <Label htmlFor="familyHistory" className="text-sm font-medium">
+   667→   667→                    Family Medical History
+   668→   668→                    <span className="text-muted-foreground font-normal ml-2">(optional)</span>
+   669→   669→                  </Label>
+   670→   670→                  <Textarea
+   671→   671→                    id="familyHistory"
+   672→   672→                    placeholder="e.g., Father - heart disease, Mother - breast cancer, Brother - diabetes"
+   673→   673→                    value={familyHistory}
+   674→   674→                    onChange={(e) => setFamilyHistory(e.target.value)}
+   675→   675→                    rows={3}
+   676→   676→                    className="resize-none"
+   677→   677→                  />
+   678→   678→                </div>
+   679→   679→              </IntakeSection>
+   680→   680→
+   681→   681→              {/* Emergency Contact */}
+   682→   682→              <IntakeSection
+   683→   683→                title="Emergency Contact"
+   684→   684→                icon={<Phone className="size-3.5 text-emerald-700" />}
+   685→   685→              >
+   686→   686→                <div className="grid gap-4 sm:grid-cols-3">
+   687→   687→                  <div className="space-y-2">
+   688→   688→                    <Label htmlFor="emergencyName" className="text-sm font-medium">
+   689→   689→                      Name
+   690→   690→                    </Label>
+   691→   691→                    <Input
+   692→   692→                      id="emergencyName"
+   693→   693→                      placeholder="Full name"
+   694→   694→                      value={emergencyName}
+   695→   695→                      onChange={(e) => setEmergencyName(e.target.value)}
+   696→   696→                    />
+   697→   697→                  </div>
+   698→   698→                  <div className="space-y-2">
+   699→   699→                    <Label htmlFor="emergencyPhone" className="text-sm font-medium">
+   700→   700→                      Phone
+   701→   701→                    </Label>
+   702→   702→                    <Input
+   703→   703→                      id="emergencyPhone"
+   704→   704→                      placeholder="(555) 123-4567"
+   705→   705→                      value={emergencyPhone}
+   706→   706→                      onChange={(e) => setEmergencyPhone(e.target.value)}
+   707→   707→                    />
+   708→   708→                  </div>
+   709→   709→                  <div className="space-y-2">
+   710→   710→                    <Label htmlFor="emergencyRelation" className="text-sm font-medium">
+   711→   711→                      Relationship
+   712→   712→                    </Label>
+   713→   713→                    <Input
+   714→   714→                      id="emergencyRelation"
+   715→   715→                      placeholder="e.g., Spouse, Parent"
+   716→   716→                      value={emergencyRelation}
+   717→   717→                      onChange={(e) => setEmergencyRelation(e.target.value)}
+   718→   718→                    />
+   719→   719→                  </div>
+   720→   720→                </div>
+   721→   721→              </IntakeSection>
+   722→   722→
+   723→   723→              {/* Additional Notes */}
+   724→   724→              <IntakeSection
+   725→   725→                title="Additional Notes"
+   726→   726→                icon={<StickyNote className="size-3.5 text-emerald-700" />}
+   727→   727→              >
+   728→   728→                <div className="space-y-2">
+   729→   729→                  <Label htmlFor="additionalNotes" className="text-sm font-medium">
+   730→   730→                    Anything else your provider should know?
+   731→   731→                    <span className="text-muted-foreground font-normal ml-2">(optional)</span>
+   732→   732→                  </Label>
+   733→   733→                  <Textarea
+   734→   734→                    id="additionalNotes"
+   735→   735→                    placeholder="Any additional information, questions, or concerns you'd like to share..."
+   736→   736→                    value={additionalNotes}
+   737→   737→                    onChange={(e) => setAdditionalNotes(e.target.value)}
+   738→   738→                    rows={3}
+   739→   739→                    className="resize-none"
+   740→   740→                  />
+   741→   741→                </div>
+   742→   742→              </IntakeSection>
+   743→   743→            </motion.div>
+   744→   744→
+   745→   745→            {/* Submit Button */}
+   746→   746→            <motion.div {...fadeInUp}>
+   747→   747→              <Button
+   748→   748→                size="lg"
+   749→   749→                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg sm:w-auto sm:px-10"
+   750→   750→                disabled={submitting}
+   751→   751→                onClick={handleSubmit}
+   752→   752→              >
+   753→   753→                {submitting ? (
+   754→   754→                  <>
+   755→   755→                    <Loader2 className="size-5 animate-spin" />
+   756→   756→                    Submitting…
+   757→   757→                  </>
+   758→   758→                ) : (
+   759→   759→                  <>
+   760→   760→                    <FileText className="size-5" />
+   761→   761→                    Submit Intake Form
+   762→   762→                  </>
+   763→   763→                )}
+   764→   764→              </Button>
+   765→   765→            </motion.div>
+   766→   766→
+   767→   767→            {/* Privacy note */}
+   768→   768→            <motion.p {...fadeInUp} className="text-center text-xs text-muted-foreground pb-2">
+   769→   769→              <Shield className="size-3 inline mr-1 text-emerald-600" />
+   770→   770→              Your information is encrypted and securely transmitted. It will only be shared
+   771→   771→              with your healthcare provider.
+   772→   772→            </motion.p>
+   773→   773→          </div>
+   774→   774→        </main>
+   775→   775→
+   776→   776→        <Footer />
+   777→   777→      </div>
+   778→   778→    );
+   779→   779→  }
+   780→   780→
+   781→   781→  // Fallback
+   782→   782→  return null;
+   783→   783→}
+   784→   784→
+   785→   785→// ---- Header Component ----
+   786→   786→
+   787→   787→function Header() {
+   788→   788→  return (
+   789→   789→    <header className="bg-background/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
+   790→   790→      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+   791→   791→        <div className="flex items-center gap-2">
+   792→   792→          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   793→   793→            <Heart className="size-4 text-white" />
+   794→   794→          </div>
+   795→   795→          <span className="font-bold text-lg text-foreground tracking-tight">
+   796→   796→            DoctA
+   797→   797→          </span>
+   798→   798→        </div>
+   799→   799→        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   800→   800→          <Shield className="size-3.5 text-emerald-600" />
+   801→   801→          <span>Patient Intake Portal</span>
+   802→   802→        </div>
+   803→   803→      </div>
+   804→   804→    </header>
+   805→   805→  );
+   806→   806→}
+   807→   807→
+   808→   808→// ---- Footer Component ----
+   809→   809→
+   810→   810→function Footer() {
+   811→   811→  return (
+   812→   812→    <footer className="border-t border-border/50 bg-background/80 mt-auto">
+   813→   813→      <div className="max-w-4xl mx-auto px-4 py-4 text-center">
+   814→   814→        <p className="text-xs text-muted-foreground">
+   815→   815→          Powered by <span className="font-semibold text-foreground">DoctA</span> &middot; Patient Intake Portal
+   816→   816→        </p>
+   817→   817→      </div>
+   818→   818→    </footer>
+   819→   819→  );
+   820→   820→}

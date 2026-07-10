@@ -1,0 +1,1097 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { format } from "date-fns";
+     5→import {
+     6→  Search,
+     7→  CalendarCheck,
+     8→  Clock,
+     9→  Video,
+    10→  MapPin,
+    11→  ChevronDown,
+    12→  ChevronUp,
+    13→  ChevronLeft,
+    14→  ChevronRight,
+    15→  Ban,
+    16→  UserX,
+    17→  CheckCircle2,
+    18→  DollarSign,
+    19→  AlertTriangle,
+    20→  Users,
+    21→  Mail,
+    22→  Phone,
+    23→  Merge,
+    24→  Loader2,
+    25→  RefreshCw,
+    26→} from "lucide-react";
+    27→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    28→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    29→import { Button } from "@/components/ui/button";
+    30→import { Input } from "@/components/ui/input";
+    31→import { Badge } from "@/components/ui/badge";
+    32→import {
+    33→  Table,
+    34→  TableBody,
+    35→  TableCell,
+    36→  TableHead,
+    37→  TableHeader,
+    38→  TableRow,
+    39→} from "@/components/ui/table";
+    40→import {
+    41→  Select,
+    42→  SelectContent,
+    43→  SelectItem,
+    44→  SelectTrigger,
+    45→  SelectValue,
+    46→} from "@/components/ui/select";
+    47→import {
+    48→  Dialog,
+    49→  DialogContent,
+    50→  DialogDescription,
+    51→  DialogFooter,
+    52→  DialogHeader,
+    53→  DialogTitle,
+    54→} from "@/components/ui/dialog";
+    55→import { Label } from "@/components/ui/label";
+    56→import { Textarea } from "@/components/ui/textarea";
+    57→import { Skeleton } from "@/components/ui/skeleton";
+    58→import { useToast } from "@/hooks/use-toast";
+    59→
+    60→// ─── Types ───────────────────────────────────────────────────────────────────
+    61→
+    62→interface AppointmentRow {
+    63→  id: string;
+    64→  patientName: string;
+    65→  patientDob: string;
+    66→  patientPhone: string;
+    67→  patientEmail: string;
+    68→  patientType: string;
+    69→  reasonForVisit: string;
+    70→  modality: string;
+    71→  startTime: string;
+    72→  endTime: string;
+    73→  status: string;
+    74→  depositCents: number;
+    75→  selfPayCents: number;
+    76→  paymentStatus: string;
+    77→  paymentMethod: string | null;
+    78→  cancellationReason: string | null;
+    79→  cancelledAt: string | null;
+    80→  cancelledBy: string | null;
+    81→  clinic: { id: string; name: string };
+    82→  provider: { id: string; firstName: string; lastName: string; credentials: string | null };
+    83→  service: { id: string; name: string };
+    84→  slot: { id: string; modality: string; status: string };
+    85→}
+    86→
+    87→interface WaitlistRow {
+    88→  id: string;
+    89→  patientName: string;
+    90→  patientEmail: string;
+    91→  patientPhone: string;
+    92→  patientType: string;
+    93→  modality: string | null;
+    94→  status: string;
+    95→  dateFrom: string;
+    96→  dateTo: string;
+    97→  contactCount: number;
+    98→  lastContactAt: string | null;
+    99→  clinicId: string;
+   100→  clinicName: string;
+   101→  providerName: string;
+   102→  serviceName: string;
+   103→  createdAt: string;
+   104→  updatedAt: string;
+   105→}
+   106→
+   107→interface MatchGroup {
+   108→  matchType: "email" | "phone";
+   109→  matchValue: string;
+   110→  hasNameMismatch: boolean;
+   111→  hasCrossClinic: boolean;
+   112→  appointments: Array<{
+   113→    id: string;
+   114→    patientName: string;
+   115→    patientEmail: string;
+   116→    patientPhone: string;
+   117→    clinicId: string;
+   118→    clinicName: string;
+   119→    providerName: string;
+   120→    serviceName: string;
+   121→    startTime: string;
+   122→    status: string;
+   123→  }>;
+   124→}
+   125→
+   126→interface ClinicOption {
+   127→  id: string;
+   128→  name: string;
+   129→}
+   130→
+   131→// ─── Status Badge Helper ─────────────────────────────────────────────────────
+   132→
+   133→function StatusBadge({ status }: { status: string }) {
+   134→  const config: Record<string, { label: string; className: string }> = {
+   135→    BOOKED: { label: "Booked", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200" },
+   136→    CHECKED_IN: { label: "Checked In", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200" },
+   137→    COMPLETED: { label: "Completed", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+   138→    ARCHIVED: { label: "Archived", className: "bg-muted text-muted-foreground border-border" },
+   139→    CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200" },
+   140→    NO_SHOW: { label: "No Show", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200" },
+   141→  };
+   142→  const c = config[status] || { label: status, className: "bg-muted text-muted-foreground border-border" };
+   143→  return <Badge variant="outline" className={c.className}>{c.label}</Badge>;
+   144→}
+   145→
+   146→function WaitlistStatusBadge({ status }: { status: string }) {
+   147→  const config: Record<string, { label: string; className: string }> = {
+   148→    ACTIVE: { label: "Active", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+   149→    OFFERED: { label: "Offered", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200" },
+   150→    FULFILLED: { label: "Fulfilled", className: "bg-muted text-muted-foreground border-border" },
+   151→    EXPIRED: { label: "Expired", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200" },
+   152→    REMOVED: { label: "Removed", className: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200" },
+   153→  };
+   154→  const c = config[status] || { label: status, className: "bg-muted text-muted-foreground border-border" };
+   155→  return <Badge variant="outline" className={c.className}>{c.label}</Badge>;
+   156→}
+   157→
+   158→// ─── Main Component ──────────────────────────────────────────────────────────
+   159→
+   160→export default function AdminAppointmentsPage() {
+   161→  const { toast } = useToast();
+   162→
+   163→  // ─── Shared state ─────────────────────────────────────────────────────────
+   164→  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+   165→  const [clinicsLoading, setClinicsLoading] = useState(true);
+   166→
+   167→  // Fetch clinic list for dropdowns
+   168→  useEffect(() => {
+   169→    async function fetchClinics() {
+   170→      try {
+   171→        const res = await fetch("/api/staff/admin");
+   172→        if (!res.ok) return;
+   173→        const data = await res.json();
+   174→        if (data.clinicSummary) {
+   175→          setClinics(data.clinicSummary.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+   176→        }
+   177→      } catch {
+   178→        // silent
+   179→      } finally {
+   180→        setClinicsLoading(false);
+   181→      }
+   182→    }
+   183→    fetchClinics();
+   184→  }, []);
+   185→
+   186→  return (
+   187→    <div className="space-y-6">
+   188→      <div>
+   189→        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+   190→          <CalendarCheck className="size-5 text-purple-600" />
+   191→          Appointment & Exception Oversight
+   192→        </h2>
+   193→        <p className="text-sm text-muted-foreground mt-1">
+   194→          Platform-wide appointment search, waitlist oversight, and duplicate patient detection
+   195→        </p>
+   196→      </div>
+   197→
+   198→      <Tabs defaultValue="appointments" className="space-y-4">
+   199→        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+   200→          <TabsTrigger value="appointments" className="gap-1.5">
+   201→            <CalendarCheck className="size-3.5" />
+   202→            <span className="hidden sm:inline">Global Appointments</span>
+   203→            <span className="sm:hidden">Appts</span>
+   204→          </TabsTrigger>
+   205→          <TabsTrigger value="waitlist" className="gap-1.5">
+   206→            <Clock className="size-3.5" />
+   207→            <span className="hidden sm:inline">Waitlist</span>
+   208→          </TabsTrigger>
+   209→          <TabsTrigger value="matches" className="gap-1.5">
+   210→            <Users className="size-3.5" />
+   211→            <span className="hidden sm:inline">Patient Matches</span>
+   212→            <span className="sm:hidden">Matches</span>
+   213→          </TabsTrigger>
+   214→        </TabsList>
+   215→
+   216→        <TabsContent value="appointments">
+   217→          <GlobalAppointmentsTab clinics={clinics} clinicsLoading={clinicsLoading} />
+   218→        </TabsContent>
+   219→
+   220→        <TabsContent value="waitlist">
+   221→          <WaitlistTab clinics={clinics} clinicsLoading={clinicsLoading} />
+   222→        </TabsContent>
+   223→
+   224→        <TabsContent value="matches">
+   225→          <PatientMatchesTab />
+   226→        </TabsContent>
+   227→      </Tabs>
+   228→    </div>
+   229→  );
+   230→}
+   231→
+   232→// ─── Tab 1: Global Appointments ─────────────────────────────────────────────
+   233→
+   234→function GlobalAppointmentsTab({
+   235→  clinics,
+   236→  clinicsLoading,
+   237→}: {
+   238→  clinics: ClinicOption[];
+   239→  clinicsLoading: boolean;
+   240→}) {
+   241→  const { toast } = useToast();
+   242→  const [search, setSearch] = useState("");
+   243→  const [statusFilter, setStatusFilter] = useState<string>("all");
+   244→  const [clinicFilter, setClinicFilter] = useState<string>("all");
+   245→  const [dateFrom, setDateFrom] = useState("");
+   246→  const [dateTo, setDateTo] = useState("");
+   247→  const [page, setPage] = useState(1);
+   248→  const [limit] = useState(20);
+   249→
+   250→  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+   251→  const [total, setTotal] = useState(0);
+   252→  const [loading, setLoading] = useState(false);
+   253→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   254→
+   255→  // Refund dialog
+   256→  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+   257→  const [refundAppt, setRefundAppt] = useState<AppointmentRow | null>(null);
+   258→  const [refundAmount, setRefundAmount] = useState("");
+   259→  const [refundReason, setRefundReason] = useState("");
+   260→  const [refundLoading, setRefundLoading] = useState(false);
+   261→
+   262→  // Cancel dialog
+   263→  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+   264→  const [cancelAppt, setCancelAppt] = useState<AppointmentRow | null>(null);
+   265→  const [cancelReason, setCancelReason] = useState("");
+   266→  const [actionLoading, setActionLoading] = useState(false);
+   267→
+   268→  const totalPages = Math.ceil(total / limit);
+   269→
+   270→  const fetchAppointments = useCallback(async () => {
+   271→    setLoading(true);
+   272→    try {
+   273→      const params = new URLSearchParams();
+   274→      if (search) params.set("search", search);
+   275→      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+   276→      if (clinicFilter && clinicFilter !== "all") params.set("clinicId", clinicFilter);
+   277→      if (dateFrom) params.set("dateFrom", dateFrom);
+   278→      if (dateTo) params.set("dateTo", dateTo);
+   279→      params.set("page", String(page));
+   280→      params.set("limit", String(limit));
+   281→
+   282→      const res = await fetch(`/api/staff/admin/appointments?${params}`);
+   283→      if (!res.ok) throw new Error("Failed to fetch");
+   284→      const data = await res.json();
+   285→      setAppointments(data.data || []);
+   286→      setTotal(data.pagination?.total || 0);
+   287→    } catch {
+   288→      toast({ title: "Error", description: "Failed to load appointments", variant: "destructive" });
+   289→    } finally {
+   290→      setLoading(false);
+   291→    }
+   292→  }, [search, statusFilter, clinicFilter, dateFrom, dateTo, page, limit, toast]);
+   293→
+   294→  useEffect(() => {
+   295→    fetchAppointments();
+   296→  }, [fetchAppointments]);
+   297→
+   298→  const handleSearch = () => {
+   299→    setPage(1);
+   300→    fetchAppointments();
+   301→  };
+   302→
+   303→  const handleStatusOverride = async (id: string, newStatus: string, reason?: string) => {
+   304→    setActionLoading(true);
+   305→    try {
+   306→      const res = await fetch(`/api/staff/admin/appointments/${id}/status`, {
+   307→        method: "PATCH",
+   308→        headers: { "Content-Type": "application/json" },
+   309→        body: JSON.stringify({ status: newStatus, cancellationReason: reason }),
+   310→      });
+   311→      if (!res.ok) {
+   312→        const err = await res.json();
+   313→        throw new Error(err.error || "Failed");
+   314→      }
+   315→      toast({ title: "Updated", description: `Status changed to ${newStatus}` });
+   316→      fetchAppointments();
+   317→    } catch (e) {
+   318→      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+   319→    } finally {
+   320→      setActionLoading(false);
+   321→      setCancelDialogOpen(false);
+   322→      setCancelAppt(null);
+   323→      setCancelReason("");
+   324→    }
+   325→  };
+   326→
+   327→  const handleRefund = async () => {
+   328→    if (!refundAppt) return;
+   329→    setRefundLoading(true);
+   330→    try {
+   331→      const amount = parseInt(refundAmount, 10);
+   332→      if (isNaN(amount) || amount < 0) throw new Error("Invalid amount");
+   333→      if (!refundReason.trim()) throw new Error("Reason is required");
+   334→
+   335→      const res = await fetch(`/api/staff/admin/appointments/${refundAppt.id}/refund`, {
+   336→        method: "POST",
+   337→        headers: { "Content-Type": "application/json" },
+   338→        body: JSON.stringify({ amountCents: amount, reason: refundReason }),
+   339→      });
+   340→      if (!res.ok) {
+   341→        const err = await res.json();
+   342→        throw new Error(err.error || "Refund failed");
+   343→      }
+   344→      toast({ title: "Refund Processed", description: `$${(amount / 100).toFixed(2)} refund created` });
+   345→      setRefundDialogOpen(false);
+   346→      setRefundAppt(null);
+   347→      setRefundAmount("");
+   348→      setRefundReason("");
+   349→      fetchAppointments();
+   350→    } catch (e) {
+   351→      toast({ title: "Refund Error", description: (e as Error).message, variant: "destructive" });
+   352→    } finally {
+   353→      setRefundLoading(false);
+   354→    }
+   355→  };
+   356→
+   357→  const openRefundDialog = (apt: AppointmentRow) => {
+   358→    setRefundAppt(apt);
+   359→    setRefundAmount(String(apt.depositCents || 0));
+   360→    setRefundReason("");
+   361→    setRefundDialogOpen(true);
+   362→  };
+   363→
+   364→  const openCancelDialog = (apt: AppointmentRow) => {
+   365→    setCancelAppt(apt);
+   366→    setCancelReason("");
+   367→    setCancelDialogOpen(true);
+   368→  };
+   369→
+   370→  const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+   371→
+   372→  return (
+   373→    <Card>
+   374→      <CardHeader className="pb-4">
+   375→        <CardTitle className="text-base flex items-center gap-2">
+   376→          <Search className="size-4 text-purple-600" />
+   377→          Global Appointment Search
+   378→        </CardTitle>
+   379→        <CardDescription>Search and manage appointments across all clinics</CardDescription>
+   380→      </CardHeader>
+   381→      <CardContent className="space-y-4">
+   382→        {/* Filters */}
+   383→        <div className="flex flex-col lg:flex-row gap-3">
+   384→          <div className="flex-1 relative">
+   385→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   386→            <Input
+   387→              placeholder="Patient name, email, phone, or booking token..."
+   388→              value={search}
+   389→              onChange={(e) => setSearch(e.target.value)}
+   390→              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+   391→              className="pl-9"
+   392→            />
+   393→          </div>
+   394→          <div className="flex flex-wrap gap-2">
+   395→            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+   396→              <SelectTrigger className="w-[160px]">
+   397→                <SelectValue placeholder="All Statuses" />
+   398→              </SelectTrigger>
+   399→              <SelectContent>
+   400→                <SelectItem value="all">All Statuses</SelectItem>
+   401→                <SelectItem value="BOOKED">Booked</SelectItem>
+   402→                <SelectItem value="CHECKED_IN">Checked In</SelectItem>
+   403→                <SelectItem value="COMPLETED">Completed</SelectItem>
+   404→                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+   405→                <SelectItem value="NO_SHOW">No Show</SelectItem>
+   406→                <SelectItem value="ARCHIVED">Archived</SelectItem>
+   407→              </SelectContent>
+   408→            </Select>
+   409→
+   410→            <Select value={clinicFilter} onValueChange={(v) => { setClinicFilter(v); setPage(1); }}>
+   411→              <SelectTrigger className="w-[200px]">
+   412→                <SelectValue placeholder={clinicsLoading ? "Loading..." : "All Clinics"} />
+   413→              </SelectTrigger>
+   414→              <SelectContent>
+   415→                <SelectItem value="all">All Clinics</SelectItem>
+   416→                {clinics.map((c) => (
+   417→                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+   418→                ))}
+   419→              </SelectContent>
+   420→            </Select>
+   421→
+   422→            <Input
+   423→              type="date"
+   424→              value={dateFrom}
+   425→              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+   426→              className="w-[150px]"
+   427→              placeholder="From"
+   428→            />
+   429→            <Input
+   430→              type="date"
+   431→              value={dateTo}
+   432→              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+   433→              className="w-[150px]"
+   434→              placeholder="To"
+   435→            />
+   436→
+   437→            <Button onClick={handleSearch} size="sm" className="gap-1.5">
+   438→              <Search className="size-3.5" />
+   439→              Search
+   440→            </Button>
+   441→          </div>
+   442→        </div>
+   443→
+   444→        {/* Results Table */}
+   445→        {loading ? (
+   446→          <div className="space-y-2">
+   447→            {Array.from({ length: 5 }).map((_, i) => (
+   448→              <Skeleton key={i} className="h-12 w-full rounded" />
+   449→            ))}
+   450→          </div>
+   451→        ) : appointments.length === 0 ? (
+   452→          <div className="text-center py-12 text-muted-foreground">
+   453→            <CalendarCheck className="size-10 mx-auto mb-3 opacity-40" />
+   454→            <p className="text-sm">No appointments found matching your criteria</p>
+   455→          </div>
+   456→        ) : (
+   457→          <>
+   458→            <div className="rounded-lg border overflow-hidden">
+   459→              <Table>
+   460→                <TableHeader>
+   461→                  <TableRow className="bg-muted/50">
+   462→                    <TableHead className="w-8"></TableHead>
+   463→                    <TableHead>Patient</TableHead>
+   464→                    <TableHead className="hidden md:table-cell">Clinic</TableHead>
+   465→                    <TableHead className="hidden lg:table-cell">Provider</TableHead>
+   466→                    <TableHead className="hidden lg:table-cell">Service</TableHead>
+   467→                    <TableHead>Date/Time</TableHead>
+   468→                    <TableHead>Status</TableHead>
+   469→                    <TableHead className="hidden sm:table-cell">Payment</TableHead>
+   470→                    <TableHead className="hidden sm:table-cell">Modality</TableHead>
+   471→                    <TableHead className="text-right">Actions</TableHead>
+   472→                  </TableRow>
+   473→                </TableHeader>
+   474→                <TableBody>
+   475→                  {appointments.map((apt) => {
+   476→                    const isExpanded = expandedId === apt.id;
+   477→                    return (
+   478→                      <>
+   479→                        <TableRow key={apt.id}>
+   480→                          <TableCell className="p-1">
+   481→                            <Button
+   482→                              variant="ghost"
+   483→                              size="icon"
+   484→                              className="size-7"
+   485→                              onClick={() => setExpandedId(isExpanded ? null : apt.id)}
+   486→                            >
+   487→                              {isExpanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+   488→                            </Button>
+   489→                          </TableCell>
+   490→                          <TableCell>
+   491→                            <div className="font-medium text-sm">{apt.patientName}</div>
+   492→                            <div className="text-xs text-muted-foreground">{apt.patientEmail}</div>
+   493→                          </TableCell>
+   494→                          <TableCell className="hidden md:table-cell">
+   495→                            <div className="text-sm">{apt.clinic.name}</div>
+   496→                          </TableCell>
+   497→                          <TableCell className="hidden lg:table-cell">
+   498→                            <div className="text-sm">
+   499→                              {apt.provider.firstName} {apt.provider.lastName}
+   500→                              {apt.provider.credentials && <span className="text-muted-foreground">, {apt.provider.credentials}</span>}
+   501→                            </div>
+   502→                          </TableCell>
+   503→                          <TableCell className="hidden lg:table-cell">
+   504→                            <div className="text-sm">{apt.service.name}</div>
+   505→                          </TableCell>
+   506→                          <TableCell>
+   507→                            <div className="text-sm font-medium">
+   508→                              {format(new Date(apt.startTime), "MMM d, yyyy")}
+   509→                            </div>
+   510→                            <div className="text-xs text-muted-foreground">
+   511→                              {format(new Date(apt.startTime), "h:mm a")} – {format(new Date(apt.endTime), "h:mm a")}
+   512→                            </div>
+   513→                          </TableCell>
+   514→                          <TableCell>
+   515→                            <StatusBadge status={apt.status} />
+   516→                          </TableCell>
+   517→                          <TableCell className="hidden sm:table-cell">
+   518→                            <div className="text-sm">{formatCents(apt.depositCents || 0)}</div>
+   519→                            <div className="text-xs text-muted-foreground">{apt.paymentStatus}</div>
+   520→                          </TableCell>
+   521→                          <TableCell className="hidden sm:table-cell">
+   522→                            <Badge variant="outline" className="text-xs">
+   523→                              {apt.modality === "VIDEO" ? (
+   524→                                <><Video className="size-3 mr-1" /> Video</>
+   525→                              ) : (
+   526→                                <><MapPin className="size-3 mr-1" /> In-Person</>
+   527→                              )}
+   528→                            </Badge>
+   529→                          </TableCell>
+   530→                          <TableCell className="text-right">
+   531→                            <div className="flex items-center justify-end gap-1">
+   532→                              {apt.status !== "CANCELLED" && apt.status !== "NO_SHOW" && apt.status !== "ARCHIVED" && apt.status !== "COMPLETED" && (
+   533→                                <Button
+   534→                                  variant="ghost"
+   535→                                  size="icon"
+   536→                                  className="size-7 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+   537→                                  title="Cancel"
+   538→                                  onClick={() => openCancelDialog(apt)}
+   539→                                >
+   540→                                  <Ban className="size-3.5" />
+   541→                                </Button>
+   542→                              )}
+   543→                              {apt.status !== "NO_SHOW" && apt.status !== "CANCELLED" && apt.status !== "COMPLETED" && apt.status !== "ARCHIVED" && (
+   544→                                <Button
+   545→                                  variant="ghost"
+   546→                                  size="icon"
+   547→                                  className="size-7 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+   548→                                  title="Mark No-Show"
+   549→                                  onClick={() => handleStatusOverride(apt.id, "NO_SHOW")}
+   550→                                >
+   551→                                  <UserX className="size-3.5" />
+   552→                                </Button>
+   553→                              )}
+   554→                              {(apt.status === "BOOKED" || apt.status === "CHECKED_IN") && (
+   555→                                <Button
+   556→                                  variant="ghost"
+   557→                                  size="icon"
+   558→                                  className="size-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+   559→                                  title="Complete"
+   560→                                  onClick={() => handleStatusOverride(apt.id, "COMPLETED")}
+   561→                                >
+   562→                                  <CheckCircle2 className="size-3.5" />
+   563→                                </Button>
+   564→                              )}
+   565→                              {apt.paymentStatus !== "REFUNDED" && apt.paymentStatus !== "FORFEITED" && (apt.depositCents > 0 || apt.selfPayCents > 0) && (
+   566→                                <Button
+   567→                                  variant="ghost"
+   568→                                  size="icon"
+   569→                                  className="size-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+   570→                                  title="Refund"
+   571→                                  onClick={() => openRefundDialog(apt)}
+   572→                                >
+   573→                                  <DollarSign className="size-3.5" />
+   574→                                </Button>
+   575→                              )}
+   576→                            </div>
+   577→                          </TableCell>
+   578→                        </TableRow>
+   579→                        {isExpanded && (
+   580→                          <TableRow key={`${apt.id}-detail`}>
+   581→                            <TableCell colSpan={10} className="bg-muted/30 p-4">
+   582→                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+   583→                                <div>
+   584→                                  <span className="text-muted-foreground block text-xs mb-1">Phone</span>
+   585→                                  <span>{apt.patientPhone}</span>
+   586→                                </div>
+   587→                                <div>
+   588→                                  <span className="text-muted-foreground block text-xs mb-1">DOB</span>
+   589→                                  <span>{format(new Date(apt.patientDob), "MMM d, yyyy")}</span>
+   590→                                </div>
+   591→                                <div>
+   592→                                  <span className="text-muted-foreground block text-xs mb-1">Patient Type</span>
+   593→                                  <span>{apt.patientType}</span>
+   594→                                </div>
+   595→                                <div>
+   596→                                  <span className="text-muted-foreground block text-xs mb-1">Reason for Visit</span>
+   597→                                  <span>{apt.reasonForVisit}</span>
+   598→                                </div>
+   599→                                <div>
+   600→                                  <span className="text-muted-foreground block text-xs mb-1">Payment Method</span>
+   601→                                  <span>{apt.paymentMethod || "N/A"}</span>
+   602→                                </div>
+   603→                                <div>
+   604→                                  <span className="text-muted-foreground block text-xs mb-1">Self-Pay</span>
+   605→                                  <span>{formatCents(apt.selfPayCents || 0)}</span>
+   606→                                </div>
+   607→                                {apt.cancellationReason && (
+   608→                                  <div>
+   609→                                    <span className="text-muted-foreground block text-xs mb-1">Cancel Reason</span>
+   610→                                    <span className="text-red-600">{apt.cancellationReason}</span>
+   611→                                  </div>
+   612→                                )}
+   613→                                <div>
+   614→                                  <span className="text-muted-foreground block text-xs mb-1">Appointment ID</span>
+   615→                                  <span className="font-mono text-xs">{apt.id}</span>
+   616→                                </div>
+   617→                              </div>
+   618→                            </TableCell>
+   619→                          </TableRow>
+   620→                        )}
+   621→                      </>
+   622→                    );
+   623→                  })}
+   624→                </TableBody>
+   625→              </Table>
+   626→            </div>
+   627→
+   628→            {/* Pagination */}
+   629→            <div className="flex items-center justify-between">
+   630→              <p className="text-sm text-muted-foreground">
+   631→                {total} result{total !== 1 ? "s" : ""} &middot; Page {page} of {totalPages || 1}
+   632→              </p>
+   633→              <div className="flex items-center gap-1">
+   634→                <Button
+   635→                  variant="outline"
+   636→                  size="icon"
+   637→                  className="size-8"
+   638→                  disabled={page <= 1}
+   639→                  onClick={() => setPage(page - 1)}
+   640→                >
+   641→                  <ChevronLeft className="size-4" />
+   642→                </Button>
+   643→                <Button
+   644→                  variant="outline"
+   645→                  size="icon"
+   646→                  className="size-8"
+   647→                  disabled={page >= totalPages}
+   648→                  onClick={() => setPage(page + 1)}
+   649→                >
+   650→                  <ChevronRight className="size-4" />
+   651→                </Button>
+   652→              </div>
+   653→            </div>
+   654→          </>
+   655→        )}
+   656→      </CardContent>
+   657→
+   658→      {/* Cancel Dialog */}
+   659→      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+   660→        <DialogContent>
+   661→          <DialogHeader>
+   662→            <DialogTitle>Cancel Appointment</DialogTitle>
+   663→            <DialogDescription>
+   664→              Are you sure you want to cancel the appointment for <strong>{cancelAppt?.patientName}</strong>?
+   665→              This will release the slot and is a system manager override.
+   666→            </DialogDescription>
+   667→          </DialogHeader>
+   668→          <div className="space-y-3">
+   669→            <Label htmlFor="cancel-reason">Cancellation Reason</Label>
+   670→            <Select value={cancelReason} onValueChange={setCancelReason}>
+   671→              <SelectTrigger>
+   672→                <SelectValue placeholder="Select a reason" />
+   673→              </SelectTrigger>
+   674→              <SelectContent>
+   675→                <SelectItem value="CLINIC_CANCELLED">Clinic Cancelled</SelectItem>
+   676→                <SelectItem value="PATIENT_CANCELLED">Patient Cancelled</SelectItem>
+   677→                <SelectItem value="DOUBLE_BOOKING">Double Booking</SelectItem>
+   678→              </SelectContent>
+   679→            </Select>
+   680→          </div>
+   681→          <DialogFooter>
+   682→            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Cancel</Button>
+   683→            <Button
+   684→              variant="destructive"
+   685→              disabled={!cancelReason || actionLoading}
+   686→              onClick={() => cancelAppt && handleStatusOverride(cancelAppt.id, "CANCELLED", cancelReason)}
+   687→            >
+   688→              {actionLoading ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Ban className="size-4 mr-1.5" />}
+   689→              Confirm Cancellation
+   690→            </Button>
+   691→          </DialogFooter>
+   692→        </DialogContent>
+   693→      </Dialog>
+   694→
+   695→      {/* Refund Dialog */}
+   696→      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+   697→        <DialogContent>
+   698→          <DialogHeader>
+   699→            <DialogTitle>Manual Refund Override</DialogTitle>
+   700→            <DialogDescription>
+   701→              Issue a refund for <strong>{refundAppt?.patientName}</strong>. This is a system manager override.
+   702→            </DialogDescription>
+   703→          </DialogHeader>
+   704→          <div className="space-y-4">
+   705→            <div className="space-y-2">
+   706→              <Label htmlFor="refund-amount">Refund Amount (cents)</Label>
+   707→              <div className="relative">
+   708→                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+   709→                <Input
+   710→                  id="refund-amount"
+   711→                  type="number"
+   712→                  value={refundAmount}
+   713→                  onChange={(e) => setRefundAmount(e.target.value)}
+   714→                  placeholder="2500"
+   715→                  className="pl-7"
+   716→                />
+   717→              </div>
+   718→              <p className="text-xs text-muted-foreground">
+   719→                Enter amount in cents. {(parseInt(refundAmount) || 0) / 100 > 0 && (
+   720→                  <>Display: <strong>${((parseInt(refundAmount) || 0) / 100).toFixed(2)}</strong></>
+   721→                )}
+   722→              </p>
+   723→            </div>
+   724→            <div className="space-y-2">
+   725→              <Label htmlFor="refund-reason">Reason</Label>
+   726→              <Textarea
+   727→                id="refund-reason"
+   728→                value={refundReason}
+   729→                onChange={(e) => setRefundReason(e.target.value)}
+   730→                placeholder="Describe the reason for this manual refund..."
+   731→                rows={3}
+   732→              />
+   733→            </div>
+   734→          </div>
+   735→          <DialogFooter>
+   736→            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>Cancel</Button>
+   737→            <Button
+   738→              variant="destructive"
+   739→              disabled={!refundReason.trim() || refundLoading}
+   740→              onClick={handleRefund}
+   741→            >
+   742→              {refundLoading ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <DollarSign className="size-4 mr-1.5" />}
+   743→              Process Refund
+   744→            </Button>
+   745→          </DialogFooter>
+   746→        </DialogContent>
+   747→      </Dialog>
+   748→    </Card>
+   749→  );
+   750→}
+   751→
+   752→// ─── Tab 2: Waitlist Oversight ───────────────────────────────────────────────
+   753→
+   754→function WaitlistTab({ clinics, clinicsLoading }: { clinics: ClinicOption[]; clinicsLoading: boolean }) {
+   755→  const { toast } = useToast();
+   756→  const [statusFilter, setStatusFilter] = useState<string>("ACTIVE,OFFERED");
+   757→  const [clinicFilter, setClinicFilter] = useState<string>("all");
+   758→  const [entries, setEntries] = useState<WaitlistRow[]>([]);
+   759→  const [loading, setLoading] = useState(false);
+   760→
+   761→  const fetchWaitlist = useCallback(async () => {
+   762→    setLoading(true);
+   763→    try {
+   764→      const params = new URLSearchParams();
+   765→      if (statusFilter) params.set("status", statusFilter);
+   766→      if (clinicFilter && clinicFilter !== "all") params.set("clinicId", clinicFilter);
+   767→
+   768→      const res = await fetch(`/api/staff/admin/waitlist?${params}`);
+   769→      if (!res.ok) throw new Error("Failed to fetch");
+   770→      const data = await res.json();
+   771→      setEntries(data.data || []);
+   772→    } catch {
+   773→      toast({ title: "Error", description: "Failed to load waitlist", variant: "destructive" });
+   774→    } finally {
+   775→      setLoading(false);
+   776→    }
+   777→  }, [statusFilter, clinicFilter, toast]);
+   778→
+   779→  useEffect(() => {
+   780→    fetchWaitlist();
+   781→  }, [fetchWaitlist]);
+   782→
+   783→  return (
+   784→    <Card>
+   785→      <CardHeader className="pb-4">
+   786→        <CardTitle className="text-base flex items-center gap-2">
+   787→          <Clock className="size-4 text-purple-600" />
+   788→          Waitlist Oversight
+   789→        </CardTitle>
+   790→        <CardDescription>Aggregated waitlist entries across all clinics</CardDescription>
+   791→      </CardHeader>
+   792→      <CardContent className="space-y-4">
+   793→        {/* Filters */}
+   794→        <div className="flex flex-wrap gap-2">
+   795→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   796→            <SelectTrigger className="w-[160px]">
+   797→              <SelectValue placeholder="Status" />
+   798→            </SelectTrigger>
+   799→            <SelectContent>
+   800→              <SelectItem value="ACTIVE,OFFERED">Active & Offered</SelectItem>
+   801→              <SelectItem value="ACTIVE">Active</SelectItem>
+   802→              <SelectItem value="OFFERED">Offered</SelectItem>
+   803→              <SelectItem value="FULFILLED">Fulfilled</SelectItem>
+   804→              <SelectItem value="EXPIRED">Expired</SelectItem>
+   805→              <SelectItem value="REMOVED">Removed</SelectItem>
+   806→              <SelectItem value="">All</SelectItem>
+   807→            </SelectContent>
+   808→          </Select>
+   809→
+   810→          <Select value={clinicFilter} onValueChange={setClinicFilter}>
+   811→            <SelectTrigger className="w-[200px]">
+   812→              <SelectValue placeholder={clinicsLoading ? "Loading..." : "All Clinics"} />
+   813→            </SelectTrigger>
+   814→            <SelectContent>
+   815→              <SelectItem value="all">All Clinics</SelectItem>
+   816→              {clinics.map((c) => (
+   817→                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+   818→              ))}
+   819→            </SelectContent>
+   820→          </Select>
+   821→
+   822→          <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchWaitlist}>
+   823→            <RefreshCw className="size-3.5" />
+   824→            Refresh
+   825→          </Button>
+   826→        </div>
+   827→
+   828→        {/* Table */}
+   829→        {loading ? (
+   830→          <div className="space-y-2">
+   831→            {Array.from({ length: 5 }).map((_, i) => (
+   832→              <Skeleton key={i} className="h-12 w-full rounded" />
+   833→            ))}
+   834→          </div>
+   835→        ) : entries.length === 0 ? (
+   836→          <div className="text-center py-12 text-muted-foreground">
+   837→            <Clock className="size-10 mx-auto mb-3 opacity-40" />
+   838→            <p className="text-sm">No waitlist entries found</p>
+   839→          </div>
+   840→        ) : (
+   841→          <div className="rounded-lg border overflow-x-auto">
+   842→            <Table>
+   843→              <TableHeader>
+   844→                <TableRow className="bg-muted/50">
+   845→                  <TableHead>Patient</TableHead>
+   846→                  <TableHead className="hidden md:table-cell">Clinic</TableHead>
+   847→                  <TableHead className="hidden lg:table-cell">Provider</TableHead>
+   848→                  <TableHead className="hidden lg:table-cell">Service</TableHead>
+   849→                  <TableHead className="hidden sm:table-cell">Date Range</TableHead>
+   850→                  <TableHead>Status</TableHead>
+   851→                  <TableHead className="text-right">Contacts</TableHead>
+   852→                </TableRow>
+   853→              </TableHeader>
+   854→              <TableBody>
+   855→                {entries.map((entry) => (
+   856→                  <TableRow key={entry.id}>
+   857→                    <TableCell>
+   858→                      <div className="font-medium text-sm">{entry.patientName}</div>
+   859→                      <div className="text-xs text-muted-foreground">{entry.patientEmail}</div>
+   860→                    </TableCell>
+   861→                    <TableCell className="hidden md:table-cell">
+   862→                      <div className="text-sm">{entry.clinicName}</div>
+   863→                    </TableCell>
+   864→                    <TableCell className="hidden lg:table-cell">
+   865→                      <div className="text-sm">{entry.providerName}</div>
+   866→                    </TableCell>
+   867→                    <TableCell className="hidden lg:table-cell">
+   868→                      <div className="text-sm">{entry.serviceName}</div>
+   869→                    </TableCell>
+   870→                    <TableCell className="hidden sm:table-cell">
+   871→                      <div className="text-sm">
+   872→                        {format(new Date(entry.dateFrom), "MMM d")} – {format(new Date(entry.dateTo), "MMM d, yyyy")}
+   873→                      </div>
+   874→                    </TableCell>
+   875→                    <TableCell>
+   876→                      <WaitlistStatusBadge status={entry.status} />
+   877→                    </TableCell>
+   878→                    <TableCell className="text-right">
+   879→                      <div className="text-sm font-medium">{entry.contactCount}</div>
+   880→                      {entry.lastContactAt && (
+   881→                        <div className="text-xs text-muted-foreground">
+   882→                          {format(new Date(entry.lastContactAt), "MMM d")}
+   883→                        </div>
+   884→                      )}
+   885→                    </TableCell>
+   886→                  </TableRow>
+   887→                ))}
+   888→              </TableBody>
+   889→            </Table>
+   890→          </div>
+   891→        )}
+   892→
+   893→        {!loading && entries.length > 0 && (
+   894→          <p className="text-xs text-muted-foreground text-right">
+   895→            {entries.length} entr{entries.length === 1 ? "y" : "ies"}
+   896→          </p>
+   897→        )}
+   898→      </CardContent>
+   899→    </Card>
+   900→  );
+   901→}
+   902→
+   903→// ─── Tab 3: Patient Matches ──────────────────────────────────────────────────
+   904→
+   905→function PatientMatchesTab() {
+   906→  const { toast } = useToast();
+   907→  const [matches, setMatches] = useState<MatchGroup[]>([]);
+   908→  const [loading, setLoading] = useState(false);
+   909→  const [expandedGroup, setExpandedGroup] = useState<number | null>(null);
+   910→
+   911→  const fetchMatches = useCallback(async () => {
+   912→    setLoading(true);
+   913→    try {
+   914→      const res = await fetch("/api/staff/admin/patient-matches");
+   915→      if (!res.ok) throw new Error("Failed to fetch");
+   916→      const data = await res.json();
+   917→      setMatches(data.data || []);
+   918→    } catch {
+   919→      toast({ title: "Error", description: "Failed to load patient matches", variant: "destructive" });
+   920→    } finally {
+   921→      setLoading(false);
+   922→    }
+   923→  }, [toast]);
+   924→
+   925→  useEffect(() => {
+   926→    fetchMatches();
+   927→  }, [fetchMatches]);
+   928→
+   929→  const handleMergeMark = async (group: MatchGroup) => {
+   930→    // For now, this just marks as reviewed by showing a toast
+   931→    // In a real implementation, this would create a note or flag
+   932→    toast({
+   933→      title: "Marked as Reviewed",
+   934→      description: `Group matching ${group.matchType} "${group.matchValue}" has been marked for review. (Note: full merge functionality pending)`,
+   935→    });
+   936→  };
+   937→
+   938→  return (
+   939→    <Card>
+   940→      <CardHeader className="pb-4">
+   941→        <div className="flex items-center justify-between">
+   942→          <div>
+   943→            <CardTitle className="text-base flex items-center gap-2">
+   944→              <Users className="size-4 text-purple-600" />
+   945→              Ambiguous Patient Matches
+   946→            </CardTitle>
+   947→            <CardDescription>
+   948→              Potential duplicate profiles sharing the same email or phone
+   949→            </CardDescription>
+   950→          </div>
+   951→          <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchMatches}>
+   952→            <RefreshCw className="size-3.5" />
+   953→            Refresh
+   954→          </Button>
+   955→        </div>
+   956→      </CardHeader>
+   957→      <CardContent className="space-y-4">
+   958→        {loading ? (
+   959→          <div className="space-y-4">
+   960→            {Array.from({ length: 3 }).map((_, i) => (
+   961→              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+   962→            ))}
+   963→          </div>
+   964→        ) : matches.length === 0 ? (
+   965→          <div className="text-center py-12 text-muted-foreground">
+   966→            <Users className="size-10 mx-auto mb-3 opacity-40" />
+   967→            <p className="text-sm">No ambiguous patient matches found</p>
+   968→            <p className="text-xs mt-1">Matches appear when patients share email/phone but have different names or use different clinics</p>
+   969→          </div>
+   970→        ) : (
+   971→          <div className="space-y-3">
+   972→            {matches.map((group, gi) => {
+   973→              const isExpanded = expandedGroup === gi;
+   974→              return (
+   975→                <div
+   976→                  key={`${group.matchType}-${group.matchValue}-${gi}`}
+   977→                  className="rounded-lg border overflow-hidden"
+   978→                >
+   979→                  {/* Group Header */}
+   980→                  <button
+   981→                    className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors"
+   982→                    onClick={() => setExpandedGroup(isExpanded ? null : gi)}
+   983→                  >
+   984→                    <div className="flex items-center gap-3 min-w-0">
+   985→                      <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${
+   986→                        group.matchType === "email"
+   987→                          ? "bg-blue-100 dark:bg-blue-900/40"
+   988→                          : "bg-emerald-100 dark:bg-emerald-900/40"
+   989→                      }`}>
+   990→                        {group.matchType === "email" ? (
+   991→                          <Mail className="size-4 text-blue-600 dark:text-blue-400" />
+   992→                        ) : (
+   993→                          <Phone className="size-4 text-emerald-600 dark:text-emerald-400" />
+   994→                        )}
+   995→                      </div>
+   996→                      <div className="min-w-0">
+   997→                        <div className="text-sm font-medium truncate">
+   998→                          {group.matchType === "email" ? group.matchValue : group.matchValue}
+   999→                        </div>
+  1000→                        <div className="flex items-center gap-2 mt-0.5">
+  1001→                          <span className="text-xs text-muted-foreground">
+  1002→                            {group.appointments.length} appointment{group.appointments.length !== 1 ? "s" : ""}
+  1003→                          </span>
+  1004→                          {group.hasNameMismatch && (
+  1005→                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+  1006→                              <AlertTriangle className="size-3 mr-1" />
+  1007→                              Name Mismatch
+  1008→                            </Badge>
+  1009→                          )}
+  1010→                          {group.hasCrossClinic && (
+  1011→                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800">
+  1012→                              Cross-Clinic
+  1013→                            </Badge>
+  1014→                          )}
+  1015→                        </div>
+  1016→                      </div>
+  1017→                    </div>
+  1018→                    <div className="flex items-center gap-2 shrink-0">
+  1019→                      <Button
+  1020→                        variant="outline"
+  1021→                        size="sm"
+  1022→                        className="gap-1.5 text-xs"
+  1023→                        onClick={(e) => {
+  1024→                          e.stopPropagation();
+  1025→                          handleMergeMark(group);
+  1026→                        }}
+  1027→                      >
+  1028→                        <Merge className="size-3" />
+  1029→                        Merge
+  1030→                      </Button>
+  1031→                      {isExpanded ? (
+  1032→                        <ChevronUp className="size-4 text-muted-foreground" />
+  1033→                      ) : (
+  1034→                        <ChevronDown className="size-4 text-muted-foreground" />
+  1035→                      )}
+  1036→                    </div>
+  1037→                  </button>
+  1038→
+  1039→                  {/* Expanded Detail */}
+  1040→                  {isExpanded && (
+  1041→                    <div className="border-t bg-muted/20 p-4">
+  1042→                      <div className="rounded-lg border overflow-x-auto">
+  1043→                        <Table>
+  1044→                          <TableHeader>
+  1045→                            <TableRow className="bg-muted/50">
+  1046→                              <TableHead>Patient Name</TableHead>
+  1047→                              <TableHead className="hidden sm:table-cell">Email</TableHead>
+  1048→                              <TableHead className="hidden sm:table-cell">Phone</TableHead>
+  1049→                              <TableHead>Clinic</TableHead>
+  1050→                              <TableHead className="hidden md:table-cell">Provider</TableHead>
+  1051→                              <TableHead className="hidden md:table-cell">Service</TableHead>
+  1052→                              <TableHead>Date</TableHead>
+  1053→                              <TableHead>Status</TableHead>
+  1054→                            </TableRow>
+  1055→                          </TableHeader>
+  1056→                          <TableBody>
+  1057→                            {group.appointments.map((apt) => (
+  1058→                              <TableRow key={apt.id}>
+  1059→                                <TableCell className="font-medium">
+  1060→                                  {group.hasNameMismatch && (
+  1061→                                    <AlertTriangle className="size-3 text-amber-500 inline mr-1.5" />
+  1062→                                  )}
+  1063→                                  {apt.patientName}
+  1064→                                </TableCell>
+  1065→                                <TableCell className="hidden sm:table-cell text-sm">{apt.patientEmail}</TableCell>
+  1066→                                <TableCell className="hidden sm:table-cell text-sm">{apt.patientPhone}</TableCell>
+  1067→                                <TableCell className="text-sm">{apt.clinicName}</TableCell>
+  1068→                                <TableCell className="hidden md:table-cell text-sm">{apt.providerName}</TableCell>
+  1069→                                <TableCell className="hidden md:table-cell text-sm">{apt.serviceName}</TableCell>
+  1070→                                <TableCell className="text-sm">
+  1071→                                  {format(new Date(apt.startTime), "MMM d, yyyy")}
+  1072→                                </TableCell>
+  1073→                                <TableCell>
+  1074→                                  <StatusBadge status={apt.status} />
+  1075→                                </TableCell>
+  1076→                              </TableRow>
+  1077→                            ))}
+  1078→                          </TableBody>
+  1079→                        </Table>
+  1080→                      </div>
+  1081→                    </div>
+  1082→                  )}
+  1083→                </div>
+  1084→              );
+  1085→            })}
+  1086→          </div>
+  1087→        )}
+  1088→
+  1089→        {!loading && matches.length > 0 && (
+  1090→          <p className="text-xs text-muted-foreground text-right">
+  1091→            {matches.length} potential match group{matches.length !== 1 ? "s" : ""}
+  1092→          </p>
+  1093→        )}
+  1094→      </CardContent>
+  1095→    </Card>
+  1096→  );
+  1097→}

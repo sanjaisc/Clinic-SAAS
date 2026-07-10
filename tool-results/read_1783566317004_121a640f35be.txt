@@ -1,0 +1,1716 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+     4→import { useSearchParams } from "next/navigation";
+     5→import { format } from "date-fns";
+     6→import {
+     7→  ArrowLeft,
+     8→  ArrowRight,
+     9→  Check,
+    10→  CheckCircle2,
+    11→  Loader2,
+    12→  AlertCircle,
+    13→  Calendar,
+    14→  Clock,
+    15→  User,
+    16→  Baby,
+    17→  Shield,
+    18→  Copy,
+    19→  ExternalLink,
+    20→  Search,
+    21→  MapPin,
+    22→  Building2,
+    23→  Eye,
+    24→  EyeOff,
+    25→  CreditCard,
+    26→  Mail,
+    27→  FileText,
+    28→  Timer,
+    29→  DollarSign,
+    30→  RefreshCw,
+    31→  Stethoscope,
+    32→  Video,
+    33→  MonitorCheck,
+    34→} from "lucide-react";
+    35→import Link from "next/link";
+    36→import { Button } from "@/components/ui/button";
+    37→import { Input } from "@/components/ui/input";
+    38→import { Textarea } from "@/components/ui/textarea";
+    39→import { Label } from "@/components/ui/label";
+    40→import {
+    41→  Select,
+    42→  SelectTrigger,
+    43→  SelectValue,
+    44→  SelectContent,
+    45→  SelectItem,
+    46→} from "@/components/ui/select";
+    47→import { Checkbox } from "@/components/ui/checkbox";
+    48→import { Card, CardContent } from "@/components/ui/card";
+    49→import { Badge } from "@/components/ui/badge";
+    50→import { Separator } from "@/components/ui/separator";
+    51→import {
+    52→  ToggleGroup,
+    53→  ToggleGroupItem,
+    54→} from "@/components/ui/toggle-group";
+    55→import { PATIENT_TYPE, SLOT_MODALITY } from "@/lib/enums";
+    56→import { PublicNavbar } from "@/components/public-navbar";
+    57→
+    58→// =============================================================================
+    59→// Types
+    60→// =============================================================================
+    61→
+    62→interface Insurance {
+    63→  id: string;
+    64→  name: string;
+    65→  slug: string;
+    66→  isDemo: boolean;
+    67→}
+    68→
+    69→interface Service {
+    70→  id: string;
+    71→  name: string;
+    72→}
+    73→
+    74→interface SlotData {
+    75→  slot: {
+    76→    id: string;
+    77→    startTime: string;
+    78→    endTime: string;
+    79→    modality: string;
+    80→    status: string;
+    81→  };
+    82→  provider: {
+    83→    id: string;
+    84→    firstName: string;
+    85→    lastName: string;
+    86→    credentials: string | null;
+    87→    slug: string;
+    88→    clinicId: string;
+    89→  };
+    90→  clinic: {
+    91→    id: string;
+    92→    name: string;
+    93→    slug: string;
+    94→    streetAddress: string;
+    95→    city: string;
+    96→    state: string;
+    97→    zipCode: string;
+    98→    phoneNumber: string;
+    99→    selfPayFlatRateCents: number | null;
+   100→    inPersonDepositCents: number | null;
+   101→    videoDepositCents: number | null;
+   102→  };
+   103→  specialty: { id: string; name: string } | null;
+   104→  serviceId: string | null;
+   105→  services: Service[];
+   106→}
+   107→
+   108→// =============================================================================
+   109→// Helpers
+   110→// =============================================================================
+   111→
+   112→function formatSlotTime(startTime: string): string {
+   113→  return format(new Date(startTime), "EEEE, MMMM d, yyyy · h:mm a");
+   114→}
+   115→
+   116→function formatSlotDate(startTime: string): string {
+   117→  return format(new Date(startTime), "MMMM d, yyyy");
+   118→}
+   119→
+   120→function formatSlotTimeOnly(startTime: string): string {
+   121→  return format(new Date(startTime), "h:mm a");
+   122→}
+   123→
+   124→function ModalityBadge({ modality }: { modality: string }) {
+   125→  const isVideo = modality === SLOT_MODALITY.VIDEO;
+   126→  return (
+   127→    <span
+   128→      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+   129→        isVideo
+   130→          ? "bg-blue-100 text-blue-700"
+   131→          : "bg-emerald-100 text-emerald-700"
+   132→      }`}
+   133→    >
+   134→      {isVideo ? <Video className="size-3" /> : <Building2 className="size-3" />}
+   135→      {isVideo ? "Video" : "In-Clinic"}
+   136→    </span>
+   137→  );
+   138→}
+   139→
+   140→function maskName(name: string): string {
+   141→  const parts = name.trim().split(/\s+/);
+   142→  if (parts.length === 0) return name;
+   143→  return parts
+   144→    .map((part) => {
+   145→      if (part.length <= 2) return part[0] + "**";
+   146→      return part[0] + "*".repeat(part.length - 2) + part[part.length - 1];
+   147→    })
+   148→    .join(" ");
+   149→}
+   150→
+   151→function formatCents(cents: number | null): string {
+   152→  if (cents == null || cents === 0) return "No payment required";
+   153→  return `$${(cents / 100).toFixed(2)}`;
+   154→}
+   155→
+   156→function getTodayDateString(): string {
+   157→  return format(new Date(), "yyyy-MM-dd");
+   158→}
+   159→
+   160→// =============================================================================
+   161→// Slot Summary Card (visible on ALL steps)
+   162→// =============================================================================
+   163→
+   164→function SlotSummaryCard({ slotData }: { slotData: SlotData }) {
+   165→  const providerName = slotData.provider.credentials
+   166→    ? `Dr. ${slotData.provider.firstName} ${slotData.provider.lastName}, ${slotData.provider.credentials}`
+   167→    : `Dr. ${slotData.provider.firstName} ${slotData.provider.lastName}`;
+   168→
+   169→  const address = [
+   170→    slotData.clinic.streetAddress,
+   171→    slotData.clinic.city,
+   172→    slotData.clinic.state,
+   173→    slotData.clinic.zipCode,
+   174→  ]
+   175→    .filter(Boolean)
+   176→    .join(", ");
+   177→
+   178→  return (
+   179→    <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-card">
+   180→      <CardContent className="p-4">
+   181→        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   182→          <div className="space-y-1.5 min-w-0">
+   183→            {/* Provider */}
+   184→            <div className="flex items-center gap-2">
+   185→              <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+   186→                <Stethoscope className="size-4 text-emerald-700" />
+   187→              </div>
+   188→              <p className="text-sm font-semibold text-foreground truncate">{providerName}</p>
+   189→            </div>
+   190→            {/* Clinic */}
+   191→            <div className="flex items-center gap-2 pl-10">
+   192→              <Building2 className="size-3.5 text-muted-foreground shrink-0" />
+   193→              <p className="text-xs text-muted-foreground truncate">{slotData.clinic.name}</p>
+   194→            </div>
+   195→            {/* Address */}
+   196→            <div className="flex items-center gap-2 pl-10">
+   197→              <MapPin className="size-3.5 text-muted-foreground shrink-0" />
+   198→              <p className="text-xs text-muted-foreground truncate">{address}</p>
+   199→            </div>
+   200→          </div>
+   201→          <div className="space-y-1.5 sm:text-right shrink-0 sm:pl-4">
+   202→            {/* Date */}
+   203→            <div className="flex items-center gap-2 sm:justify-end">
+   204→              <Calendar className="size-3.5 text-emerald-600 shrink-0" />
+   205→              <p className="text-xs font-medium text-foreground">{formatSlotDate(slotData.slot.startTime)}</p>
+   206→            </div>
+   207→            {/* Time */}
+   208→            <div className="flex items-center gap-2 sm:justify-end">
+   209→              <Clock className="size-3.5 text-emerald-600 shrink-0" />
+   210→              <p className="text-xs font-medium text-foreground">{formatSlotTimeOnly(slotData.slot.startTime)}</p>
+   211→            </div>
+   212→            {/* Modality */}
+   213→            <div className="flex sm:justify-end mt-0.5">
+   214→              <ModalityBadge modality={slotData.slot.modality} />
+   215→            </div>
+   216→          </div>
+   217→        </div>
+   218→      </CardContent>
+   219→    </Card>
+   220→  );
+   221→}
+   222→
+   223→// =============================================================================
+   224→// Progress Indicator
+   225→// =============================================================================
+   226→
+   227→const STEP_LABELS = [
+   228→  { title: "Visit Details", desc: "Reason & insurance" },
+   229→  { title: "Your Info", desc: "Contact details" },
+   230→  { title: "Review", desc: "Confirm booking" },
+   231→  { title: "Done", desc: "All set!" },
+   232→];
+   233→
+   234→function ProgressIndicator({ currentStep }: { currentStep: number }) {
+   235→  return (
+   236→    <div className="w-full max-w-2xl mx-auto px-4 py-6">
+   237→      {/* Background track */}
+   238→      <div className="absolute left-0 right-0 top-[calc(50%-1px)] mx-auto max-w-2xl hidden sm:block">
+   239→        <div className="h-0.5 bg-muted w-full rounded-full" />
+   240→        <div
+   241→          className="h-0.5 bg-emerald-600 rounded-full transition-all duration-500 ease-out"
+   242→          key={`progress-${currentStep}`}
+   243→          style={{
+   244→            width: `${((Math.min(currentStep, 3)) / 3) * 100}%`,
+   245→            marginLeft: `${(1 / (STEP_LABELS.length * 2)) * 100}%`,
+   246→            marginRight: `${(1 / (STEP_LABELS.length * 2)) * 100}%`,
+   247→            animation: 'progress-fill 0.5s ease-out',
+   248→          }}
+   249→        />
+   250→      </div>
+   251→
+   252→      <div className="flex items-center justify-between relative">
+   253→        {STEP_LABELS.map((stepInfo, idx) => {
+   254→          const stepNum = idx + 1;
+   255→          const isCompleted = stepNum < currentStep;
+   256→          const isActive = stepNum === currentStep;
+   257→          const isFuture = stepNum > currentStep;
+   258→
+   259→          return (
+   260→            <div key={stepNum} className="flex items-center flex-1 last:flex-none">
+   261→              {/* Step circle + label */}
+   262→              <div className="flex flex-col items-center gap-1.5 relative z-10">
+   263→                <div className="relative">
+   264→                  {isActive && (
+   265→                    <div className="absolute inset-0 size-10 rounded-full bg-emerald-200/60 animate-ping" style={{ animationDuration: "2s" }} />
+   266→                  )}
+   267→                  <div
+   268→                    className={`relative flex items-center justify-center size-9 rounded-full text-sm font-semibold transition-all duration-300 ${
+   269→                      isCompleted
+   270→                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
+   271→                        : isActive
+   272→                        ? "bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-lg shadow-emerald-200"
+   273→                        : "bg-muted text-muted-foreground/60 border border-border"
+   274→                    }`}
+   275→                  >
+   276→                    {isCompleted ? (
+   277→                      <Check className="size-4" />
+   278→                    ) : (
+   279→                      stepNum
+   280→                    )}
+   281→                  </div>
+   282→                </div>
+   283→                <div className="text-center">
+   284→                  <span
+   285→                    className={`block text-[11px] sm:text-xs leading-tight max-w-[72px] flex items-center gap-1 ${
+   286→                      isActive
+   287→                        ? "text-emerald-700 font-semibold"
+   288→                        : isCompleted
+   289→                        ? "text-emerald-600 font-medium"
+   290→                        : "text-muted-foreground"
+   291→                    }`}
+   292→                  >
+   293→                    {stepInfo.title}
+   294→                    {isActive && (
+   295→                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+   296→                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+   297→                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+   298→                      </span>
+   299→                    )}
+   300→                  </span>
+   301→                  <span
+   302→                    className={`block text-[10px] leading-tight max-w-[72px] mt-0.5 ${
+   303→                      isActive
+   304→                        ? "text-emerald-500"
+   305→                        : "text-muted-foreground/60"
+   306→                    }`}
+   307→                  >
+   308→                    {stepInfo.desc}
+   309→                  </span>
+   310→                </div>
+   311→              </div>
+   312→
+   313→              {/* Connector line for mobile (fallback, hidden on sm+) */}
+   314→              {idx < STEP_LABELS.length - 1 && (
+   315→                <div className="flex-1 mx-2 mt-[-20px] sm:hidden">
+   316→                  <div
+   317→                    className={`h-0.5 rounded-full transition-colors duration-300 ${
+   318→                      stepNum < currentStep
+   319→                        ? "bg-emerald-600"
+   320→                        : "bg-muted"
+   321→                    }`}
+   322→                  />
+   323→                </div>
+   324→              )}
+   325→            </div>
+   326→          );
+   327→        })}
+   328→      </div>
+   329→    </div>
+   330→  );
+   331→}
+   332→
+   333→// =============================================================================
+   334→// Confetti Keyframes (CSS)
+   335→// =============================================================================
+   336→
+   337→function ConfettiStyles() {
+   338→  return (
+   339→    <style dangerouslySetInnerHTML={{ __html: `
+   340→      @keyframes checkmark-draw {
+   341→        0% { stroke-dashoffset: 48; }
+   342→        100% { stroke-dashoffset: 0; }
+   343→      }
+   344→      @keyframes checkmark-circle-scale {
+   345→        0% { transform: scale(0); opacity: 0; }
+   346→        50% { transform: scale(1.15); }
+   347→        100% { transform: scale(1); opacity: 1; }
+   348→      }
+   349→      @keyframes confetti-fall {
+   350→        0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+   351→        100% { transform: translateY(-120px) rotate(360deg) scale(0); opacity: 0; }
+   352→      }
+   353→      .confetti-dot {
+   354→        position: absolute;
+   355→        width: 8px;
+   356→        height: 8px;
+   357→        border-radius: 50%;
+   358→        animation: confetti-fall 1.5s ease-out forwards;
+   359→      }
+   360→      .checkmark-svg .checkmark-path {
+   361→        stroke-dasharray: 48;
+   362→        stroke-dashoffset: 48;
+   363→        animation: checkmark-draw 0.5s ease-out 0.3s forwards;
+   364→      }
+   365→      .checkmark-circle-anim {
+   366→        animation: checkmark-circle-scale 0.4s ease-out forwards;
+   367→      }
+   368→    ` }} />
+   369→  );
+   370→}
+   371→
+   372→// =============================================================================
+   373→// Booking Wizard Page
+   374→// =============================================================================
+   375→
+   376→export default function BookingPage() {
+   377→  const searchParams = useSearchParams();
+   378→  const providerId = searchParams.get("providerId") ?? "";
+   379→  const slotId = searchParams.get("slotId") ?? "";
+   380→  const urlSpecialtyId = searchParams.get("specialtyId") ?? "";
+   381→
+   382→  // ---- Core State ----
+   383→  const [step, setStep] = useState(1);
+   384→  const [slotData, setSlotData] = useState<SlotData | null>(null);
+   385→  const [loading, setLoading] = useState(true);
+   386→  const [error, setError] = useState<string | null>(null);
+   387→
+   388→  // ---- Taxonomies State ----
+   389→  const [insurances, setInsurances] = useState<Insurance[]>([]);
+   390→  const [selectedInsuranceId, setSelectedInsuranceId] = useState<string>("");
+   391→  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+   392→
+   393→  // ---- Step 1 State ----
+   394→  const [reasonForVisit, setReasonForVisit] = useState("");
+   395→  const [patientType, setPatientType] = useState<"ADULT" | "PEDIATRIC">(
+   396→    (searchParams.get("patientType") as "ADULT" | "PEDIATRIC") || "ADULT"
+   397→  );
+   398→  const [guardianName, setGuardianName] = useState("");
+   399→  const [guardianRelation, setGuardianRelation] = useState("");
+   400→  const [guardianConfirmed, setGuardianConfirmed] = useState(false);
+   401→  const [showGuardian, setShowGuardian] = useState(false);
+   402→
+   403→  // ---- Step 2 State ----
+   404→  const [patientName, setPatientName] = useState("");
+   405→  const [patientDob, setPatientDob] = useState("");
+   406→  const [patientPhone, setPatientPhone] = useState("");
+   407→  const [patientEmail, setPatientEmail] = useState("");
+   408→
+   409→  // ---- Step 3 State ----
+   410→  const [agreed, setAgreed] = useState(false);
+   411→  const [isSubmitting, setIsSubmitting] = useState(false);
+   412→  const [stepError, setStepError] = useState<string | null>(null);
+   413→  const lockKeyRef = useRef<string>(crypto.randomUUID());
+   414→
+   415→  // ---- Step 4 State ----
+   416→  const [appointmentResult, setAppointmentResult] = useState<{
+   417→    id: string;
+   418→    startTime: string;
+   419→    patientName: string;
+   420→    clinicName: string;
+   421→    providerName: string;
+   422→    providerCredentials?: string;
+   423→  } | null>(null);
+   424→  const [rawToken, setRawToken] = useState("");
+   425→  const [showToken, setShowToken] = useState(false);
+   426→  const [copied, setCopied] = useState(false);
+   427→
+   428→  // ---- Derived values ----
+   429→  const specialtyId = useMemo(() => {
+   430→    if (urlSpecialtyId) return urlSpecialtyId;
+   431→    return slotData?.specialty?.id ?? "";
+   432→  }, [urlSpecialtyId, slotData]);
+   433→
+   434→  const serviceId = useMemo(() => {
+   435→    if (selectedServiceId) return selectedServiceId;
+   436→    return slotData?.serviceId ?? "";
+   437→  }, [selectedServiceId, slotData]);
+   438→
+   439→  const selectedInsurance = useMemo(() => {
+   440→    return insurances.find((i) => i.id === selectedInsuranceId) ?? null;
+   441→  }, [insurances, selectedInsuranceId]);
+   442→
+   443→  const isDemoInsurance = selectedInsurance?.isDemo ?? false;
+   444→  const isUninsured = selectedInsurance?.slug === "uninsured" || !selectedInsuranceId;
+   445→
+   446→  const depositCents = useMemo(() => {
+   447→    if (!slotData) return 0;
+   448→    if (isDemoInsurance) return 0;
+   449→    if (isUninsured) {
+   450→      return slotData.slot.modality === SLOT_MODALITY.VIDEO
+   451→        ? (slotData.clinic.videoDepositCents ?? 0)
+   452→        : (slotData.clinic.inPersonDepositCents ?? 0);
+   453→    }
+   454→    return 0;
+   455→  }, [slotData, isDemoInsurance, isUninsured]);
+   456→
+   457→  const selfPayCents = useMemo(() => {
+   458→    if (!slotData) return 0;
+   459→    if (isUninsured) return slotData.clinic.selfPayFlatRateCents ?? 0;
+   460→    return 0;
+   461→  }, [slotData, isUninsured]);
+   462→
+   463→  const costLabel = useMemo(() => {
+   464→    if (isDemoInsurance) return "$25 Copay";
+   465→    if (isUninsured) return formatCents(selfPayCents).replace("No payment required", "Self-Pay rates apply");
+   466→    return "Covered by insurance";
+   467→  }, [isDemoInsurance, isUninsured, selfPayCents]);
+   468→
+   469→  const depositLabel = useMemo(() => {
+   470→    if (isDemoInsurance) return "$0 deposit (Demo)";
+   471→    if (depositCents > 0) return `${formatCents(depositCents)} deposit required`;
+   472→    return "No deposit required";
+   473→  }, [isDemoInsurance, depositCents]);
+   474→
+   475→  const paymentMethod = useMemo(() => {
+   476→    if (isDemoInsurance) return "MANUAL_WAIVER" as const;
+   477→    return "CASH_AT_DESK" as const;
+   478→  }, [isDemoInsurance]);
+   479→
+   480→  const depositDisplay = useMemo(() => formatCents(depositCents), [depositCents]);
+   481→
+   482→  const serviceName = useMemo(() => {
+   483→    if (!slotData?.services?.length) return "";
+   484→    const svc = slotData.services.find((s) => s.id === serviceId);
+   485→    return svc?.name ?? slotData.services[0]?.name ?? "";
+   486→  }, [slotData, serviceId]);
+   487→
+   488→  // ---- Fetch slot data & taxonomies on mount ----
+   489→  useEffect(() => {
+   490→    if (!slotId) {
+   491→      setError("No slot ID provided. Please select a time slot from the search page.");
+   492→      setLoading(false);
+   493→      return;
+   494→    }
+   495→
+   496→    async function fetchSlot() {
+   497→      try {
+   498→        const res = await fetch(`/api/slots/${slotId}`);
+   499→        if (!res.ok) {
+   500→          const body = await res.json().catch(() => ({}));
+   501→          throw new Error(body.error ?? `Failed to load slot (${res.status})`);
+   502→        }
+   503→        const data: SlotData = await res.json();
+   504→        setSlotData(data);
+   505→        // Set default service
+   506→        if (data.serviceId) {
+   507→          setSelectedServiceId(data.serviceId);
+   508→        } else if (data.services?.[0]?.id) {
+   509→          setSelectedServiceId(data.services[0].id);
+   510→        }
+   511→      } catch (err) {
+   512→        setError(err instanceof Error ? err.message : "Failed to load appointment details.");
+   513→      } finally {
+   514→        setLoading(false);
+   515→      }
+   516→    }
+   517→
+   518→    async function fetchTaxonomies() {
+   519→      try {
+   520→        const res = await fetch("/api/taxonomies");
+   521→        if (res.ok) {
+   522→          const data = await res.json();
+   523→          setInsurances(data.insurances ?? []);
+   524→          // Auto-select demo insurance if available
+   525→          const demo = (data.insurances ?? []).find((i: Insurance) => i.isDemo);
+   526→          if (demo) {
+   527→            setSelectedInsuranceId(demo.id);
+   528→          }
+   529→        }
+   530→      } catch {
+   531→        // Non-critical, continue without insurances
+   532→      }
+   533→    }
+   534→
+   535→    fetchSlot();
+   536→    fetchTaxonomies();
+   537→  }, [slotId]);
+   538→
+   539→  // ---- Animate guardian fields ----
+   540→  useEffect(() => {
+   541→    if (patientType === "PEDIATRIC") {
+   542→      const timer = setTimeout(() => setShowGuardian(true), 50);
+   543→      return () => clearTimeout(timer);
+   544→    } else {
+   545→      setShowGuardian(false);
+   546→    }
+   547→  }, [patientType]);
+   548→
+   549→  // ---- Validation helpers ----
+   550→  const validateStep1 = useCallback((): boolean => {
+   551→    if (!reasonForVisit.trim()) return false;
+   552→    if (patientType === "PEDIATRIC") {
+   553→      if (!guardianName.trim() || !guardianRelation || !guardianConfirmed) return false;
+   554→    }
+   555→    return true;
+   556→  }, [reasonForVisit, patientType, guardianName, guardianRelation, guardianConfirmed]);
+   557→
+   558→  const validateStep2 = useCallback((): boolean => {
+   559→    if (!patientName.trim()) return false;
+   560→    if (!patientDob) return false;
+   561→    if (!patientPhone.trim()) return false;
+   562→    if (!patientEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail)) return false;
+   563→    return true;
+   564→  }, [patientName, patientDob, patientPhone, patientEmail]);
+   565→
+   566→  // ---- Step navigation ----
+   567→  const goNext = () => {
+   568→    setStepError(null);
+   569→    if (step === 1 && validateStep1()) setStep(2);
+   570→    else if (step === 2 && validateStep2()) setStep(3);
+   571→  };
+   572→
+   573→  const goBack = () => {
+   574→    setStepError(null);
+   575→    if (step > 1 && step < 4) setStep(step - 1);
+   576→  };
+   577→
+   578→  // ---- Release lock helper ----
+   579→  const releaseLock = useCallback(async () => {
+   580→    try {
+   581→      await fetch(`/api/slots/${slotId}/lock?lockKey=${encodeURIComponent(lockKeyRef.current)}`, {
+   582→        method: "DELETE",
+   583→      });
+   584→    } catch {
+   585→      // Silently fail — lock will expire via TTL
+   586→    }
+   587→  }, [slotId]);
+   588→
+   589→  // ---- Submit appointment ----
+   590→  const handleConfirm = useCallback(async () => {
+   591→    if (!agreed) {
+   592→      setStepError("Please agree to the cancellation policy to proceed.");
+   593→      return;
+   594→    }
+   595→    if (!slotData || !specialtyId || !serviceId) {
+   596→      setStepError("Missing required booking data. Please go back and try again.");
+   597→      return;
+   598→    }
+   599→
+   600→    setIsSubmitting(true);
+   601→    setStepError(null);
+   602→    const lockKey = lockKeyRef.current;
+   603→
+   604→    try {
+   605→      // 1. Lock the slot
+   606→      const lockRes = await fetch(`/api/slots/${slotId}/lock`, {
+   607→        method: "POST",
+   608→        headers: { "Content-Type": "application/json" },
+   609→        body: JSON.stringify({ lockKey }),
+   610→      });
+   611→
+   612→      if (!lockRes.ok) {
+   613→        const lockBody = await lockRes.json().catch(() => ({}));
+   614→        if (lockRes.status === 409 && lockBody.code === "SLOT_TAKEN") {
+   615→          setStepError("This time slot was just booked by someone else.");
+   616→          return;
+   617→        }
+   618→        throw new Error(lockBody.error ?? `Failed to lock slot (${lockRes.status})`);
+   619→      }
+   620→
+   621→      // 2. Create appointment
+   622→      const appointmentBody = {
+   623→        slotId,
+   624→        lockKey,
+   625→        patientName: patientName.trim(),
+   626→        patientDob,
+   627→        patientPhone: patientPhone.trim(),
+   628→        patientEmail: patientEmail.trim(),
+   629→        patientType,
+   630→        reasonForVisit: reasonForVisit.trim(),
+   631→        specialtyId,
+   632→        serviceId,
+   633→        guardianName: patientType === "PEDIATRIC" ? guardianName.trim() : undefined,
+   634→        guardianRelation: patientType === "PEDIATRIC" ? guardianRelation : undefined,
+   635→        paymentMethod,
+   636→        depositCents,
+   637→        selfPayCents,
+   638→        isDemoInsurance,
+   639→      };
+   640→
+   641→      const apptRes = await fetch("/api/appointments", {
+   642→        method: "POST",
+   643→        headers: { "Content-Type": "application/json" },
+   644→        body: JSON.stringify(appointmentBody),
+   645→      });
+   646→
+   647→      if (!apptRes.ok) {
+   648→        const apptBody = await apptRes.json().catch(() => ({}));
+   649→        // Release lock on failure
+   650→        await releaseLock();
+   651→
+   652→        if (apptRes.status === 409 && apptBody.code === "SLOT_TAKEN") {
+   653→          setStepError("This time slot was just booked by someone else.");
+   654→          return;
+   655→        }
+   656→        throw new Error(apptBody.error ?? `Failed to create appointment (${apptRes.status})`);
+   657→      }
+   658→
+   659→      const apptData = await apptRes.json();
+   660→      setRawToken(apptData.token);
+   661→      setAppointmentResult(apptData.appointment);
+   662→      setStep(4);
+   663→    } catch (err) {
+   664→      await releaseLock();
+   665→      setStepError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+   666→    } finally {
+   667→      setIsSubmitting(false);
+   668→    }
+   669→  }, [
+   670→    agreed,
+   671→    slotData,
+   672→    specialtyId,
+   673→    serviceId,
+   674→    slotId,
+   675→    patientName,
+   676→    patientDob,
+   677→    patientPhone,
+   678→    patientEmail,
+   679→    patientType,
+   680→    reasonForVisit,
+   681→    guardianName,
+   682→    guardianRelation,
+   683→    paymentMethod,
+   684→    depositCents,
+   685→    selfPayCents,
+   686→    isDemoInsurance,
+   687→    releaseLock,
+   688→  ]);
+   689→
+   690→  // ---- Copy token ----
+   691→  const handleCopyToken = useCallback(async () => {
+   692→    const tokenUrl = `${window.location.origin}/manage/${rawToken}`;
+   693→    try {
+   694→      await navigator.clipboard.writeText(tokenUrl);
+   695→      setCopied(true);
+   696→      setTimeout(() => setCopied(false), 2000);
+   697→    } catch {
+   698→      // Fallback
+   699→      const textarea = document.createElement("textarea");
+   700→      textarea.value = tokenUrl;
+   701→      document.body.appendChild(textarea);
+   702→      textarea.select();
+   703→      document.execCommand("copy");
+   704→      document.body.removeChild(textarea);
+   705→      setCopied(true);
+   706→      setTimeout(() => setCopied(false), 2000);
+   707→    }
+   708→  }, [rawToken]);
+   709→
+   710→  // ---- Retry on error ----
+   711→  const handleRetry = useCallback(() => {
+   712→    setError(null);
+   713→    setLoading(true);
+   714→    if (!slotId) return;
+   715→
+   716→    async function fetchSlot() {
+   717→      try {
+   718→        const res = await fetch(`/api/slots/${slotId}`);
+   719→        if (!res.ok) {
+   720→          const body = await res.json().catch(() => ({}));
+   721→          throw new Error(body.error ?? `Failed to load slot (${res.status})`);
+   722→        }
+   723→        const data: SlotData = await res.json();
+   724→        setSlotData(data);
+   725→        if (data.serviceId) setSelectedServiceId(data.serviceId);
+   726→        else if (data.services?.[0]?.id) setSelectedServiceId(data.services[0].id);
+   727→      } catch (err) {
+   728→        setError(err instanceof Error ? err.message : "Failed to load appointment details.");
+   729→      } finally {
+   730→        setLoading(false);
+   731→      }
+   732→    }
+   733→    fetchSlot();
+   734→  }, [slotId]);
+   735→
+   736→  // ---- Provider display name ----
+   737→  const providerDisplayName = useMemo(() => {
+   738→    if (!slotData) return "";
+   739→    const name = `${slotData.provider.firstName} ${slotData.provider.lastName}`;
+   740→    return slotData.provider.credentials
+   741→      ? `Dr. ${name}, ${slotData.provider.credentials}`
+   742→      : `Dr. ${name}`;
+   743→  }, [slotData]);
+   744→
+   745→  const clinicAddress = useMemo(() => {
+   746→    if (!slotData) return "";
+   747→    return [
+   748→      slotData.clinic.streetAddress,
+   749→      slotData.clinic.city,
+   750→      slotData.clinic.state,
+   751→      slotData.clinic.zipCode,
+   752→    ]
+   753→      .filter(Boolean)
+   754→      .join(", ");
+   755→  }, [slotData]);
+   756→
+   757→  // ===========================================================================
+   758→  // Loading State
+   759→  // ===========================================================================
+   760→  if (loading) {
+   761→    return (
+   762→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   763→        <PublicNavbar showHome />
+   764→        <div className="flex-1 flex items-center justify-center py-20">
+   765→          <div className="flex flex-col items-center gap-3">
+   766→            <Loader2 className="size-8 animate-spin text-emerald-600" />
+   767→            <p className="text-sm text-muted-foreground text-shimmer-loading">Loading appointment details...</p>
+   768→          </div>
+   769→        </div>
+   770→      </div>
+   771→    );
+   772→  }
+   773→
+   774→  // ===========================================================================
+   775→  // Error State
+   776→  // ===========================================================================
+   777→  if (error || !slotData) {
+   778→    return (
+   779→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   780→        <PublicNavbar showHome />
+   781→        <div className="flex-1 flex items-center justify-center py-20 px-4">
+   782→          <Card className="max-w-md w-full border-red-200 bg-red-50/30 shadow-sm">
+   783→            <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+   784→              <div className="size-12 rounded-full bg-red-100 flex items-center justify-center">
+   785→                <AlertCircle className="size-6 text-red-600" />
+   786→              </div>
+   787→              <div className="space-y-1">
+   788→                <p className="font-semibold text-foreground">Unable to load appointment</p>
+   789→                <p className="text-sm text-muted-foreground">{error || "Slot data not found."}</p>
+   790→              </div>
+   791→              <div className="flex gap-3 pt-1">
+   792→                <Button
+   793→                  onClick={handleRetry}
+   794→                  variant="outline"
+   795→                  className="border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+   796→                >
+   797→                  <RefreshCw className="size-4" />
+   798→                  Try Again
+   799→                </Button>
+   800→                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+   801→                  <Link href="/">
+   802→                    <Search className="size-4" />
+   803→                    Back to Search
+   804→                  </Link>
+   805→                </Button>
+   806→              </div>
+   807→            </CardContent>
+   808→          </Card>
+   809→        </div>
+   810→      </div>
+   811→    );
+   812→  }
+   813→
+   814→  // ===========================================================================
+   815→  // Step 4 — Confirmation (separate layout)
+   816→  // ===========================================================================
+   817→  if (step === 4 && appointmentResult) {
+   818→    const confettiColors = [
+   819→      "bg-emerald-400", "bg-emerald-500", "bg-amber-400", "bg-amber-300",
+   820→      "bg-emerald-300", "bg-green-400", "bg-lime-400", "bg-teal-300",
+   821→    ];
+   822→
+   823→    return (
+   824→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   825→        <ConfettiStyles />
+   826→        <PublicNavbar showHome />
+   827→
+   828→        <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-10 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+   829→          {/* Confetti + Success Icon */}
+   830→          <div className="relative flex flex-col items-center text-center space-y-5 pt-4">
+   831→            {/* Decorative sparkles (CSS-only) */}
+   832→            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+   833→              <div className="absolute top-20 left-[15%] size-2 rounded-full bg-emerald-300/40 animate-pulse-subtle" />
+   834→              <div className="absolute top-32 right-[20%] size-1.5 rounded-full bg-amber-300/40 animate-pulse-subtle" style={{ animationDelay: '0.5s' }} />
+   835→              <div className="absolute top-44 left-[25%] size-1 rounded-full bg-teal-300/50 animate-pulse-subtle" style={{ animationDelay: '1s' }} />
+   836→              <div className="absolute top-28 right-[30%] size-1.5 rounded-full bg-emerald-400/30 animate-pulse-subtle" style={{ animationDelay: '1.5s' }} />
+   837→            </div>
+   838→
+   839→            {/* Confetti dots */}
+   840→            <div className="relative size-24 flex items-center justify-center">
+   841→              {confettiColors.map((color, i) => {
+   842→                const angle = (i / confettiColors.length) * 360;
+   843→                const rad = (angle * Math.PI) / 180;
+   844→                const x = Math.cos(rad) * 60;
+   845→                const y = Math.sin(rad) * 60;
+   846→                return (
+   847→                  <div
+   848→                    key={i}
+   849→                    className={`confetti-dot ${color}`}
+   850→                    style={{
+   851→                      left: `calc(50% + ${x}px - 4px)`,
+   852→                      top: `calc(50% + ${y}px - 4px)`,
+   853→                      animationDelay: `${i * 0.05}s`,
+   854→                    }}
+   855→                  />
+   856→                );
+   857→              })}
+   858→
+   859→              {/* Animated checkmark */}
+   860→              <div className="checkmark-circle-anim relative z-10">
+   861→                <svg
+   862→                  className="checkmark-svg size-20"
+   863→                  viewBox="0 0 52 52"
+   864→                >
+   865→                  <circle
+   866→                    cx="26"
+   867→                    cy="26"
+   868→                    r="25"
+   869→                    fill="#059669"
+   870→                    stroke="none"
+   871→                  />
+   872→                  <path
+   873→                    className="checkmark-path"
+   874→                    fill="none"
+   875→                    stroke="white"
+   876→                    strokeWidth="3"
+   877→                    strokeLinecap="round"
+   878→                    strokeLinejoin="round"
+   879→                    d="M14 27l7 7 16-16"
+   880→                  />
+   881→                </svg>
+   882→              </div>
+   883→            </div>
+   884→
+   885→            <div className="space-y-2">
+   886→              <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+   887→                Appointment Confirmed!
+   888→              </h1>
+   889→              <p className="text-muted-foreground max-w-md text-sm">
+   890→                Your appointment has been booked successfully. We&apos;ve sent a confirmation to your email.
+   891→              </p>
+   892→            </div>
+   893→          </div>
+   894→
+   895→          {/* Appointment Details Card */}
+   896→          <Card className="shadow-sm border-emerald-200/60">
+   897→            <CardContent className="p-5 space-y-3.5">
+   898→              <div className="flex items-start gap-3">
+   899→                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   900→                  <Calendar className="size-4 text-emerald-700" />
+   901→                </div>
+   902→                <div>
+   903→                  <p className="text-sm font-medium">{formatSlotTime(appointmentResult.startTime)}</p>
+   904→                  <div className="mt-1">
+   905→                    <ModalityBadge modality={slotData.slot.modality} />
+   906→                  </div>
+   907→                </div>
+   908→              </div>
+   909→              <Separator />
+   910→              <div className="flex items-start gap-3">
+   911→                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   912→                  <User className="size-4 text-emerald-700" />
+   913→                </div>
+   914→                <div>
+   915→                  <p className="text-sm font-medium">{appointmentResult.providerName}</p>
+   916→                  {appointmentResult.providerCredentials && (
+   917→                    <p className="text-xs text-muted-foreground">{appointmentResult.providerCredentials}</p>
+   918→                  )}
+   919→                </div>
+   920→              </div>
+   921→              <Separator />
+   922→              <div className="flex items-start gap-3">
+   923→                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   924→                  <Building2 className="size-4 text-emerald-700" />
+   925→                </div>
+   926→                <div>
+   927→                  <p className="text-sm font-medium">{appointmentResult.clinicName}</p>
+   928→                  <p className="text-xs text-muted-foreground">{clinicAddress}</p>
+   929→                </div>
+   930→              </div>
+   931→              <Separator />
+   932→              <div className="flex items-start gap-3">
+   933→                <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   934→                  <Shield className="size-4 text-emerald-700" />
+   935→                </div>
+   936→                <p className="text-sm text-muted-foreground">
+   937→                  Patient: <span className="font-medium text-foreground">{maskName(appointmentResult.patientName)}</span>
+   938→                </p>
+   939→              </div>
+   940→
+   941→              {/* Cost summary in confirmation */}
+   942→              {selectedInsurance && (
+   943→                <>
+   944→                  <Separator />
+   945→                  <div className="flex items-start gap-3">
+   946→                    <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   947→                      <CreditCard className="size-4 text-emerald-700" />
+   948→                    </div>
+   949→                    <div>
+   950→                      <p className="text-sm font-medium">
+   951→                        {isDemoInsurance ? "Demo Insurance" : selectedInsurance.name}
+   952→                      </p>
+   953→                      <p className="text-xs text-muted-foreground">{costLabel}</p>
+   954→                    </div>
+   955→                  </div>
+   956→                </>
+   957→              )}
+   958→            </CardContent>
+   959→          </Card>
+   960→
+   961→          {/* Token Management */}
+   962→          <Card className="border-emerald-200 bg-emerald-50/40 shadow-sm">
+   963→            <CardContent className="p-5 space-y-4">
+   964→              <h3 className="font-semibold text-foreground flex items-center gap-2">
+   965→                <Shield className="size-4 text-emerald-600" />
+   966→                Manage Your Appointment
+   967→              </h3>
+   968→              <p className="text-sm text-muted-foreground">
+   969→                Save this secure link! You&apos;ll need it to view details, complete intake forms, or make changes.
+   970→              </p>
+   971→
+   972→              <div className="space-y-2">
+   973→                <Button
+   974→                  variant="outline"
+   975→                  onClick={() => setShowToken(!showToken)}
+   976→                  className="w-full cursor-pointer justify-center"
+   977→                >
+   978→                  {showToken ? (
+   979→                    <>
+   980→                      <EyeOff className="size-4" />
+   981→                      Hide Token Link
+   982→                    </>
+   983→                  ) : (
+   984→                    <>
+   985→                      <Eye className="size-4" />
+   986→                      Show Token Link
+   987→                    </>
+   988→                  )}
+   989→                </Button>
+   990→
+   991→                {showToken && rawToken && (
+   992→                  <div className="rounded-lg border bg-card p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+   993→                    <p className="text-xs text-muted-foreground break-all font-mono">
+   994→                      {window.location.origin}/manage/{rawToken}
+   995→                    </p>
+   996→                    <Button
+   997→                      variant="outline"
+   998→                      size="sm"
+   999→                      onClick={handleCopyToken}
+  1000→                      className="w-full cursor-pointer"
+  1001→                    >
+  1002→                      {copied ? (
+  1003→                        <>
+  1004→                          <Check className="size-3.5" />
+  1005→                          Copied!
+  1006→                        </>
+  1007→                      ) : (
+  1008→                        <>
+  1009→                          <Copy className="size-3.5" />
+  1010→                          Copy Link
+  1011→                        </>
+  1012→                      )}
+  1013→                    </Button>
+  1014→                  </div>
+  1015→                )}
+  1016→              </div>
+  1017→            </CardContent>
+  1018→          </Card>
+  1019→
+  1020→          {/* What's Next */}
+  1021→          <div className="space-y-3">
+  1022→            <h3 className="font-semibold text-foreground px-1">What&apos;s Next?</h3>
+  1023→            <div className="grid gap-3">
+  1024→              <Card className="shadow-sm">
+  1025→                <CardContent className="p-4 flex items-start gap-3">
+  1026→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1027→                    <Mail className="size-4 text-emerald-700" />
+  1028→                  </div>
+  1029→                  <div>
+  1030→                    <p className="text-sm font-medium text-foreground">Confirmation Email</p>
+  1031→                    <p className="text-xs text-muted-foreground mt-0.5">You&apos;ll receive a confirmation email shortly with all the details.</p>
+  1032→                  </div>
+  1033→                </CardContent>
+  1034→              </Card>
+  1035→              <Card className="shadow-sm">
+  1036→                <CardContent className="p-4 flex items-start gap-3">
+  1037→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1038→                    <FileText className="size-4 text-emerald-700" />
+  1039→                  </div>
+  1040→                  <div>
+  1041→                    <p className="text-sm font-medium text-foreground">Complete Intake Forms</p>
+  1042→                    <p className="text-xs text-muted-foreground mt-0.5">Complete your intake forms before the visit to save time.</p>
+  1043→                  </div>
+  1044→                </CardContent>
+  1045→              </Card>
+  1046→              <Card className="shadow-sm">
+  1047→                <CardContent className="p-4 flex items-start gap-3">
+  1048→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1049→                    <Timer className="size-4 text-emerald-700" />
+  1050→                  </div>
+  1051→                  <div>
+  1052→                    <p className="text-sm font-medium text-foreground">Arrive Early</p>
+  1053→                    <p className="text-xs text-muted-foreground mt-0.5">Arrive 15 minutes early for check-in and any paperwork.</p>
+  1054→                  </div>
+  1055→                </CardContent>
+  1056→              </Card>
+  1057→            </div>
+  1058→          </div>
+  1059→
+  1060→          {/* Book Another */}
+  1061→          <div className="flex justify-center pt-2 pb-4">
+  1062→            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+  1063→              <Link href="/">
+  1064→                <Search className="size-4" />
+  1065→                Book Another Appointment
+  1066→              </Link>
+  1067→            </Button>
+  1068→          </div>
+  1069→        </main>
+  1070→      </div>
+  1071→    );
+  1072→  }
+  1073→
+  1074→  // ===========================================================================
+  1075→  // Steps 1-3 — Wizard with Progress Bar
+  1076→  // ===========================================================================
+  1077→  return (
+  1078→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+  1079→      <PublicNavbar showHome />
+  1080→
+  1081→      {/* ===== Slot Summary Card (visible on all steps) ===== */}
+  1082→      <div className="max-w-2xl mx-auto w-full px-4 pt-4">
+  1083→        <SlotSummaryCard slotData={slotData} />
+  1084→      </div>
+  1085→
+  1086→      {/* ===== Progress Indicator ===== */}
+  1087→      <div className="bg-background/80 border-b">
+  1088→        <ProgressIndicator currentStep={step} />
+  1089→      </div>
+  1090→
+  1091→      {/* ===== Step Content ===== */}
+  1092→      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+  1093→        {/* ---- Step 1: Visit Details ---- */}
+  1094→        {step === 1 && (
+  1095→          <div className="space-y-6 animate-in fade-in duration-200" key="step-1" style={{ animation: 'slide-in-right 0.2s ease-out' }}>
+  1096→            <div>
+  1097→              <h1 className="text-2xl font-bold text-foreground">What brings you in?</h1>
+  1098→              <p className="text-muted-foreground mt-1 text-sm">
+  1099→                Tell us about your visit so the provider can prepare.
+  1100→              </p>
+  1101→            </div>
+  1102→
+  1103→            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
+  1104→              <CardContent className="p-5 space-y-5">
+  1105→                {/* Reason for Visit */}
+  1106→                <div className="space-y-2">
+  1107→                  <Label htmlFor="reasonForVisit" className="text-sm font-medium">
+  1108→                    Reason for Visit <span className="text-destructive">*</span>
+  1109→                  </Label>
+  1110→                  <Textarea
+  1111→                    id="reasonForVisit"
+  1112→                    placeholder="e.g., Annual physical, persistent headache, follow-up for lab results..."
+  1113→                    value={reasonForVisit}
+  1114→                    onChange={(e) => setReasonForVisit(e.target.value)}
+  1115→                    rows={4}
+  1116→                    className="resize-none"
+  1117→                  />
+  1118→                </div>
+  1119→
+  1120→                <Separator />
+  1121→
+  1122→                {/* Patient Type */}
+  1123→                <div className="space-y-2">
+  1124→                  <Label className="text-sm font-medium">
+  1125→                    Patient Type <span className="text-destructive">*</span>
+  1126→                  </Label>
+  1127→                  <ToggleGroup
+  1128→                    type="single"
+  1129→                    value={patientType}
+  1130→                    onValueChange={(val) => {
+  1131→                      if (val) setPatientType(val as "ADULT" | "PEDIATRIC");
+  1132→                    }}
+  1133→                    variant="outline"
+  1134→                    className="w-full"
+  1135→                  >
+  1136→                    <ToggleGroupItem
+  1137→                      value="ADULT"
+  1138→                      className="flex-1 gap-1.5 cursor-pointer time-slot-ripple"
+  1139→                    >
+  1140→                      <User className="size-3.5" />
+  1141→                      <span className="text-xs sm:text-sm">Adult</span>
+  1142→                    </ToggleGroupItem>
+  1143→                    <ToggleGroupItem
+  1144→                      value="PEDIATRIC"
+  1145→                      className="flex-1 gap-1.5 cursor-pointer time-slot-ripple"
+  1146→                    >
+  1147→                      <Baby className="size-3.5" />
+  1148→                      <span className="text-xs sm:text-sm">Pediatric</span>
+  1149→                    </ToggleGroupItem>
+  1150→                  </ToggleGroup>
+  1151→                </div>
+  1152→
+  1153→                {/* Guardian Fields (Pediatric) — Smooth expand */}
+  1154→                <div
+  1155→                  className="overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out"
+  1156→                  style={{
+  1157→                    maxHeight: showGuardian ? "400px" : "0px",
+  1158→                    opacity: showGuardian ? 1 : 0,
+  1159→                  }}
+  1160→                >
+  1161→                  <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4 -mt-1">
+  1162→                    <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+  1163→                      <Shield className="size-4" />
+  1164→                      Guardian Information Required
+  1165→                    </div>
+  1166→
+  1167→                    <div className="space-y-2">
+  1168→                      <Label htmlFor="guardianName" className="text-sm">
+  1169→                        Guardian Full Name <span className="text-destructive">*</span>
+  1170→                      </Label>
+  1171→                      <Input
+  1172→                        id="guardianName"
+  1173→                        placeholder="Jane Smith"
+  1174→                        value={guardianName}
+  1175→                        onChange={(e) => setGuardianName(e.target.value)}
+  1176→                      />
+  1177→                    </div>
+  1178→
+  1179→                    <div className="space-y-2">
+  1180→                      <Label htmlFor="guardianRelation" className="text-sm">
+  1181→                        Relationship to Patient <span className="text-destructive">*</span>
+  1182→                      </Label>
+  1183→                      <Select
+  1184→                        value={guardianRelation}
+  1185→                        onValueChange={setGuardianRelation}
+  1186→                      >
+  1187→                        <SelectTrigger id="guardianRelation" className="cursor-pointer">
+  1188→                          <SelectValue placeholder="Select relationship" />
+  1189→                        </SelectTrigger>
+  1190→                        <SelectContent>
+  1191→                          <SelectItem value="Mother" className="cursor-pointer">Mother</SelectItem>
+  1192→                          <SelectItem value="Father" className="cursor-pointer">Father</SelectItem>
+  1193→                          <SelectItem value="Legal Guardian" className="cursor-pointer">Legal Guardian</SelectItem>
+  1194→                          <SelectItem value="Other" className="cursor-pointer">Other</SelectItem>
+  1195→                        </SelectContent>
+  1196→                      </Select>
+  1197→                    </div>
+  1198→
+  1199→                    <div className="flex items-start gap-2.5 pt-1">
+  1200→                      <Checkbox
+  1201→                        id="guardianConfirmed"
+  1202→                        checked={guardianConfirmed}
+  1203→                        onCheckedChange={(checked) => setGuardianConfirmed(checked === true)}
+  1204→                        className="mt-0.5"
+  1205→                      />
+  1206→                      <Label
+  1207→                        htmlFor="guardianConfirmed"
+  1208→                        className="text-sm leading-snug cursor-pointer"
+  1209→                      >
+  1210→                        I confirm I have legal authority to consent for this minor&apos;s treatment
+  1211→                      </Label>
+  1212→                    </div>
+  1213→                  </div>
+  1214→                </div>
+  1215→
+  1216→                <Separator />
+  1217→
+  1218→                {/* Insurance Selection */}
+  1219→                <div className="space-y-2">
+  1220→                  <Label htmlFor="insurance" className="text-sm font-medium">
+  1221→                    Insurance
+  1222→                  </Label>
+  1223→                  <Select
+  1224→                    value={selectedInsuranceId}
+  1225→                    onValueChange={setSelectedInsuranceId}
+  1226→                  >
+  1227→                    <SelectTrigger id="insurance" className="cursor-pointer">
+  1228→                      <SelectValue placeholder="Select insurance" />
+  1229→                    </SelectTrigger>
+  1230→                    <SelectContent>
+  1231→                      {insurances.map((ins) => (
+  1232→                        <SelectItem key={ins.id} value={ins.id} className="cursor-pointer">
+  1233→                          {ins.name}
+  1234→                          {ins.isDemo && (
+  1235→                            <Badge variant="outline" className="ml-2 text-emerald-600 border-emerald-300 text-[10px] px-1.5 py-0">
+  1236→                              Demo
+  1237→                            </Badge>
+  1238→                          )}
+  1239→                        </SelectItem>
+  1240→                      ))}
+  1241→                    </SelectContent>
+  1242→                  </Select>
+  1243→
+  1244→                  {/* Insurance Badge */}
+  1245→                  {selectedInsurance && (
+  1246→                    <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+  1247→                      {selectedInsurance.isDemo ? (
+  1248→                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 cursor-default">
+  1249→                          <CheckCircle2 className="size-3 mr-1" />
+  1250→                          $0 Copay — Demo Plan
+  1251→                        </Badge>
+  1252→                      ) : selectedInsurance.slug === "uninsured" ? (
+  1253→                        <Badge variant="outline" className="text-amber-700 border-amber-300 cursor-default">
+  1254→                          <DollarSign className="size-3 mr-1" />
+  1255→                          Self-pay rates apply
+  1256→                        </Badge>
+  1257→                      ) : (
+  1258→                        <Badge variant="secondary" className="cursor-default">
+  1259→                          <Shield className="size-3 mr-1" />
+  1260→                          {selectedInsurance.name}
+  1261→                        </Badge>
+  1262→                      )}
+  1263→                    </div>
+  1264→                  )}
+  1265→                </div>
+  1266→
+  1267→                {/* Service Selection */}
+  1268→                {slotData.services && slotData.services.length > 1 && (
+  1269→                  <>
+  1270→                    <Separator />
+  1271→                    <div className="space-y-2">
+  1272→                      <Label htmlFor="service" className="text-sm font-medium">
+  1273→                        Service
+  1274→                      </Label>
+  1275→                      <Select
+  1276→                        value={serviceId}
+  1277→                        onValueChange={setSelectedServiceId}
+  1278→                      >
+  1279→                        <SelectTrigger id="service" className="cursor-pointer">
+  1280→                          <SelectValue placeholder="Select service" />
+  1281→                        </SelectTrigger>
+  1282→                        <SelectContent>
+  1283→                          {slotData.services.map((svc) => (
+  1284→                            <SelectItem key={svc.id} value={svc.id} className="cursor-pointer">
+  1285→                              {svc.name}
+  1286→                            </SelectItem>
+  1287→                          ))}
+  1288→                        </SelectContent>
+  1289→                      </Select>
+  1290→                    </div>
+  1291→                  </>
+  1292→                )}
+  1293→              </CardContent>
+  1294→            </Card>
+  1295→
+  1296→            {/* Payment Summary Preview */}
+  1297→            <Card className="shadow-sm border-emerald-200/60 bg-emerald-50/30">
+  1298→              <CardContent className="p-4">
+  1299→                <h3 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+  1300→                  <CreditCard className="size-3.5" />
+  1301→                  Payment Summary
+  1302→                </h3>
+  1303→                <div className="space-y-2.5">
+  1304→                  <div className="flex items-center justify-between">
+  1305→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1306→                      {slotData.slot.modality === SLOT_MODALITY.VIDEO ? (
+  1307→                        <Video className="size-3.5" />
+  1308→                      ) : (
+  1309→                        <MonitorCheck className="size-3.5" />
+  1310→                      )}
+  1311→                      Visit Type
+  1312→                    </div>
+  1313→                    <span className="text-sm font-medium text-foreground">
+  1314→                      {slotData.slot.modality === SLOT_MODALITY.VIDEO ? "Video" : "In-Clinic"}
+  1315→                    </span>
+  1316→                  </div>
+  1317→
+  1318→                  <div className="flex items-center justify-between">
+  1319→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1320→                      <Shield className="size-3.5" />
+  1321→                      Insurance
+  1322→                    </div>
+  1323→                    <span className="text-sm font-medium text-foreground">
+  1324→                      {isUninsured ? "Self-Pay" : selectedInsurance?.name ?? "None selected"}
+  1325→                    </span>
+  1326→                  </div>
+  1327→
+  1328→                  <Separator />
+  1329→
+  1330→                  <div className="flex items-center justify-between">
+  1331→                    <span className="text-sm text-muted-foreground">Estimated Cost</span>
+  1332→                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+  1333→                      {isDemoInsurance ? "Free" : isUninsured ? formatCents(selfPayCents) : costLabel}
+  1334→                    </span>
+  1335→                  </div>
+  1336→
+  1337→                  <div className="flex items-center justify-between">
+  1338→                    <span className="text-sm text-muted-foreground">Deposit</span>
+  1339→                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+  1340→                      {isDemoInsurance ? "$0 deposit (Demo)" : depositCents > 0 ? `${formatCents(depositCents)} deposit required` : "No deposit required"}
+  1341→                    </span>
+  1342→                  </div>
+  1343→                </div>
+  1344→              </CardContent>
+  1345→            </Card>
+  1346→          </div>
+  1347→        )}
+  1348→
+  1349→        {/* ---- Step 2: Your Information ---- */}
+  1350→        {step === 2 && (
+  1351→          <div className="space-y-6 animate-in fade-in duration-200" key="step-2" style={{ animation: 'slide-in-right 0.2s ease-out' }}>
+  1352→            <div>
+  1353→              <h1 className="text-2xl font-bold text-foreground">Your Information</h1>
+  1354→              <p className="text-muted-foreground mt-1 text-sm">
+  1355→                No account needed — we&apos;ll only use this for your appointment.
+  1356→              </p>
+  1357→            </div>
+  1358→
+  1359→            <Card className="shadow-sm input-focus-glow card-glow-emerald border-transition">
+  1360→              <CardContent className="p-5 space-y-4">
+  1361→                {/* Patient Name */}
+  1362→                <div className="space-y-2">
+  1363→                  <Label htmlFor="patientName" className="text-sm font-medium">
+  1364→                    Full Name <span className="text-destructive">*</span>
+  1365→                  </Label>
+  1366→                  <Input
+  1367→                    id="patientName"
+  1368→                    placeholder="John Doe"
+  1369→                    value={patientName}
+  1370→                    onChange={(e) => setPatientName(e.target.value)}
+  1371→                    autoComplete="name"
+  1372→                  />
+  1373→                </div>
+  1374→
+  1375→                {/* Date of Birth */}
+  1376→                <div className="space-y-2">
+  1377→                  <Label htmlFor="patientDob" className="text-sm font-medium">
+  1378→                    Date of Birth <span className="text-destructive">*</span>
+  1379→                  </Label>
+  1380→                  <Input
+  1381→                    id="patientDob"
+  1382→                    type="date"
+  1383→                    max={getTodayDateString()}
+  1384→                    value={patientDob}
+  1385→                    onChange={(e) => setPatientDob(e.target.value)}
+  1386→                  />
+  1387→                </div>
+  1388→
+  1389→                {/* Phone */}
+  1390→                <div className="space-y-2">
+  1391→                  <Label htmlFor="patientPhone" className="text-sm font-medium">
+  1392→                    Phone Number <span className="text-destructive">*</span>
+  1393→                  </Label>
+  1394→                  <Input
+  1395→                    id="patientPhone"
+  1396→                    type="tel"
+  1397→                    placeholder="(555) 123-4567"
+  1398→                    value={patientPhone}
+  1399→                    onChange={(e) => setPatientPhone(e.target.value)}
+  1400→                    autoComplete="tel"
+  1401→                  />
+  1402→                </div>
+  1403→
+  1404→                {/* Email */}
+  1405→                <div className="space-y-2">
+  1406→                  <Label htmlFor="patientEmail" className="text-sm font-medium">
+  1407→                    Email Address <span className="text-destructive">*</span>
+  1408→                  </Label>
+  1409→                  <Input
+  1410→                    id="patientEmail"
+  1411→                    type="email"
+  1412→                    placeholder="you@example.com"
+  1413→                    value={patientEmail}
+  1414→                    onChange={(e) => setPatientEmail(e.target.value)}
+  1415→                    autoComplete="email"
+  1416→                  />
+  1417→                </div>
+  1418→              </CardContent>
+  1419→            </Card>
+  1420→          </div>
+  1421→        )}
+  1422→
+  1423→        {/* ---- Step 3: Review & Confirm ---- */}
+  1424→        {step === 3 && (
+  1425→          <div className="space-y-6 animate-in fade-in duration-200" key="step-3" style={{ animation: 'slide-in-right 0.2s ease-out' }}>
+  1426→            <div>
+  1427→              <h1 className="text-2xl font-bold text-foreground">Review & Confirm</h1>
+  1428→              <p className="text-muted-foreground mt-1 text-sm">
+  1429→                Please review the details below before confirming your appointment.
+  1430→              </p>
+  1431→            </div>
+  1432→
+  1433→            {/* Appointment Summary Card */}
+  1434→            <Card className="shadow-sm">
+  1435→              <CardContent className="p-5 space-y-3.5">
+  1436→                {/* Provider */}
+  1437→                <div className="flex items-start gap-3">
+  1438→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+  1439→                    <User className="size-4 text-emerald-700" />
+  1440→                  </div>
+  1441→                  <div>
+  1442→                    <p className="text-sm font-medium">{providerDisplayName}</p>
+  1443→                    {slotData.specialty && (
+  1444→                      <p className="text-xs text-muted-foreground">{slotData.specialty.name}</p>
+  1445→                    )}
+  1446→                  </div>
+  1447→                </div>
+  1448→
+  1449→                <Separator />
+  1450→
+  1451→                {/* Clinic */}
+  1452→                <div className="flex items-start gap-3">
+  1453→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+  1454→                    <Building2 className="size-4 text-emerald-700" />
+  1455→                  </div>
+  1456→                  <div>
+  1457→                    <p className="text-sm font-medium">{slotData.clinic.name}</p>
+  1458→                    <p className="text-xs text-muted-foreground">{clinicAddress}</p>
+  1459→                  </div>
+  1460→                </div>
+  1461→
+  1462→                <Separator />
+  1463→
+  1464→                {/* Date / Time / Modality */}
+  1465→                <div className="flex items-start gap-3">
+  1466→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+  1467→                    <Calendar className="size-4 text-emerald-700" />
+  1468→                  </div>
+  1469→                  <div className="space-y-1">
+  1470→                    <p className="text-sm">{formatSlotTime(slotData.slot.startTime)}</p>
+  1471→                    <ModalityBadge modality={slotData.slot.modality} />
+  1472→                  </div>
+  1473→                </div>
+  1474→
+  1475→                <Separator />
+  1476→
+  1477→                {/* Patient Type */}
+  1478→                <div className="flex items-center gap-3">
+  1479→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1480→                    {patientType === "PEDIATRIC" ? (
+  1481→                      <Baby className="size-4 text-emerald-700" />
+  1482→                    ) : (
+  1483→                      <User className="size-4 text-emerald-700" />
+  1484→                    )}
+  1485→                  </div>
+  1486→                  <p className="text-sm">
+  1487→                    <span className="text-muted-foreground">Patient Type:</span>{" "}
+  1488→                    <span className="font-medium">
+  1489→                      {patientType === "PEDIATRIC" ? "Pediatric" : "Adult"}
+  1490→                    </span>
+  1491→                  </p>
+  1492→                </div>
+  1493→
+  1494→                {/* Guardian info (pediatric) */}
+  1495→                {patientType === "PEDIATRIC" && (
+  1496→                  <div className="flex items-center gap-3 pl-11">
+  1497→                    <Shield className="size-4 text-muted-foreground shrink-0" />
+  1498→                    <p className="text-sm text-muted-foreground">
+  1499→                      Guardian: <span className="font-medium text-foreground">{guardianName}</span> ({guardianRelation})
+  1500→                    </p>
+  1501→                  </div>
+  1502→                )}
+  1503→
+  1504→                <Separator />
+  1505→
+  1506→                {/* Reason */}
+  1507→                <div className="flex items-start gap-3">
+  1508→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+  1509→                    <AlertCircle className="size-4 text-emerald-700" />
+  1510→                  </div>
+  1511→                  <p className="text-sm text-muted-foreground">
+  1512→                    <span className="font-medium text-foreground">Reason:</span>{" "}
+  1513→                    {reasonForVisit.length > 120
+  1514→                      ? reasonForVisit.slice(0, 120) + "..."
+  1515→                      : reasonForVisit}
+  1516→                  </p>
+  1517→                </div>
+  1518→
+  1519→                <Separator />
+  1520→
+  1521→                {/* Patient Name (masked) */}
+  1522→                <div className="flex items-center gap-3">
+  1523→                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+  1524→                    <Shield className="size-4 text-emerald-700" />
+  1525→                  </div>
+  1526→                  <p className="text-sm">
+  1527→                    <span className="text-muted-foreground">Patient:</span>{" "}
+  1528→                    <span className="font-medium">{maskName(patientName)}</span>
+  1529→                  </p>
+  1530→                </div>
+  1531→              </CardContent>
+  1532→            </Card>
+  1533→
+  1534→            {/* Cost Breakdown Card */}
+  1535→            <Card className="shadow-sm border-emerald-200/60 bg-emerald-50/30">
+  1536→              <CardContent className="p-5 space-y-3">
+  1537→                <h3 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+  1538→                  <CreditCard className="size-3.5" />
+  1539→                  Cost Breakdown
+  1540→                </h3>
+  1541→
+  1542→                <div className="space-y-2.5">
+  1543→                  {/* Service / Visit Type */}
+  1544→                  <div className="flex items-center justify-between">
+  1545→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1546→                      {slotData.slot.modality === SLOT_MODALITY.VIDEO ? (
+  1547→                        <Video className="size-3.5" />
+  1548→                      ) : (
+  1549→                        <MonitorCheck className="size-3.5" />
+  1550→                      )}
+  1551→                      {serviceName ? `${serviceName} — ` : ""}{slotData.slot.modality === SLOT_MODALITY.VIDEO ? "Video Visit" : "In-Clinic Visit"}
+  1552→                    </div>
+  1553→                    <ModalityBadge modality={slotData.slot.modality} />
+  1554→                  </div>
+  1555→
+  1556→                  {/* Insurance / Payment */}
+  1557→                  <div className="flex items-center justify-between">
+  1558→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1559→                      <Shield className="size-3.5" />
+  1560→                      {isUninsured ? "Self-Pay" : "Insurance"}
+  1561→                    </div>
+  1562→                    <span className="text-sm font-medium">
+  1563→                      {isUninsured ? "Self-Pay rates" : selectedInsurance?.name ?? "None"}
+  1564→                    </span>
+  1565→                  </div>
+  1566→
+  1567→                  {/* Copay / Self-pay rate */}
+  1568→                  <div className="flex items-center justify-between">
+  1569→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1570→                      <DollarSign className="size-3.5" />
+  1571→                      {isUninsured ? "Self-Pay Rate" : "Copay"}
+  1572→                    </div>
+  1573→                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : isUninsured ? "text-amber-700" : "text-foreground"}`}>
+  1574→                      {isDemoInsurance ? "$25 Copay" : isUninsured ? formatCents(selfPayCents) : "Covered"}
+  1575→                    </span>
+  1576→                  </div>
+  1577→
+  1578→                  <Separator />
+  1579→
+  1580→                  {/* Deposit */}
+  1581→                  <div className="flex items-center justify-between">
+  1582→                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  1583→                      <CreditCard className="size-3.5" />
+  1584→                      Deposit
+  1585→                    </div>
+  1586→                    <span className={`text-sm font-semibold ${isDemoInsurance ? "text-emerald-700" : depositCents > 0 ? "text-amber-700" : "text-foreground"}`}>
+  1587→                      {isDemoInsurance ? "$0 deposit (Demo)" : depositCents > 0 ? `${formatCents(depositCents)} deposit required` : "No deposit required"}
+  1588→                    </span>
+  1589→                  </div>
+  1590→                </div>
+  1591→              </CardContent>
+  1592→            </Card>
+  1593→
+  1594→            {/* Agreement */}
+  1595→            <Card className="shadow-sm">
+  1596→              <CardContent className="p-5 space-y-4">
+  1597→                <div className="flex items-start gap-2.5">
+  1598→                  <Checkbox
+  1599→                    id="agreement"
+  1600→                    checked={agreed}
+  1601→                    onCheckedChange={(checked) => {
+  1602→                      setAgreed(checked === true);
+  1603→                      if (stepError) setStepError(null);
+  1604→                    }}
+  1605→                    className="mt-0.5"
+  1606→                  />
+  1607→                  <Label
+  1608→                    htmlFor="agreement"
+  1609→                    className="text-sm leading-snug cursor-pointer"
+  1610→                  >
+  1611→                    I agree to the cancellation policy. Appointments must be
+  1612→                    cancelled at least 24 hours in advance.
+  1613→                  </Label>
+  1614→                </div>
+  1615→                <p className="text-xs text-muted-foreground pl-6">
+  1616→                  By proceeding, you agree to our terms. {depositCents > 0 ? `A ${depositDisplay} deposit may be required.` : "No payment is required for this booking."}
+  1617→                </p>
+  1618→              </CardContent>
+  1619→            </Card>
+  1620→
+  1621→            {/* Step Error */}
+  1622→            {stepError && (
+  1623→              <Card className="border-red-200 bg-red-50/50 shadow-sm">
+  1624→                <CardContent className="p-4 flex items-start gap-3">
+  1625→                  <div className="size-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+  1626→                    <AlertCircle className="size-4 text-red-600" />
+  1627→                  </div>
+  1628→                  <div className="flex-1 space-y-2">
+  1629→                    <p className="text-sm text-red-700 font-medium">{stepError}</p>
+  1630→                    {stepError.includes("booked by someone else") && (
+  1631→                      <Button
+  1632→                        asChild
+  1633→                        variant="outline"
+  1634→                        size="sm"
+  1635→                        className="border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+  1636→                      >
+  1637→                        <Link href="/">
+  1638→                          <Search className="size-3.5" />
+  1639→                          Search for Another Time
+  1640→                        </Link>
+  1641→                      </Button>
+  1642→                    )}
+  1643→                    {!stepError.includes("booked by someone else") && !stepError.includes("agree to the") && (
+  1644→                      <Button
+  1645→                        variant="outline"
+  1646→                        size="sm"
+  1647→                        onClick={handleConfirm}
+  1648→                        disabled={isSubmitting}
+  1649→                        className="border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+  1650→                      >
+  1651→                        <RefreshCw className="size-3.5" />
+  1652→                        Try Again
+  1653→                      </Button>
+  1654→                    )}
+  1655→                  </div>
+  1656→                </CardContent>
+  1657→              </Card>
+  1658→            )}
+  1659→
+  1660→            {/* Confirm Button */}
+  1661→            <Button
+  1662→              onClick={handleConfirm}
+  1663→              disabled={isSubmitting || !agreed}
+  1664→              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold cursor-pointer shadow-md shadow-emerald-200"
+  1665→            >
+  1666→              {isSubmitting ? (
+  1667→                <>
+  1668→                  <Loader2 className="size-4 animate-spin" />
+  1669→                  Confirming...
+  1670→                </>
+  1671→              ) : (
+  1672→                <>
+  1673→                  <Check className="size-4" />
+  1674→                  Confirm Appointment
+  1675→                </>
+  1676→              )}
+  1677→            </Button>
+  1678→          </div>
+  1679→        )}
+  1680→      </main>
+  1681→
+  1682→      {/* ===== Navigation Footer (Steps 1-3 only) ===== */}
+  1683→      {step >= 1 && step <= 3 && (
+  1684→        <div className="border-t bg-background/90 backdrop-blur-sm sticky bottom-0 mt-auto">
+  1685→          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+  1686→            <Button
+  1687→              variant="outline"
+  1688→              onClick={goBack}
+  1689→              disabled={step === 1}
+  1690→              className="cursor-pointer btn-icon-slide-back"
+  1691→            >
+  1692→              <ArrowLeft className="size-4 icon-slide-left" />
+  1693→              Back
+  1694→            </Button>
+  1695→
+  1696→            {step < 3 ? (
+  1697→              <Button
+  1698→                onClick={goNext}
+  1699→                disabled={
+  1700→                  (step === 1 && !validateStep1()) ||
+  1701→                  (step === 2 && !validateStep2())
+  1702→                }
+  1703→                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm btn-icon-slide-next"
+  1704→              >
+  1705→                Continue
+  1706→                <ArrowRight className="size-4 icon-slide-right" />
+  1707→              </Button>
+  1708→            ) : (
+  1709→              <div className="w-[88px]" /> // Spacer to balance the back button
+  1710→            )}
+  1711→          </div>
+  1712→        </div>
+  1713→      )}
+  1714→    </div>
+  1715→  );
+  1716→}

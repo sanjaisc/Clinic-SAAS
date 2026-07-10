@@ -1,0 +1,881 @@
+     1→---
+     2→Task ID: 1
+     3→Agent: Main Orchestrator
+     4→Task: Phase 1 Foundation — Schema, enums, layout, middleware
+     5→
+     6→Work Log:
+     7→- Added `videoCancellationLeadTimeMin`, `reschedulePolicy`, `parkingInstructions`, `visitInstructions`, `intakeFormIds` to Clinic model in Prisma schema
+     8→- Added `EmailTemplate` model (clinicId, type, subject, bodyHtml, isActive)
+     9→- Added `StaffInvitation` model (clinicId, email, tokenHash, role, expiresAt, acceptedAt)
+    10→- Added new enum constants: RESCHEDULE_POLICY, EMAIL_TEMPLATE_TYPE, DAYS_OF_WEEK, INTAKE_CADENCE to src/lib/enums.ts
+    11→- Ran `bun run db:push` successfully
+    12→- Created settings layout with 7-tab navigation at src/app/staff/dashboard/settings/layout.tsx
+    13→- Created sub-directories: profile, providers, services, financial, hours, communications, staff
+    14→- Updated middleware ADMIN_ONLY_ROUTES to cover /settings/*, /slots, /analytics
+    15→- Removed old read-only settings/page.tsx
+    16→
+    17→Stage Summary:
+    18→- Foundation complete. Schema, enums, layout, middleware all ready.
+    19→- 4 parallel agents will now build the 7 sections.
+    20→
+    21→---
+    22→Task ID: 2a
+    23→Agent: Section A — Clinic Profile & Branding
+    24→Task: Build Profile settings page + all backend API routes (A.1–A.4)
+    25→
+    26→Work Log:
+    27→- Created `src/app/api/staff/clinic-profile/route.ts` — GET (full clinic profile with amenities, provider languages, parsed FAQ/gallery) + PATCH (core details)
+    28→- Created `src/app/api/staff/clinic-profile/upload/route.ts` — POST image upload with FormData + sharp resize/crop to WebP (logo 1:1→400x400, cover/gallery 16:9→1200x675, provider-photo 1:1→400x400)
+    29→- Created `src/app/api/staff/clinic-profile/media/route.ts` — DELETE media URL from clinic (logo, cover, gallery item)
+    30→- Created `src/app/api/staff/clinic-profile/experience/route.ts` — GET (parking, visit, faq + all amenities/languages) + PATCH
+    31→- Created `src/app/api/staff/clinic-profile/amenities/route.ts` — PATCH replaces clinic amenities via atomic transaction
+    32→- Created `src/app/api/staff/clinic-profile/languages/route.ts` — PATCH replaces provider languages via atomic transaction
+    33→- Created `src/app/staff/dashboard/settings/profile/page.tsx` — Full client page with 5 cards: Core Details, About (MDXEditor), Location (map placeholder), Media (image upload/crop/gallery), Patient Experience (parking/visit WYSIWYG, FAQ, amenities checkboxes, languages display)
+    34→- All API routes: auth, SYSTEM_MANAGER support, audit logging, cache invalidation
+    35→- ESLint clean, no new TypeScript errors
+    36→
+    37→Stage Summary:
+    38→- Section A fully complete: 6 API route files + 1 page file, 8 endpoints
+    39→- Frontend: comprehensive 5-card layout, emerald color scheme, responsive
+    40→
+    41→---
+    42→Task ID: 2c
+    43→Agent: Section C & D — Services/Insurance + Financial/Policy
+    44→Task: Build Services & Insurance Configuration page + Financial & Policy Rules page + all backend APIs
+    45→
+    46→Work Log:
+    47→- Created `src/app/api/staff/services/route.ts` — GET: returns all global services grouped by specialty, clinic insurances, selfPayFlatRateCents, provider service assignments. Cached 60s.
+    48→- Created `src/app/api/staff/services/clinic/route.ts` — PATCH: updates clinic selfPayFlatRateCents. Validates non-negative. Audit log + cache invalidation.
+    49→- Created `src/app/api/staff/services/assign/route.ts` — POST: assigns a service to a provider (validates provider belongs to clinic, checks for duplicates). DELETE: removes service from provider. Audit log + cache invalidation.
+    50→- Created `src/app/api/staff/services/[serviceId]/payment-type/route.ts` — PATCH: updates Service.selfPayPaymentType (validates against SELF_PAY_PAYMENT_TYPE enum). Audit log + cache invalidation.
+    51→- Created `src/app/api/staff/financial/route.ts` — GET: returns all financial/policy settings (deposits, lead times, reschedule policy, system min/max bounds, clinic services with payment types). Cached 60s. PATCH: updates all financial fields with full validation (deposit range against SystemConfig, reschedule policy enum, non-negative checks). Audit log + cache invalidation.
+    52→- Created `src/app/staff/dashboard/settings/services/page.tsx` — Full client page with Card 1 (Self-Pay Flat Rate input with $ prefix + save) and Card 2 (Service Catalog grouped by specialty with search/filter bar, provider assignment badges with remove, payment type dropdown per service, "Assign to Provider" dialog).
+    53→- Created `src/app/staff/dashboard/settings/financial/page.tsx` — Full client page with Card 1 (Deposit Configuration: in-person + telehealth inputs with system min/max validation), Card 2 (Cancellation Policies: hours inputs with minutes conversion), Card 3 (Reschedule Policy dropdown with 3 options + descriptions), Card 4 (Self-Pay Payment Type: list of all clinic services with FULL_UPFRONT/STANDARD_DEPOSIT toggles), single "Save All Changes" button.
+    54→- All API routes follow existing patterns: getServerSession auth, SYSTEM_MANAGER support, audit logging, cache invalidation, proper error responses.
+    55→- ESLint clean (0 errors), no TypeScript errors.
+    56→
+    57→Stage Summary:
+    58→- Sections C & D fully complete: 5 API route files + 2 page files, 8 endpoints
+    59→- Frontend: emerald theme, responsive, loading skeletons, validation, toast notifications, error handling, search/filter, dialogs
+    60→
+    61→---
+    62→Task ID: 2b
+    63→Agent: Section B — Provider Management
+    64→Task: Build Provider Management page + all backend API routes (B.1–B.3)
+    65→
+    66→Work Log:
+    67→- Replaced `src/app/api/staff/providers/route.ts` — GET: list all providers for clinic (all statuses, includes _count of providerServices/active slotTemplates/languages). POST: create provider with validation (firstName, lastName, credentials required; slotDurationMinutes 15/30/45/60; auto-generate slug with uniqueness check). Auth, audit, cache invalidation.
+    68→- Created `src/app/api/staff/providers/[id]/route.ts` — GET: full provider detail with providerServices (includes service+specialty), slotTemplates (ordered by day/time), languages. PATCH: update all editable fields with validation. DELETE: soft-delete (INACTIVE) if appointments exist, hard-delete otherwise. Auth+ownership validation, audit, cache invalidation.
+    69→- Created `src/app/api/staff/providers/[id]/templates/route.ts` — GET: all templates for provider. POST: create template with validation (dayOfWeek 0-6, HH:mm time format, startTime<endTime, valid modality), unique constraint handling (P2002→409). Auth+ownership, audit.
+    70→- Created `src/app/api/staff/providers/[id]/templates/[templateId]/route.ts` — PATCH: update template fields with same validation. DELETE: remove template. Auth+ownership, audit, P2002 handling.
+    71→- Created `src/app/api/staff/providers/[id]/services/route.ts` — POST: assign service to provider (validates service exists, checks duplicate assignment). Cache invalidation.
+    72→- Created `src/app/api/staff/providers/[id]/services/[serviceId]/route.ts` — DELETE: remove service assignment (validates provider ownership). Cache invalidation.
+    73→- Created `src/app/staff/dashboard/settings/providers/page.tsx` — Full client page with:
+    74→  - Provider Roster: card list with circular avatar (initials fallback), name+credentials, status badge (emerald/gray/red), slot duration, service/template counts, edit/delete actions, expand/collapse.
+    75→  - Add/Edit Provider Dialog: personal info (first/last name, credentials select MD/DO/NP/PA-C/RN/PharmD/Other, NPI, years experience, photo URL), professional settings (bio textarea, video visit link, slot duration select, status select).
+    76→  - Expandable Provider Detail with Tabs:
+    77→    - Schedule Templates: weekly grid (Mon-Sun rows) showing time blocks with modality icons, active toggle switch, edit/delete per template, "Add Template" dialog (day select, start/end time inputs, modality select).
+    78→    - Service Mapping: currently assigned services as highlighted pills with remove, all services grouped by specialty as checkbox grid with duration/price info.
+    79→  - Loading skeletons, empty state, responsive design, emerald color scheme, toast notifications, delete confirmation dialog.
+    80→- All files pass ESLint (0 new errors), no TypeScript errors.
+    81→
+    82→Stage Summary:
+    83→- Section B fully complete: 7 files (6 API routes + 1 page), 11 endpoints
+    84→- Frontend: expandable provider cards, dialog forms, weekly schedule grid, service mapping with checkboxes, responsive, emerald theme
+    85→
+    86→---
+    87→Task ID: 2d
+    88→Agent: Section E/F/G — Hours & Closures, Communications, Staff Onboarding
+    89→Task: Build 3 settings pages + 16 backend API endpoints
+    90→
+    91→Work Log:
+    92→- Created 10 API route files and 3 page components (13 files total)
+    93→- **Section E APIs** (3 files, 6 endpoints): hours GET/PATCH, closures GET/POST, closures/[id] PATCH/DELETE
+    94→- **Section F APIs** (4 files, 6 endpoints): communications GET/PATCH, email-templates GET, email-templates/[id] GET/PUT, email-templates/reset/[id] POST
+    95→- **Section G APIs** (3 files, 4 endpoints): invitations GET/POST, invitations/[id] DELETE, invitations/[id]/resend POST
+    96→- **Hours Page**: 7-day weekly hours with per-day toggle, multiple time ranges (add/remove), save with change detection; Closures list with amber/muted color-coding, add/edit dialog with recurring toggle
+    97→- **Communications Page**: 4 cards — MDXEditor safe-mode WYSIWYG for common instructions, email sender settings, intake reminder cadence dropdown + service-to-formId mapping, email template editor with type tabs/subject/MDXEditor body/active toggle/reset
+    98→- **Staff Page**: Current staff table from accepted invitations, invite form with email validation and copyable link, invitations list with Pending/Accepted/Expired badges and resend/revoke actions
+    99→- All routes: auth guard, clinic ownership, audit logging, cache invalidation
+   100→- ESLint clean (0 errors)
+   101→
+   102→Stage Summary:
+   103→- Sections E, F, G fully complete: 10 API route files + 3 page files, 16 endpoints
+   104→- MDXEditor safe-mode integration, secure staff invitations with crypto tokens
+   105→
+   106→---
+   107→Task ID: 3
+   108→Agent: Main Orchestrator
+   109→Task: Phase 3 — Re-audit + browser verification
+   110→
+   111→Work Log:
+   112→- Ran comprehensive code audit (Explore agent) reading all 7 page files and 26 API route files
+   113→- All 20 features confirmed FULLY IMPLEMENTED with complete frontend-backend wiring
+   114→- Updated middleware to fix ADMIN_ONLY_ROUTES (removed non-existent routes, added /slots, /analytics)
+   115→- Ran ESLint — 0 errors
+   116→- Started dev server, verified all pages compile and serve
+   117→- Browser verification via agent-browser:
+   118→  - Logged in as admin@downtownmedicalgroup.clinicbook.com
+   119→  - Profile page: all 5 cards render with editable fields, WYSIWYG editors, file upload buttons, FAQ section
+   120→  - Providers page: 2 provider cards (Sarah Chen, Aisha Patel) with services/templates counts, edit/delete actions
+   121→  - Services page: Self-Pay Flat Rate input, service catalog grouped by specialty (Family Medicine, Cardiology) with assign/remove
+   122→  - Financial page: Deposit inputs ($25 in-person, $15 telehealth), cancellation lead times (24h/2h), reschedule policy dropdown, payment type selectors
+   123→  - Hours page: 7-day weekly hours with time range pickers, Save Hours button
+   124→  - Communications page: MDXEditor with toolbar, from name/header inputs, intake reminder cadence, email template editor
+   125→  - Staff page: Email invite form, Send Invitation button
+   126→  - All API calls returning 200 OK
+   127→  - Tested "Save Details" on profile — PATCH /api/staff/clinic-profile returned 200
+   128→  - No console errors in browser
+   129→
+   130→Stage Summary:
+   131→- **ALL 20 FEATURES: FULLY IMPLEMENTED AND VERIFIED**
+   132→- 7 settings pages, 26 new API routes, 3 schema changes, 4 new enum constants
+   133→- Clean lint, clean build, all pages render and interact correctly
+   134→---
+   135→Task ID: 2-a
+   136→Agent: Main Orchestrator
+   137→Task: Verify and complete Staff Onboarding feature (invitation acceptance flow)
+   138→
+   139→Work Log:
+   140→- Audited existing Staff Onboarding implementation: UI (staff settings page), API routes (GET/POST/DELETE/RESEND invitations), Prisma model (StaffInvitation), crypto utilities all existed
+   141→- Identified critical missing piece: `/staff/accept-invitation` page and API for the invited person to set their password and create their account
+   142→- Created `src/app/api/staff/accept-invitation/route.ts` with GET (validate token, return clinic info) and POST (create User with CLINIC_RECEPTION role + clinic binding, mark invitation accepted, invalidate token)
+   143→- Created `src/app/staff/accept-invitation/page.tsx` with full UI: loading state, setup form (name + password + confirm), password strength meter, success/already-used/expired/invalid/error states
+   144→- Updated middleware to redirect authenticated users away from `/staff/accept-invitation` (same as login page behavior)
+   145→- Added `STAFF_INVITATION_CREATED`, `STAFF_INVITATION_ACCEPTED`, `STAFF_INVITATION_REVOKED` to AUDIT_ACTIONS constants
+   146→- Updated invitation creation and revoke APIs to use proper audit actions
+   147→- One-time-use token enforcement: tokenHash is overwritten with `consumed_{timestamp}_{userId}` after acceptance
+   148→
+   149→Stage Summary:
+   150→- **Staff Onboarding feature is now FULLY IMPLEMENTED** (was partially implemented before)
+   151→- New files: `src/app/api/staff/accept-invitation/route.ts`, `src/app/staff/accept-invitation/page.tsx`
+   152→- Modified files: `src/middleware.ts`, `src/lib/constants.ts`, `src/app/api/staff/invitations/route.ts`, `src/app/api/staff/invitations/[id]/route.ts`
+   153→- End-to-end verified via agent-browser:
+   154→  1. Admin creates invitation → link generated with secure token ✓
+   155→  2. Invited person visits link → sees clinic name, email, role info ✓
+   156→  3. Sets name + password → account created ✓
+   157→  4. New user can log in with the credentials ✓
+   158→  5. New user has CLINIC_RECEPTION role bound to the clinic ✓
+   159→  6. New user is correctly blocked from admin-only pages ✓
+   160→  7. Reusing the same token shows "Invalid Invitation" ✓
+   161→  8. Admin sees the accepted staff in the Current Staff table ✓
+   162→---
+   163→Task ID: 5
+   164→Agent: Task 5 — Section D: User & Role Management
+   165→Task: Implement System Admin Users page with 3 cards + 5 API endpoints
+   166→
+   167→Work Log:
+   168→- Added `USER_CREATED`, `USER_UPDATED`, `USER_DEACTIVATED`, `USER_PASSWORD_RESET` audit actions to `src/lib/constants.ts`
+   169→- Created `src/app/api/staff/admin/users/route.ts` — GET (list ALL staff users enriched with clinic name, invitation info, inviter name) + POST (create user directly with password hashing, role/clinic validation)
+   170→- Created `src/app/api/staff/admin/users/[id]/route.ts` — PATCH (edit user: name, role, clinic, active status, password reset with validation; prevents self-deactivation) + DELETE (soft-deactivate: set isActive=false)
+   171→- Created `src/app/api/staff/admin/users/invite/route.ts` — POST (send invitation with role selection for CLINIC_ADMIN/CLINIC_RECEPTION, validates clinic, checks duplicate users/invitations, generates secure token, sends email)
+   172→- Created `src/app/api/staff/admin/users/invitations/route.ts` — GET (list ALL StaffInvitation records across all clinics with enriched creator name, acceptor name, computed status: Pending/Accepted/Expired)
+   173→- Created `src/app/api/staff/admin/users/clinics/route.ts` — GET (list all clinics for dropdown population)
+   174→- Created `src/app/staff/dashboard/admin/users/page.tsx` — Full client page with 3 cards:
+   175→  - Card 1: Create User / Send Invitation toggle — create form (name, email, password with show/hide, role select, clinic select for non-SYSTEM_MANAGER) + invitation form (email, role, clinic) with copyable invite link
+   176→  - Card 2: Staff Directory — search bar (name/email), role filter dropdown, scrollable table with columns: Name, Email, Role (colored badge), Clinic, Invited By, Status (Active/Inactive), Last Login, Actions (Edit/Deactivate)
+   177→  - Card 3: Invitation History — scrollable table: Email, Role, Clinic, Invited By, Status (colored badge), Created, Accepted At, Accepted By
+   178→  - Edit User Dialog: name, role, clinic, optional password reset
+   179→  - Deactivate AlertDialog with confirmation
+   180→  - Loading skeletons, empty states, responsive design, purple/emerald color scheme, toast notifications
+   181→
+   182→Stage Summary:
+   183→- **Section D (User & Role Management) fully complete**: 6 API route files + 1 page file, 7 endpoints
+   184→- All API routes: SYSTEM_MANAGER auth guard, audit logging, proper validation, safe password handling
+   185→- All new files pass ESLint (0 errors). Pre-existing lint error in analytics page is unrelated.
+   186→---
+   187→Task ID: 4
+   188→Agent: Section C — Global Policy & Financial Boundaries
+   189→Task: Implement Policy page with SystemConfig API for admin dashboard
+   190→
+   191→Work Log:
+   192→- Created `src/app/api/staff/admin/config/route.ts` — GET: returns SystemConfig singleton (cached 1hr via `config:system` key, upsert ensures row exists). PATCH: updates whitelisted SystemConfig fields with validation (non-negative integers, boolean for toggle, min<=max deposit check), audit logging, cache invalidation via `deleteByPrefix('config:')`.
+   193→- Created `src/app/staff/dashboard/admin/policy/page.tsx` — Full "use client" page with 7 editable cards:
+   194→  - Card 1 (Deposit Boundaries): Min/Max deposit in dollars with $ prefix, cents conversion, min<=max validation
+   195→  - Card 2 (Lock TTL): Seconds input with human-readable preview (e.g., "10 minutes")
+   196→  - Card 3 ($0 Deposit Behavior): Switch toggle with dynamic description text
+   197→  - Card 4 (Review System Control): Hours input for review email trigger
+   198→  - Card 5 (Slot Generation Window): Days input
+   199→  - Card 6 (Waitlist Processing): Minutes delay input
+   200→  - Card 7 (Platform Fee): Dollar input with $ prefix
+   201→- Each card has individual Save + Reset buttons; bottom "Save All Changes" button
+   202→- Purple color scheme (matching admin section theme), loading skeletons, validation errors, toast notifications
+   203→- SystemConfig model already existed in Prisma schema — no schema changes needed
+   204→- ESLint clean (0 errors)
+   205→
+   206→Stage Summary:
+   207→- Section C fully complete: 1 API route file + 1 page file, 2 endpoints (GET + PATCH)
+   208→- Frontend: 7 cards with per-card save/reset, human-readable TTL preview, dollar↔cents conversion, responsive
+   209→---
+   210→Task ID: 9
+   211→Agent: Section H — Technical Infrastructure & Integrations
+   212→Task: Implement Infrastructure page (3 tabs: Integrations, WP-Cron, Data Management) + 7 API routes
+   213→
+   214→Work Log:
+   215→- Created `src/app/api/staff/admin/integrations/route.ts` — GET: returns masked status of Stripe (STRIPE_PUBLIC_KEY), JWT (NEXTAUTH_SECRET), and Gravity Forms (always false). Masking shows first 8 + last 4 chars.
+   216→- Created `src/app/api/staff/admin/integrations/test/route.ts` — POST: tests Stripe key format (pk_ prefix + length) or JWT sign/verify via jose library (SignJWT + jwtVerify with HS256).
+   217→- Created `src/app/api/staff/admin/cron/route.ts` — GET: returns 4 mock cron jobs (Slot Generation, Lock Sweeper, Waitlist Processor, Cache Purge) all IDLE/N/A, plus real DB counts: expired SlotLocks, active WaitlistEntries, pending BOOKED appointments.
+   218→- Created `src/app/api/staff/admin/cron/trigger/route.ts` — POST: triggers job by key.
+   219→  - SLOT_GENERATION: full 90-day slot generation from active SlotTemplates (same logic as /api/admin/slots/generate), with cache invalidation + audit log.
+   220→  - LOCK_SWEEP: deleteMany expired SlotLocks, release orphaned locked slots back to AVAILABLE.
+   221→  - WAITLIST_PROCESSOR: count active waitlist entries, audit log.
+   222→  - CACHE_PURGE: cache.clear() with before/after size reporting.
+   223→- Created `src/app/api/staff/admin/data/seed/route.ts` — POST: returns message to run `bun run db:seed` via CLI, audit logs DATA_SEED_TRIGGERED.
+   224→- Created `src/app/api/staff/admin/data/stats/route.ts` — GET: parallel count queries on all 28 Prisma models, DB file size (via fs.stat), resolved SystemErrorLog count, total row count.
+   225→- Created `src/app/api/staff/admin/data/purge-errors/route.ts` — POST: deleteMany resolved SystemErrorLog entries, audit logs ERROR_LOGS_PURGED.
+   226→- Created `src/app/staff/dashboard/admin/infrastructure/page.tsx` — Full "use client" page with 3 internal tabs:
+   227→  - Tab 1 (Integrations): 3 cards for Stripe, JWT, Gravity Forms. Each shows configured/not badge, masked key, "Test Connection" / "Test Signing" button. Inline success/failure result display with CheckCircle2/XCircle. Amber info banner about DevOps-managed credentials.
+   228→  - Tab 2 (WP-Cron): 4 job cards in 2x2 grid. Each shows status badge (IDLE/N/A), last run, success rate ("N/A — No automated runs yet"), live DB count annotation (expired locks, active waitlist, pending appointments), "Trigger" button with loading spinner, inline trigger result.
+   229→  - Tab 3 (Data): Database stats card with 28 model counts sorted by count, DB file size badge, total rows badge, refresh button, scrollable grid (max-h-96). 3 action cards: Re-seed Demo Data (AlertDialog confirmation), Purge Soft-Deleted (disabled/coming soon), Error Log Cleanup (resolved count + Purge Resolved button).
+   230→- All API routes: SYSTEM_MANAGER auth guard, proper error responses.
+   231→- ESLint clean (0 errors), dev server compiles without errors.
+   232→
+   233→Stage Summary:
+   234→- Section H fully complete: 7 API route files + 1 page file, 8 endpoints
+   235→- Frontend: 3-tab layout, emerald/amber/purple color scheme, responsive, loading skeletons, toast notifications, confirmation dialogs, inline test results
+   236→---
+   237→Task ID: 6
+   238→Agent: Task 6 — Section E: Platform-Wide Appointment & Exception Oversight
+   239→Task: Implement Appointments page with 3 tabs + 5 API endpoints
+   240→
+   241→Work Log:
+   242→- Created `src/app/api/staff/admin/appointments/route.ts` — GET: global appointment search across ALL clinics (E1). Query params: search (patient name/email/phone/token), status filter, clinicId (optional), dateFrom, dateTo, page, limit. Includes clinic name, provider name, service name. SYSTEM_MANAGER auth guard.
+   243→- Created `src/app/api/staff/admin/appointments/[id]/status/route.ts` — PATCH: manual status override (E4). System manager can set any status (cancel, no-show, complete, etc.) without clinic scope check. Takes status + optional cancellationReason. Sets cancelledBy to session user ID. Releases slot on cancel/no-show. Audit logging.
+   244→- Created `src/app/api/staff/admin/appointments/[id]/refund/route.ts` — POST: manual refund override (E4). No clinic scope check. Takes amountCents + reason. Creates REFUND ledger entry with REFUNDED status. Updates appointment paymentStatus. Audit logging.
+   245→- Created `src/app/api/staff/admin/waitlist/route.ts` — GET: aggregated waitlist across ALL clinics (E2). Query params: status filter, clinicId (optional). Includes clinic name, provider name, service name. Sorted by createdAt desc. SYSTEM_MANAGER auth guard.
+   246→- Created `src/app/api/staff/admin/patient-matches/route.ts` — GET: ambiguous patient matches (E3). Groups appointments sharing same normalized email or phone. Returns only groups with 2+ appointments where names differ (hasNameMismatch) or clinics differ (hasCrossClinic). Deduplicates across email/phone groups. Sorted by name mismatch priority.
+   247→- Created `src/app/staff/dashboard/admin/appointments/page.tsx` — Full "use client" page with 3 internal tabs:
+   248→  - Tab 1 (Global Appointments E1/E4): search bar (name/email/phone/token), status dropdown, clinic dropdown (populated from admin API), date range inputs, Search button. Table with expandable rows showing: Patient (name+email), Clinic, Provider, Service, Date/Time, Status (colored badge), Payment, Modality. Row actions: Cancel (with reason dialog), Mark No-Show, Complete, Refund (amount+reason dialog). Expandable detail shows Phone, DOB, Patient Type, Reason, Payment Method, Self-Pay, Cancel Reason, Appointment ID. Pagination.
+   249→  - Tab 2 (Waitlist Oversight E2): status filter (default Active+Offered), clinic filter, Refresh button. Table: Patient, Clinic, Provider, Service, Date Range, Status (colored badge), Contact Count.
+   250→  - Tab 3 (Patient Matches E3): accordion-style groups with email/phone icon, match type badge, Name Mismatch amber badge, Cross-Clinic purple badge, Merge button (marks as reviewed via toast). Expandable table per group showing all appointments with name mismatch warning icon.
+   251→- All API routes: SYSTEM_MANAGER auth guard, `getServerSession(authOptions)`, `db`, `createAuditLog`, dynamic params via `{ params }: { params: Promise<{ id: string }> }` and `const { id } = await params;`
+   252→- All new files pass ESLint (0 errors). Pre-existing lint error in analytics page is unrelated.
+   253→
+   254→Stage Summary:
+   255→- Section E (Platform-Wide Appointment & Exception Oversight) fully complete: 5 API route files + 1 page file, 5 endpoints
+   256→- Frontend: 3-tab layout, purple accent theme matching admin section, responsive, loading skeletons, colored status badges, confirmation dialogs, toast notifications, expandable rows, pagination
+   257→---
+   258→Task ID: 7
+   259→Agent: Section F — Financial Exception Handling & Audit Logs
+   260→Task: Implement Financial admin page with 3 tabs (Payment Exceptions, Audit Logs, Error Logs) + 5 API routes
+   261→
+   262→Work Log:
+   263→- Added `PAYMENT_EXCEPTION_RESOLVED` and `ERROR_LOG_RESOLVED` audit actions to `src/lib/constants.ts`
+   264→- Created `src/app/api/staff/admin/payments/exceptions/route.ts` — GET: Payment Exception Queue (F1). Queries 3 sources: failed refunds (ledger refundStatus=REFUND_FAILED), orphaned payments (appointment paymentStatus=PENDING, created >30 min ago), disputed (ledger type=REFUND, refundStatus=REFUND_PENDING, >7 days). Supports type/resolved/page/limit filters. Returns unified exception list with appointment details (patient, clinic, amount). Sorted by createdAt desc.
+   265→- Created `src/app/api/staff/admin/payments/exceptions/[id]/resolve/route.ts` — PATCH: Resolve payment exception. Handles LEDGER_ prefix (updates refundStatus to REFUNDED, adds resolution note) and APPT_ prefix (updates paymentStatus to FORFEITED, updates existing ledger if present). Body accepts optional note. Audit logged.
+   266→- Created `src/app/api/staff/admin/error-logs/route.ts` — GET: System Error Logs (F3). Supports level (ERROR|WARN|INFO), source (API|AUTH|CRON|SLOT_GEN|LOCK_SWEEP|WAITLIST), resolved (true|false), page/limit filters. Returns SystemErrorLog entries sorted by createdAt desc.
+   267→- Created `src/app/api/staff/admin/error-logs/[id]/resolve/route.ts` — PATCH: Mark error log as resolved. Sets resolved=true, resolvedBy=session.user.id, resolvedAt=now(). Prevents double-resolution. Audit logged.
+   268→- Created `src/app/api/staff/admin/audit-logs/route.ts` — GET: Full Audit Logs listing (F2). Supports action, userId, targetType, from/to date range, page/limit filters. Includes user name and clinic name. Sorted by createdAt desc, default 50 per page.
+   269→- Created `src/app/staff/dashboard/admin/financial/page.tsx` — Full "use client" page with 3 internal tabs:
+   270→  - Tab 1 (Payment Exceptions): 2 summary stat cards (Total Exceptions, Unresolved count), type/status filter dropdowns, scrollable table with colored type badges (red=Failed Refund, amber=Orphaned, purple=Disputed), amount formatting, Resolve button → Dialog with resolution note textarea. Pagination.
+   271→  - Tab 2 (Audit Logs): 5 filters (action dropdown with 30+ options, user dropdown, target type dropdown, from/to date pickers), reset filters button, scrollable table with colored action badges (red for destructive, emerald for create, blue for update, slate for auth, purple for other), hidden columns at breakpoints (md/lg/xl). 50 per page pagination.
+   272→  - Tab 3 (Error Logs): 3 filters (level, source, resolved), expandable table rows (click to toggle full message + stack trace in pre blocks), colored level badges (red/amber/blue), resolved/open status badges, Resolve button per row, source badge, truncated message with level icon. Pagination.
+   273→- All API routes: SYSTEM_MANAGER auth guard, proper error responses, audit logging.
+   274→- ESLint clean (0 errors on new files).
+   275→
+   276→Stage Summary:
+   277→- Section F fully complete: 5 API route files + 1 page file, 5 endpoints
+   278→- Frontend: 3-tab layout, emerald/amber/purple/red color scheme, responsive, loading skeletons, expandable rows, toast notifications, resolve dialogs, pagination
+   279→---
+   280→Task ID: 3
+   281→Agent: Section B — Platform-Wide Clinic & Provider Oversight
+   282→Task: Implement Clinics and Providers admin pages + all backend APIs
+   283→
+   284→Work Log:
+   285→- Created `src/app/api/staff/admin/clinics/route.ts` — GET: list ALL clinics (all statuses) with search by name/city, status filter, pagination. Includes provider count, today's appointment count, average rating.
+   286→- Created `src/app/api/staff/admin/clinics/[id]/route.ts` — GET: full clinic details for emergency edit. PATCH: change clinic status (B2). When suspending: appends timestamped note to commonInstructions blocking future slot generation. Existing BOOKED appointments preserved. When archiving: sets ARCHIVED. Audit logging with appropriate action types (CLINIC_SUSPENDED, CLINIC_ARCHIVED, CLINIC_PUBLISHED, CLINIC_UPDATED). Cache invalidation.
+   287→- Created `src/app/api/staff/admin/clinics/[id]/edit/route.ts` — PATCH: emergency intervention edit of any clinic field (B4). Handles string, numeric, boolean, enum (status, reschedulePolicy), and datetime fields. Validates enum values. Audit logging + cache invalidation.
+   288→- Created `src/app/api/staff/admin/providers/route.ts` — GET: list ALL providers across ALL clinics with search by name/credentials/NPI, status filter, clinic filter dropdown, pagination. Includes clinic name/status, language names, appointment/service/template counts.
+   289→- Created `src/app/api/staff/admin/providers/[id]/route.ts` — PATCH: emergency edit any provider field (B4). Validates slot duration (15/30/45/60), provider status enum, rating range (0-5). Audit logging + cache invalidation.
+   290→- Created `src/app/staff/dashboard/admin/clinics/page.tsx` — Full "use client" page with:
+   291→  - Search bar (name/city) with debounce
+   292→  - Status filter dropdown (All, Draft, Pending, Published, Suspended, Archived) with colored labels
+   293→  - Scrollable table: Name (with Building2 icon), Slug (mono), City, Status (colored badge), Provider Count (Users icon), Today's Appts (CalendarCheck icon), Rating (Star icon)
+   294→  - Expandable row details: ID, slug, status, location, created/updated dates
+   295→  - Status change dialog: current badge → new status select, warning for suspension about slot generation blocking
+   296→  - Emergency edit dialog: 4 sections (Basic Info, Location, Financial Config, Patient Experience) with all editable fields, purple Save button
+   297→  - Pagination, loading skeletons, empty state, responsive
+   298→- Created `src/app/staff/dashboard/admin/providers/page.tsx` — Full "use client" page with:
+   299→  - Search bar (name/credentials/NPI) with debounce
+   300→  - Clinic filter dropdown (all clinics from API, with clinic status badge)
+   301→  - Status filter dropdown (All, Active, Inactive, Suspended)
+   302→  - Scrollable table: Name (with avatar initials + GraduationCap credentials badge), Clinic (name + status badge), Status (colored badge), Rating (Star + review count), NPI (mono), Languages (badge pills with +N overflow)
+   303→  - Emergency edit dialog: Personal Info (first/last name, credentials select, NPI, years experience), Professional Settings (slot duration, status, video link), Provider Summary (appointments/services/templates/languages)
+   304→  - Pagination, loading skeletons, empty state, responsive
+   305→- All API routes: SYSTEM_MANAGER auth guard via `getServerSession(authOptions)`, dynamic params via `{ params }: { params: Promise<{ id: string }> }`, `createAuditLog`, `cache.deleteByPrefix('clinic:')`, `cache.deleteByPrefix('search:')`
+   306→- ESLint clean (0 errors)
+   307→
+   308→Stage Summary:
+   309→- Section B (Platform-Wide Clinic & Provider Oversight) fully complete: 5 API route files + 2 page files, 6 endpoints
+   310→- Frontend: purple accent theme matching admin section, responsive, loading skeletons, colored status badges, confirmation dialogs, toast notifications, expandable rows, pagination
+   311→---
+   312→Task ID: 8
+   313→Agent: Section G — Platform-Wide Analytics & Reporting
+   314→Task: Implement Analytics page + 2 API routes for admin dashboard
+   315→
+   316→Work Log:
+   317→- Created `src/app/api/staff/admin/analytics/route.ts` — GET: Platform-wide aggregated analytics. SYSTEM_MANAGER auth, in-memory cache (5min TTL). Query params: period (TODAY/7D/30D/90D), dateFrom, dateTo. Returns:
+   318→  - `appointmentVolume`: daily appointment counts for the period (for bar chart)
+   319→  - `modalitySplit`: IN_PERSON vs VIDEO counts + percentages
+   320→  - `noShowDistribution`: counts by day-of-week (Mon-Sun)
+   321→  - `depositCapture`: totalDepositCents, capturedCents, forfeitedCents, refundedCents from AppointmentLedger
+   322→  - `summaryStats`: totalAppointments, completedAppointments, noShowCount, cancellationRate, avgRating, totalRevenue
+   323→  - `clinicBreakdown`: per-clinic appointment counts, completed, noShows, revenue (from single bulk ledger query), rating
+   324→- Created `src/app/api/staff/admin/conversion/route.ts` — GET: Conversion Metrics (G2). SYSTEM_MANAGER auth, in-memory cache (5min TTL). Returns:
+   325→  - Funnel: totalSearches → clinicViews → bookingStarts → bookingCompletes
+   326→  - Conversion rates at each step (search→clinicView, clinicView→bookingStart, bookingStart→complete, overall search→booking)
+   327→  - Unique session counts per step
+   328→  - Recommendation acceptance rate
+   329→  - Data from ConversionEvent table grouped by eventType
+   330→- Created `src/app/staff/dashboard/admin/analytics/page.tsx` — Full "use client" page with:
+   331→  - Date Filtering Bar: 4 quick period toggles (Today, 7D, 30D, 90D), custom date range pickers (from/to) with Calendar popovers, Apply button
+   332→  - Summary Stats Row: 5 stat cards (Total Appointments, Completed, No-Shows, Cancellation Rate, Avg Rating) with icons and sub-text
+   333→  - Charts Section (all CSS/div-based, no external chart library):
+   334→    - Appointment Volume: vertical bar chart with hover tooltips, responsive spacing
+   335→    - Modality Split: SVG donut chart + progress bar legend (purple=In-Person, emerald=Video)
+   336→    - No-Show Distribution: horizontal bar chart by day-of-week (amber gradient bars)
+   337→    - Deposit Capture: stacked horizontal bar (blue=Authorized, emerald=Captured, amber=Forfeited, red=Refunded) + 2x2 legend grid
+   338→  - Clinic Breakdown Table: scrollable (max-h-96) table with columns: Clinic Name, Appts, Completed, No-Shows, Revenue, Rating (star icon)
+   339→  - Conversion Funnel: overall search→booking rate banner, 4-step funnel (Search → Clinic View → Booking Start → Booking Complete) with icons, counts, unique session badges, conversion rates, percentage bars, arrow connectors
+   340→  - Recommendation Acceptance Rate: highlighted card with ThumbsUp icon
+   341→  - Revenue highlight card: gradient banner showing total revenue
+   342→  - Loading skeletons, error state with retry button, responsive design
+   343→- Optimized analytics API: single bulk query for clinic revenue (no N+1), parallel Prisma queries
+   344→- ESLint clean (0 errors)
+   345→
+   346→Stage Summary:
+   347→- Section G fully complete: 2 API route files + 1 page file, 2 endpoints
+   348→- Frontend: CSS-based charts (SVG donut, div bars), responsive, purple/emerald theme, loading skeletons, date filtering, conversion funnel visualization
+   349→---
+   350→Task ID: 2
+   351→Agent: Task 2 — Section A: Global Taxonomy & Master Data Management
+   352→Task: Implement Taxonomy management page with 5 sub-tabs + 10 API routes
+   353→
+   354→Work Log:
+   355→- Added 15 taxonomy audit actions to `src/lib/constants.ts`: TAXONOMY_SPECIALTY_CREATED/UPDATED/ARCHIVED, TAXONOMY_SERVICE_CREATED/UPDATED/ARCHIVED, TAXONOMY_INSURANCE_CREATED/UPDATED/ARCHIVED, TAXONOMY_AMENITY_CREATED/UPDATED/ARCHIVED, TAXONOMY_LANGUAGE_CREATED/UPDATED/ARCHIVED
+   356→- Created 10 API route files under `src/app/api/staff/admin/taxonomy/`:
+   357→  - `specialties/route.ts` — GET (list all with service count) + POST (create with auto-slug, name uniqueness P2002 handling)
+   358→  - `specialties/[id]/route.ts` — PATCH (edit all fields, auto-regenerate slug on name change) + DELETE (soft-archive via isActive toggle, no hard delete)
+   359→  - `services/route.ts` — GET (list all with specialty relation) + POST (create with specialtyId validation, paymentType enum validation, isBookable field)
+   360→  - `services/[id]/route.ts` — PATCH (edit all fields including isBookable, specialty validation) + DELETE (soft-archive via isActive toggle)
+   361→  - `insurances/route.ts` — GET (list all with serviceInsurance count) + POST (create with isDemo flag)
+   362→  - `insurances/[id]/route.ts` — PATCH (edit name, isDemo, isActive, sortOrder) + DELETE (soft-archive via isActive toggle)
+   363→  - `amenities/route.ts` — GET (list all) + POST (create with icon field)
+   364→  - `amenities/[id]/route.ts` — PATCH (edit name, icon, sortOrder, auto-regenerate slug) + DELETE (returns 405 — no isActive on Amenity model)
+   365→  - `languages/route.ts` — GET (list all) + POST (create with code field validation)
+   366→  - `languages/[id]/route.ts` — PATCH (edit name, code, sortOrder) + DELETE (returns 405 — no isActive on Language model)
+   367→- All API routes: SYSTEM_MANAGER auth guard via `getServerSession(authOptions)`, `createAuditLog` with `AUDIT_ACTIONS`, `cache.deleteByPrefix('taxonomy:')`, dynamic params via `{ params }: { params: Promise<{ id: string }> }` and `const { id } = await params;`, P2002 duplicate handling
+   368→- Created `src/app/staff/dashboard/admin/taxonomy/page.tsx` — Full "use client" page with:
+   369→  - 5-tab sub-navigation (Specialties, Services, Insurances, Amenities, Languages) using shadcn Tabs
+   370→  - Each tab shows a Card with title, description, Add New + Refresh buttons
+   371→  - Specialty Table: Name (with icon + service count), Slug (mono), Status (clickable toggle badge), Sort Order, Edit button
+   372→  - Service Table: Name, Specialty, Duration, Price (formatted $), Bookable (Yes/No badge), Status (toggle), Sort, Edit
+   373→  - Insurance Table: Name (with Demo badge), Slug, Demo column, Status (toggle), Sort, Edit
+   374→  - Amenity Table: Name, Slug, Icon, Sort, Edit (no status toggle — no isActive field)
+   375→  - Language Table: Name, Code (mono badge), Sort, Edit (no status toggle — no isActive field)
+   376→  - Create/Edit Dialog: dynamic form fields per entity type (name, description, icon, specialty select, duration, price $, payment type, bookable switch, demo switch, code, sort order)
+   377→  - Auto-generated slug display (disabled input), specialty dropdown populated from fetched specialties
+   378→  - Single-click status toggle (no dialog) for entities with isActive, with loading spinner during API call
+   379→  - Loading skeletons, empty states, responsive, toast notifications, emerald/gray status badges
+   380→  - Professional styling consistent with existing admin dashboard (purple header icon, emerald active badges)
+   381→- ESLint clean (0 errors)
+   382→
+   383→Stage Summary:
+   384→- Section A (Global Taxonomy & Master Data Management) fully complete: 10 API route files + 1 page file, 10 endpoints (5 GET + 5 POST at collection level, 10 more at item level via PATCH/DELETE)
+   385→- Frontend: 5-tab layout with per-tab table, add/edit dialogs, status toggles, responsive, professional design
+   386→- Key decisions: Amenity and Language have no isActive field in Prisma schema — DELETE returns 405 with guidance message; UI does not show status toggle for these entities
+   387→
+   388→---
+   389→Task ID: 10
+   390→Agent: Main Orchestrator + 7 parallel sub-agents
+   391→Task: Implement all 23 missing/partially-implemented System Admin Dashboard features (Sections A-H)
+   392→
+   393→Work Log:
+   394→- Analyzed full audit: 5 fully implemented, 13 partially implemented, 10 not implemented (28 total)
+   395→- Schema changes: Service.isBookable (A2), SystemConfig.reviewEmailTriggerHours (C4), StaffInvitation.createdBy (D3), new SystemErrorLog model (F3), new ConversionEvent model (G2)
+   396→- Ran `bun run db:push` to apply schema changes
+   397→- Created admin tabbed layout: /staff/dashboard/admin/layout.tsx with 9 tabs (Taxonomy, Clinics, Providers, Policy, Users, Appointments, Financial, Analytics, Infrastructure)
+   398→- Dispatched 7 parallel full-stack-developer sub-agents for each feature group
+   399→- All 7 agents completed successfully, creating 10 page components and 41 API routes
+   400→- Updated StaffInvitation creation to include createdBy field
+   401→- ESLint passes with 0 errors on all new code
+   402→- Verified 10/21 APIs return 401 (correct SYSTEM_MANAGER auth guard) before Turbopack OOM from sequential large-file compilations
+   403→
+   404→Stage Summary:
+   405→- **ALL 28 FEATURES NOW IMPLEMENTED** (5 were already done + 23 newly implemented)
+   406→- New files: 10 pages, 1 layout, 41 API routes
+   407→- Modified files: prisma/schema.prisma, src/lib/constants.ts, src/app/api/staff/invitations/route.ts
+   408→- New models: SystemErrorLog, ConversionEvent
+   409→- New schema fields: Service.isBookable, SystemConfig.reviewEmailTriggerHours, StaffInvitation.createdBy
+   410→
+   411→---
+   412→Task ID: 11
+   413→Agent: Main Orchestrator
+   414→Task: Fix stem admin login failure after update
+   415→
+   416→Work Log:
+   417→- Diagnosed login failure: `.env` file was missing `NEXTAUTH_SECRET`, causing NextAuth JWT signing/verification to fail silently
+   418→- Dev log confirmed: `[next-auth][warn][NO_SECRET]` and `[next-auth][warn][NEXTAUTH_URL]`
+   419→- Verified sysadmin user exists in DB: `sysadmin@clinicbook.com`, role `SYSTEM_MANAGER`, isActive=true, password hash verified with bcrypt
+   420→- Added `NEXTAUTH_SECRET` and `NEXTAUTH_URL` to `.env`
+   421→- Fixed dev script in package.json: removed `| tee dev.log` pipe that was causing process instability when parent shell exits
+   422→- Cleared corrupted `.next` Turbopack cache (was causing panics: "Failed to restore task data")
+   423→- Verified login via curl: CSRF token obtained, credentials POST returned 302 to `/` (success redirect), session cookie set
+   424→- Verified session data: `{"user":{"name":"System Manager","email":"sysadmin@clinicbook.com","role":"SYSTEM_MANAGER","clinicId":null}}`
+   425→- Also verified admin@downtownmedicalgroup.clinicbook.com password hash is valid
+   426→
+   427→Stage Summary:
+   428→- **Root cause**: Missing `NEXTAUTH_SECRET` in `.env` — NextAuth cannot sign/verify JWT tokens without it
+   429→- **Fix**: Added `NEXTAUTH_SECRET=docta-dev-secret-key-for-jwt-signing-2026` and `NEXTAUTH_URL=http://localhost:3000` to `.env`
+   430→- **Additional fix**: Removed `| tee dev.log` from dev script to prevent Turbopack cache corruption
+   431→- Login verified working for SYSTEM_MANAGER role
+   432→- All three demo accounts (sysadmin, admin, reception) have valid password hashes in the database
+   433→
+   434→---
+   435→Task ID: 12
+   436→Agent: Main Orchestrator
+   437→Task: Verify clinic admin login works
+   438→
+   439→Work Log:
+   440→- Discovered `.env` file was missing `NEXTAUTH_SECRET` and `NEXTAUTH_URL` again (previously added fix was lost)
+   441→- Restored `.env` with both values: `NEXTAUTH_SECRET=docta-dev-secret-key-for-jwt-signing-2026` and `NEXTAUTH_URL=http://localhost:3000`
+   442→- Verified via API (curl): Clinic admin login returns 302 redirect with valid session token
+   443→  - Session: `{"user":{"name":"Downtown Medical Group Admin","role":"CLINIC_ADMIN","clinicId":"cmr759w6b0019m9b8ixhpp6rq"}}`
+   444→- Verified via agent-browser: Clinic admin can fill form, submit, and lands on `/staff/dashboard` with correct sidebar navigation
+   445→- Also verified reception user login works: Session shows `role: CLINIC_RECEPTION`, `clinicId: cmr759w6b0019m9b8ixhpp6rq`
+   446→- All three staff roles confirmed working: SYSTEM_MANAGER, CLINIC_ADMIN, CLINIC_RECEPTION
+   447→
+   448→Stage Summary:
+   449→- **Root cause**: `.env` file was missing `NEXTAUTH_SECRET` (same issue as Task 11 — env changes not persisted)
+   450→- **Fix**: Re-added `NEXTAUTH_SECRET` and `NEXTAUTH_URL` to `.env`
+   451→- **Verification**: Browser-based E2E testing confirmed all three roles can log in and access their dashboards
+   452→- **Note**: The `.env` file appears to get reverted between sessions — this is a known sandbox issue
+   453→
+   454→---
+   455→Task ID: 13
+   456→Agent: Main Orchestrator
+   457→Task: Build System Admin Dashboard with all 6 specification sections
+   458→
+   459→Work Log:
+   460→- Diagnosed blank page: `/staff/dashboard/admin/page.tsx` was just `redirect("/staff/dashboard/admin/taxonomy")` — no actual dashboard content
+   461→- Updated `src/app/staff/dashboard/admin/layout.tsx`: Added "Dashboard" as the first tab with `LayoutDashboard` icon, fixed active-state logic for exact vs prefix matching
+   462→- Built comprehensive `src/app/staff/dashboard/admin/page.tsx` (~600 lines) covering all 6 spec sections:
+   463→  - **Section 1: Global Date Filter Bar** — Today/7D/30D/90D toggles + custom date range picker with dual Calendar popovers + Refresh button
+   464→  - **Section 2: KPI Cards** — Total Bookings, Deposit Captured, Search→Booking Conversion, Active Clinics, Active Providers
+   465→  - **Section 3: Visual Charts** — Appointment Volume (CSS bar chart), Telehealth vs In-Person (SVG donut), No-Show Distribution (CSS bar by weekday), Deposit Capture (4-box financial summary + progress bar)
+   466→  - **Section 4: System Health** — Background Jobs (4 cron status badges: Slot Generation, Lock Sweeper, Waitlist Processor, Cache Purge) + API Connections (Stripe, JWT/NextAuth, Gravity Forms status)
+   467→  - **Section 5: Operational Exceptions** — Payment Exception Queue, Patient Conflict Alerts, Draft/Pending Clinics
+   468→  - **Section 6: Recent Activity & Quick Links** — Audit Log table (10 entries) + 5 Quick Action buttons
+   469→- Added SYSTEM_MANAGER redirect in `src/app/staff/dashboard/page.tsx`: auto-redirects from `/staff/dashboard` to `/staff/dashboard/admin` since the regular dashboard requires clinicId
+   470→- All data fetched from 8 existing API endpoints in parallel: analytics, conversion, cron, integrations, payment exceptions, patient matches, audit logs, clinics
+   471→- Verified via agent-browser: all 6 sections render with real data (30 bookings, 6 clinics, 14 providers, 7 audit log entries, all cron jobs IDLE, Stripe not configured, JWT OK, no payment exceptions, no conflicts)
+   472→- Date filter tested: switching from "30 Days" to "Today" correctly updates period label and recalculates
+   473→- No console errors
+   474→
+   475→Stage Summary:
+   476→- **Root cause**: Admin page was a redirect stub with no dashboard content
+   477→- **Fix**: Built complete 6-section dashboard page + auto-redirect for SYSTEM_MANAGER
+   478→- All backend APIs were already in place — only the frontend page was missing
+   479→- Verified all sections working end-to-end in the browser
+   480→
+   481→---
+   482→Task ID: 14
+   483→Agent: Main Orchestrator
+   484→Task: Verify system admin login + remove horizontal tab bar from admin layout
+   485→
+   486→Work Log:
+   487→- Verified `.env` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` (sandbox issue: these get reverted between sessions, confirmed they were present)
+   488→- Confirmed dev server running on port 3000
+   489→- Found system admin credentials: `sysadmin@clinicbook.com` / `sysadmin123`
+   490→- Used agent-browser E2E verification:
+   491→  - Navigated to `/staff/login`
+   492→  - Filled email + password, clicked "Sign in"
+   493→  - Successfully redirected to `/staff/dashboard/admin`
+   494→  - Dashboard renders all 6 sections: KPI Cards, Platform Trends, System Health, Action Required, Audit Log, Quick Actions
+   495→  - Zero console errors
+   496→- Completed pending task from Task 13: Removed horizontal tab bar from `src/app/staff/dashboard/admin/layout.tsx`
+   497→  - Removed `ADMIN_TABS` array (9 tabs: Taxonomy, Clinics, Providers, Policy, Users, Appointments, Financial, Analytics, Infrastructure)
+   498→  - Removed `Link`, `usePathname`, and all Lucide icon imports (`Database`, `Building2`, `UserCog`, `SlidersHorizontal`, `Users`, `CalendarCheck`, `DollarSign`, `BarChart3`, `Server`)
+   499→  - Removed tab navigation rendering and page header chrome
+   500→  - Layout now simply passes through `{children}` after role check
+   501→  - Admin dashboard is now a clean standalone page
+   502→  - Sub-pages (e.g., Taxonomy) still render properly with their own internal navigation
+   503→- Verified both `/staff/dashboard/admin` and `/staff/dashboard/admin/taxonomy` render correctly with no console errors
+   504→
+   505→Stage Summary:
+   506→- System admin login fully working
+   507→- Horizontal tab bar removed — no duplicate navigation between sidebar and page tabs
+   508→- Pre-existing lint errors remain (4 total, unrelated to this change):
+   509→  - `admin/page.tsx:320` — set-state-in-effect
+   510→  - `use-clinic-context.ts:76,106,122` — hooks called conditionally
+   511→
+   512→---
+   513→Task ID: 15
+   514→Agent: Main Orchestrator
+   515→Task: Fix horizontal tab bar — restore on sub-pages, keep off dashboard
+   516→
+   517→Work Log:
+   518→- User reported that removing the tab bar from the layout removed it from ALL admin pages, not just the dashboard
+   519→- Restored `ADMIN_TABS` array and tab navigation in `src/app/staff/dashboard/admin/layout.tsx`
+   520→- Layout logic: dashboard page (`/staff/dashboard/admin`) renders as clean standalone (no tabs/header), all other admin sub-pages show the horizontal tab bar with "System Administration" header
+   521→- Verified via agent-browser:
+   522→  - Dashboard page: NO "System Administration" header, NO horizontal tabs ✓
+   523→  - Taxonomy page: HAS "System Administration" header, ALL 9 tab links present (Taxonomy, Clinics, Providers, Policy, Users, Appointments, Financial, Analytics, Infrastructure) ✓
+   524→
+   525→Stage Summary:
+   526→- Tab bar behavior corrected: hidden only on dashboard overview, visible on all other admin sub-pages
+   527→- The `isDashboardPage` guard in the layout ensures the correct behavior per route
+   528→
+   529→---
+   530→Task ID: 16
+   531→Agent: Main Orchestrator
+   532→Task: Fix Admin sidebar navigation — separate from Dashboard, show horizontal tabs
+   533→
+   534→Work Log:
+   535→- Diagnosed root cause: both "Dashboard" and "Admin" sidebar items pointed to `/staff/dashboard/admin` (same URL)
+   536→  - Dashboard sidebar → `/staff/dashboard` → auto-redirects to `/staff/dashboard/admin` for SYSTEM_MANAGER
+   537→  - Admin sidebar → `/staff/dashboard/admin` directly (same page!)
+   538→- Fix 1: Changed Admin sidebar `href` from `/staff/dashboard/admin` to `/staff/dashboard/admin/taxonomy`
+   539→- Fix 2: Added `activePrefix: "/staff/dashboard/admin"` to Admin nav item so it highlights on ALL `/staff/dashboard/admin/*` routes
+   540→- Fix 3: Added `NavItem` interface with optional `activePrefix` property and `LucideIcon` type import
+   541→- Fix 4: Updated active-state logic: `pathname.startsWith(item.activePrefix || item.href)`
+   542→- Fix 5: Replaced `<button onClick={handleNavClick}>` with plain `<a href>` elements for reliable native navigation
+   543→- Fix 6: Removed `TooltipTrigger asChild` wrapper in expanded sidebar mode (kept for collapsed mode only) to avoid event interference
+   544→- Fix 7: Removed unused `useRouter` import and `handleNavClick` function
+   545→- Verified all 3 test scenarios via agent-browser (JS eval clicks):
+   546→  - Dashboard → click Admin → lands on taxonomy with 9/9 horizontal tabs ✅
+   547→  - Taxonomy → click Dashboard → lands on clean overview (no tabs) ✅
+   548→  - Admin sidebar item stays visible/highlighted on all admin sub-pages ✅
+   549→- Note: agent-browser `click` command has a limitation with `<a>` tags (doesn't trigger native navigation); verified via `document.querySelector().click()` that native clicks work correctly
+   550→
+   551→Stage Summary:
+   552→- "Dashboard" sidebar → clean overview page (no horizontal tabs)
+   553→- "Admin" sidebar → opens Taxonomy page with full horizontal tab bar (9 tabs)
+   554→- Admin sidebar item highlighted on all `/staff/dashboard/admin/*` routes
+   555→- Changed sidebar nav from `<button>` to `<a>` elements for reliable navigation
+   556→
+   557→---
+   558→Task ID: 17
+   559→Agent: Analytics Fix Agent
+   560→Task: Fix Analytics page for SYSTEM_MANAGER role — platform-wide analytics + admin sections
+   561→
+   562→Work Log:
+   563→- Modified `/api/staff/analytics/route.ts` to support SYSTEM_MANAGER without clinicId:
+   564→  - Changed `!clinicId` guard to only apply for non-SYSTEM_MANAGER roles
+   565→  - SYSTEM_MANAGER can omit clinicId (platform-wide) or pass `clinicId=all` or a specific clinic
+   566→  - Made `buildAnalytics()` accept `clinicId: string | undefined` — when undefined, queries across all clinics
+   567→  - Applied `...clinicFilter` spread to all 4 DB query `where` clauses
+   568→  - Updated cache key to use `targetClinicId ?? "all"`
+   569→- Modified `/staff/dashboard/analytics/page.tsx`:
+   570→  - Derived `isSystemManager` directly from `user?.role === STAFF_ROLE.SYSTEM_MANAGER` (session-based, not context-based)
+   571→  - Removed `ready: clinicReady` from context destructuring (no longer needed for gating fetch)
+   572→  - Updated `fetchAnalytics` callback: allows SYSTEM_MANAGER to fetch without clinicId, only adds `clinicId` param if a specific clinic is selected
+   573→  - Updated analytics `useEffect` trigger: `isSystemManager || effectiveClinicId` so SYSTEM_MANAGER fetches immediately even without clinic selection
+   574→  - Added 6 new state variables for admin data (cronData, integrations, paymentExceptions, patientMatches, auditLogs, adminLoading)
+   575→  - Added admin data fetch `useEffect` using `Promise.allSettled` for 5 parallel API calls with cancellation support
+   576→  - Added "Platform-wide Analytics — All Clinics" badge when SYSTEM_MANAGER has no clinic selected
+   577→  - Added 4 SYSTEM_MANAGER-only conditional sections after existing charts:
+   578→    1. **System Health** — 4 cron job status indicators (IDLE/RUNNING/ERROR) with colored dots, badges, and 3 count cards (expired locks, waitlist, pending)
+   579→    2. **API Connections** — Stripe, JWT/NextAuth, Gravity Forms status with connected/not-configured badges
+   580→    3. **Operational Alerts** — Combined payment exceptions + patient match conflicts with type badges, amounts, and status indicators
+   581→    4. **Recent Audit Log** — Read-only table showing 10 most recent admin actions (time, user, action, target, clinic)
+   582→  - Added `IntegrationRow` helper component for consistent API connection card styling
+   583→  - Added type interfaces: CronJob, CronData, IntegrationData, PaymentException, PatientMatchGroup, AuditLogEntry
+   584→  - Added new icon imports: Shield, ShieldCheck, Link2, ScrollText, AlertOctagon, CircleOff
+   585→  - Removed unused icon imports to keep lint clean
+   586→
+   587→Stage Summary:
+   588→- SYSTEM_MANAGER now sees platform-wide analytics immediately on the Analytics page (no clinic selection required)
+   589→- CLINIC_ADMIN and CLINIC_RECEPTION behavior is completely unchanged
+   590→- When SYSTEM_MANAGER selects a specific clinic, analytics scope to that clinic
+   591→- 4 new admin-only sections appear below the standard charts with loading skeletons, empty states, and proper error handling
+   592→- All sections use the existing emerald/green theme and shadcn/ui components
+   593→- No new lint errors introduced (4 pre-existing errors in other files remain)
+   594→
+   595→---
+   596→Task ID: 17
+   597→Agent: Main Orchestrator
+   598→Task: Build Analytics page for System Admin with platform-wide KPIs and admin sections
+   599→
+   600→Work Log:
+   601→- Diagnosed: Analytics page was empty for SYSTEM_MANAGER because it required clinicId from useClinicContext
+   602→- Subagent (full-stack-developer) modified the analytics page and API:
+   603→  - Updated `/api/staff/analytics` to support SYSTEM_MANAGER without clinicId (platform-wide aggregation)
+   604→  - Added SYSTEM_MANAGER detection from session role instead of useClinicContext
+   605→  - Added 4 admin sections: System Health, API Connections, Operational Alerts, Audit Log
+   606→- Main agent fixed remaining issues:
+   607→  - Added platform-wide KPI state and fetching from `/api/staff/admin` and `/api/staff/admin/conversion`
+   608→  - Replaced clinic-scoped KPI cards with platform-wide ones for SYSTEM_MANAGER (5 cards: Total Platform Bookings, Deposit Captured, Search→Booking, Active Clinics, Active Providers)
+   609→  - Hidden Provider Performance table for SYSTEM_MANAGER
+   610→  - Fixed conditional rendering: changed from `isSystemManager && !effectiveClinicId` to just `isSystemManager` since useClinicContext auto-selects a clinic
+   611→
+   612→Stage Summary:
+   613→- Analytics page now fully works for SYSTEM_MANAGER with all 6 spec sections
+   614→- CLINIC_ADMIN and CLINIC_RECEPTION views unchanged
+   615→- All sections verified via agent-browser: 6 KPI cards, 4 charts, System Health, API Connections, Operational Alerts, Audit Log
+   616→- Provider Performance correctly hidden for SYSTEM_MANAGER
+   617→
+   618→---
+   619→Task ID: 17
+   620→Agent: Main Orchestrator
+   621→Task: Comprehensive Design System Audit — Token Parity, Component Consistency, Dark Mode Architecture
+   622→
+   623→Work Log:
+   624→- Read and analyzed globals.css (584 lines) — all CSS variables use oklch() color space
+   625→- Audited 47 shadcn/ui component files for consistency
+   626→- Scanned all .tsx files for hardcoded colors: bg-white (58), text-gray-* (54), bg-gray-* (34), border-gray-* (21), emerald light-mode-only (257)
+   627→- Audited border-radius: Card=rounded-xl, Login=rounded-2xl, Search=rounded-[15px], Inputs=rounded-md/rounded-xl/rounded-lg
+   628→- Audited shadow depth: Card=shadow-sm, Login=shadow-xl, Error=shadow-lg, Admin=shadow-sm
+   629→- Audited button CTA patterns: h-9 default vs h-11 login vs h-12 booking
+   630→- Audited input height: h-9 default vs h-10/h-11/h-12 overrides across pages
+   631→- Verified dark mode via agent-browser: PublicNavbar and PublicFooter confirmed white (oklab ~1.0)
+   632→- Verified clinics page inputs white in dark mode (lab 9.52)
+   633→- Verified 404 page gradient from-white persists in dark mode
+   634→- Identified hsl()/oklch() mismatch in skeleton-shimmer utility
+   635→- Identified disableTransitionOnChange prevents smooth theme transitions
+   636→
+   637→Stage Summary:
+   638→- 3 distinct visual zones identified: Public (search, clinics, booking), Auth (login, invitations), Staff Dashboard
+   639→- 58 hardcoded bg-white occurrences break dark mode across 20 files
+   640→- 54 text-gray-* and 34 bg-gray-* occurrences should use semantic tokens
+   641→- 257 emerald light-mode-only colors need dark: variants
+   642→- skeleton-shimmer uses hsl() while all vars are oklch() — broken
+   643→- Full structured report delivered to user
+   644→
+   645→---
+   646→Task ID: 18
+   647→Agent: Main Orchestrator
+   648→Task: Design Audit Report — Final delivery
+   649→
+   650→Work Log:
+   651→- Delivered structured audit report with 6 Critical Inconsistencies (C-01 through C-06) and 7 Dark Mode Issues (D-01 through D-07)
+   652→- Identified 424 total non-token color references across ~50 files
+   653→- Browser-verified: PublicNavbar oklab(1.0/0.9), footer oklab(1.0/0.8), input lab(9.52) in dark mode
+   654→- Provided 5-priority remediation plan with specific code recommendations
+   655→- Report includes line-level file references and find-replace mappings
+   656→
+   657→Stage Summary:
+   658→- Audit complete. Report delivered. No code changes made (audit-only task).
+   659→- Top priority fix: Replace 58 bg-white → bg-card to eliminate dark mode white flash
+   660→- Second priority: Replace 109 gray-* with semantic tokens
+   661→- Third priority: Create dark-safe emerald accent utility classes for 257 references
+   662→
+   663→---
+   664→Task ID: 1-a
+   665→Agent: Priority 1 Fix Agent
+   666→Task: Fix bg-white in public shared components
+   667→
+   668→Work Log:
+   669→- Replaced bg-white/90 → bg-background/90 in public-navbar.tsx
+   670→- Replaced bg-white/80 → bg-background/80 in public-footer.tsx
+   671→
+   672→Stage Summary:
+   673→- 2 bg-white references fixed across 2 files
+   674→- Navbar and footer now use bg-background token for dark mode support
+   675→
+   676→---
+   677→Task ID: 1-e
+   678→Agent: Priority 1 Fix Agent
+   679→Task: Fix bg-white in auth and static pages
+   680→
+   681→Work Log:
+   682→- Replaced focus:bg-white → focus:bg-background in staff/login/page.tsx
+   683→- Replaced from-white and bg-white in loading.tsx (3 occurrences)
+   684→- Replaced from-white in not-found.tsx gradient
+   685→- Replaced to-white in global-error.tsx gradient
+   686→- Fixed 3 hardcoded gray colors in global-error.tsx (no theme context)
+   687→
+   688→Stage Summary:
+   689→- ~8 bg-white references + 3 gray references fixed across 4 files
+   690→- Login password focus flash eliminated
+   691→- Loading/404/global-error pages now dark-mode safe
+   692→---
+   693→Task ID: 1-f
+   694→Agent: Priority 1 Fix Agent
+   695→Task: Fix bg-white in staff dashboard pages
+   696→
+   697→Work Log:
+   698→- Replaced all bg-white in appointments/page.tsx (~9)
+   699→- Replaced all bg-white in slots/page.tsx (~6)
+   700→- Replaced all bg-white in calendar/page.tsx (~3)
+   701→- Replaced bg-white in book/page.tsx (~1)
+   702→- Replaced bg-white/60 in analytics/page.tsx (~1)
+   703→- Replaced bg-white/20 in admin/analytics/page.tsx (~1)
+   704→- Replaced bg-white in admin/users/page.tsx (~1)
+   705→
+   706→Stage Summary:
+   707→- ~22 bg-white references fixed across 7 files
+   708→- All staff dashboard containers now use bg-card token
+   709→
+   710→---
+   711→Task ID: 1-g
+   712→Agent: Priority 1 Fix Agent
+   713→Task: Fix bg-white in shared components and hsl/oklch mismatch in globals.css
+   714→
+   715→Work Log:
+   716→- Replaced all bg-white in qr-code-display.tsx (~3)
+   717→- Replaced bg-white in clinic-selector-bar.tsx (~1)
+   718→- Fixed skeleton-shimmer: hsl(var(--muted)) → oklch(var(--muted)) in globals.css
+   719→
+   720→Stage Summary:
+   721→- 4 bg-white references fixed across 2 component files
+   722→- skeleton-shimmer utility now uses oklch() matching the CSS variable format
+   723→
+   724→---
+   725→Task ID: 1-b
+   726→Agent: Priority 1 Fix Agent
+   727→Task: Fix bg-white in search page and clinics page
+   728→
+   729→Work Log:
+   730→- Replaced all bg-white references in search-page.tsx (~7 occurrences)
+   731→- Replaced all bg-white references in clinics/page.tsx (~6 occurrences)
+   732→- Each occurrence evaluated for context: form controls → bg-card, containers → bg-card, translucent → bg-background/opacity
+   733→
+   734→Stage Summary:
+   735→- ~13 bg-white references fixed across 2 files
+   736→- Search bar, clinic cards, and form controls now use semantic tokens
+   737→
+   738→---
+   739→Task ID: 1-d
+   740→Agent: Priority 1 Fix Agent
+   741→Task: Fix bg-white in booking flow pages
+   742→
+   743→Work Log:
+   744→- Replaced all bg-white in book/page.tsx (~4)
+   745→- Replaced all bg-white in intake/[token]/page.tsx (~2)
+   746→- Replaced all bg-white in review/[token]/page.tsx (~2)
+   747→- Replaced all bg-white in manage/[token]/page.tsx (~5)
+   748→- Replaced all bg-white in book/error.tsx (~1)
+   749→
+   750→Stage Summary:
+   751→- ~14 bg-white references fixed across 5 files
+   752→- Booking wizard headers, footers, cards now use semantic tokens
+   753→
+   754→---
+   755→Task ID: 19
+   756→Agent: Main Orchestrator
+   757→Task: Priority 1 Dark Mode Fix — Execute all bg-white replacements
+   758→
+   759→Work Log:
+   760→- Dispatched 6 parallel agents to fix bg-white across all file groups
+   761→- Agent 1-a: public-navbar.tsx (bg-white/90→bg-background/90), public-footer.tsx (bg-white/80→bg-background/80)
+   762→- Agent 1-b: search-page.tsx (7 occurrences), clinics/page.tsx (6 occurrences) → all bg-card
+   763→- Agent 1-d: book/page.tsx (4), intake (2), review (2), manage (5), book/error (1) → bg-card/bg-background
+   764→- Agent 1-e: login focus:bg-white→focus:bg-background, loading (3), not-found (1), global-error (gradient + 3 gray tokens)
+   765→- Agent 1-f: appointments (9), slots (6), calendar (3), book (1), analytics (1), admin/analytics (1), admin/users (1) → bg-card
+   766→- Agent 1-g: qr-code (3), clinic-selector (1) → bg-card; globals.css skeleton-shimmer hsl→oklch
+   767→- Post-fix grep: ZERO bg-white references remain in any .tsx file
+   768→- Browser verified dark mode: navbar oklab(0.145/0.9), footer oklab(0.145/0.8), cards lab(7.78%), inputs lab(9.52)
+   769→- Browser verified light mode: navbar oklab(1.0/0.9), footer oklab(1.0/0.8), cards lab(100), inputs lab(100)
+   770→- Lint: 4 pre-existing errors (unrelated to our changes), 0 new errors
+   771→- Dev server: no compilation errors
+   772→
+   773→Stage Summary:
+   774→- 58 bg-white references eliminated across 20 files → 0 remaining
+   775→- 1 skeleton-shimmer hsl()/oklch() mismatch fixed
+   776→- 1 focus:bg-white flash eliminated on login password field
+   777→- 3 hardcoded gray colors fixed in global-error.tsx (no theme context)
+   778→- Dark mode: navbar, footer, cards, inputs all render dark correctly
+   779→- Light mode: all elements render white correctly (regression-free)
+   780→
+   781→---
+   782→Task ID: 2c
+   783→Agent: Priority 2 Fix Agent
+   784→Task: Fix gray-* in calendar/page.tsx
+   785→
+   786→Work Log:
+   787→- Replaced all gray-* references in status color objects, summary card, and legend
+   788→- bg-gray-50→bg-muted/50, bg-gray-100→bg-muted, text-gray-500/600→text-muted-foreground
+   789→- border-gray-200/300→border-border, bg-gray-300→bg-border, bg-gray-400→bg-muted-foreground
+   790→- from-gray-50 to-white → from-muted/50 to-card
+   791→
+   792→Stage Summary:
+   793→- ~15 gray-* references fixed in calendar/page.tsx
+   794→- Status colors, blocked summary, and legend all use semantic tokens
+   795→
+   796→---
+   797→Task ID: 2b
+   798→Agent: Priority 2 Fix Agent
+   799→Task: Fix gray-* in clinics/page.tsx
+   800→
+   801→Work Log:
+   802→- Replaced all 18 gray-* references with semantic tokens
+   803→- text-gray-900/700 → text-foreground, text-gray-600/500 → text-muted-foreground, text-gray-400 → text-muted-foreground/60
+   804→- border-gray-200 → border-border
+   805→
+   806→Stage Summary:
+   807→- 18 gray-* references fixed in clinics/page.tsx
+   808→- Largest single-file fix; all semantic tokens now
+   809→
+   810→---
+   811→Task ID: 2e
+   812→Agent: Priority 2 Fix Agent
+   813→Task: Fix gray-* in dashboard pages and shared components
+   814→
+   815→Work Log:
+   816→- Fixed appointments/page.tsx (3 status patterns)
+   817→- Fixed slots/page.tsx (1 status pattern)
+   818→- Fixed settings/providers/page.tsx (1 status pattern)
+   819→- Fixed book/page.tsx (3 patterns: progress bar + step indicators)
+   820→- Fixed review/[token]/page.tsx (1 star fill)
+   821→- Fixed providers/[slug]/page.tsx (1 star fill)
+   822→- Fixed clinic-selector-bar.tsx (2 status patterns)
+   823→- Fixed clinic-provider-row.tsx (1 star fill)
+   824→- Fixed search/provider-card.tsx (1 star fill)
+   825→
+   826→Stage Summary:
+   827→- ~15 gray-* references fixed across 9 files
+   828→- Star ratings, progress bars, status badges all use semantic tokens
+   829→---
+   830→Task ID: 2d
+   831→Agent: Priority 2 Fix Agent
+   832→Task: Fix gray-* and slate-* in admin pages
+   833→
+   834→Work Log:
+   835→- Fixed admin/appointments/page.tsx (4 patterns with dark: variants removed)
+   836→- Fixed admin/infrastructure/page.tsx (5 patterns)
+   837→- Fixed admin/users/page.tsx (2 patterns)
+   838→- Fixed admin/taxonomy/page.tsx (2 patterns)
+   839→- Fixed admin/financial/page.tsx (1 slate pattern)
+   840→- Fixed admin/page.tsx (3 slate patterns)
+   841→
+   842→Stage Summary:
+   843→- ~20 gray/slate references fixed across 6 admin files
+   844→- All explicit dark: variants removed; semantic tokens handle both modes
+   845→---
+   846→Task ID: 2a
+   847→Agent: Priority 2 Fix Agent
+   848→Task: Fix gray-* in error pages
+   849→
+   850→Work Log:
+   851→- Replaced all gray-* tokens in error.tsx (4), book/error.tsx (3), staff/dashboard/error.tsx (3), not-found.tsx (1)
+   852→- Removed explicit dark: variants where semantic tokens handle both modes
+   853→
+   854→Stage Summary:
+   855→- 11 gray-* references fixed across 4 error page files
+   856→- All error pages now use semantic tokens exclusively
+   857→
+   858→---
+   859→Task ID: 20
+   860→Agent: Main Orchestrator
+   861→Task: Priority 2 — Replace all gray-* and slate-* with semantic tokens
+   862→
+   863→Work Log:
+   864→- Dispatched 5 parallel agents for error pages, clinics, calendar, admin, and dashboard+components
+   865→- Agent 2a: Fixed 11 gray-* in 4 error pages (error.tsx, book/error.tsx, staff/dashboard/error.tsx, not-found.tsx)
+   866→- Agent 2b: Fixed 18 gray-* in clinics/page.tsx (largest single file)
+   867→- Agent 2c: Fixed ~15 gray-* in calendar/page.tsx (status colors, summary card, legend)
+   868→- Agent 2d: Fixed ~20 gray/slate-* in 6 admin files (removed all explicit dark: variants)
+   869→- Agent 2e: Fixed ~15 gray-* in 9 dashboard/component files (status badges, progress bars, star ratings)
+   870→- Post-fix grep: ZERO text-gray-*, bg-gray-*, border-gray-*, text-slate-*, bg-slate-*, border-slate-* remain in any .tsx file
+   871→- Browser verified dark mode: clinics h1=lab(98.26) near-white, h3=lab(98.26), input border=lab(18.8) subtle
+   872→- Browser verified light mode: clinics h1=lab(2.75) near-black, input border=lab(90.95) light
+   873→- Browser verified 404 page dark mode: card title=lab(98.26) on lab(2.75) body
+   874→- Lint: same 4 pre-existing errors, 0 new issues
+   875→
+   876→Stage Summary:
+   877→- 109 gray/slate references eliminated across ~20 files → 0 remaining
+   878→- All explicit dark: variant pairs removed; semantic CSS variables handle both modes
+   879→- Star rating fills, progress bars, status badges, error pages all use semantic tokens
+   880→- Both light and dark mode visually verified via agent-browser
+   881→

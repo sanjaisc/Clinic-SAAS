@@ -1,0 +1,909 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useEffect, useState, useRef } from "react";
+     4→     4→import { useParams } from "next/navigation";
+     5→     5→import Link from "next/link";
+     6→     6→import { motion, AnimatePresence } from "framer-motion";
+     7→     7→import { format, isAfter, subHours, differenceInDays, differenceInHours, differenceInMinutes } from "date-fns";
+     8→     8→
+     9→     9→import {
+    10→    10→  Card,
+    11→    11→  CardContent,
+    12→    12→  CardHeader,
+    13→    13→  CardTitle,
+    14→    14→  CardDescription,
+    15→    15→  CardFooter,
+    16→    16→} from "@/components/ui/card";
+    17→    17→import { Badge } from "@/components/ui/badge";
+    18→    18→import { Button } from "@/components/ui/button";
+    19→    19→import { Separator } from "@/components/ui/separator";
+    20→    20→import {
+    21→    21→  Calendar,
+    22→    22→  Clock,
+    23→    23→  MapPin,
+    24→    24→  Phone,
+    25→    25→  Shield,
+    26→    26→  CheckCircle2,
+    27→    27→  AlertCircle,
+    28→    28→  Building2,
+    29→    29→  Heart,
+    30→    30→  FileText,
+    31→    31→  CreditCard,
+    32→    32→  User,
+    33→    33→  Loader2,
+    34→    34→  Video,
+    35→    35→  Timer,
+    36→    36→  Star,
+    37→    37→  QrCode,
+    38→    38→} from "lucide-react";
+    39→    39→import { QrCodeDisplay } from "@/components/qr-code-display";
+    40→    40→
+    41→    41→// ---- Types ----
+    42→    42→
+    43→    43→interface ManageData {
+    44→    44→  token: {
+    45→    45→    purpose: string;
+    46→    46→    consumedAt: string | null;
+    47→    47→    justCheckedIn: boolean;
+    48→    48→  };
+    49→    49→  appointment: {
+    50→    50→    id: string;
+    51→    51→    status: string;
+    52→    52→    patientName: string;
+    53→    53→    reasonForVisit: string;
+    54→    54→    modality: string;
+    55→    55→    startTime: string;
+    56→    56→    endTime: string;
+    57→    57→    isDemoInsurance: boolean;
+    58→    58→    depositCents: number;
+    59→    59→    selfPayCents: number;
+    60→    60→    paymentStatus: string;
+    61→    61→    paymentMethod: string | null;
+    62→    62→    intakeCompleted: boolean;
+    63→    63→  };
+    64→    64→  provider: {
+    65→    65→    firstName: string;
+    66→    66→    lastName: string;
+    67→    67→    credentials: string | null;
+    68→    68→    photoUrl: string | null;
+    69→    69→  };
+    70→    70→  specialty: {
+    71→    71→    name: string;
+    72→    72→  };
+    73→    73→  service: {
+    74→    74→    name: string;
+    75→    75→  };
+    76→    76→  clinic: {
+    77→    77→    name: string;
+    78→    78→    logoUrl: string | null;
+    79→    79→    streetAddress: string;
+    80→    80→    city: string;
+    81→    81→    state: string;
+    82→    82→    zipCode: string;
+    83→    83→    phoneNumber: string;
+    84→    84→    videoVisitLink: string | null;
+    85→    85→  };
+    86→    86→  insurance: {
+    87→    87→    name: string;
+    88→    88→    isDemo: boolean;
+    89→    89→  } | null;
+    90→    90→  ledger: {
+    91→    91→    type: string;
+    92→    92→    amountCents: number;
+    93→    93→    description: string | null;
+    94→    94→  } | null;
+    95→    95→}
+    96→    96→
+    97→    97→type PageState = "loading" | "valid" | "expired" | "not_found" | "cancelled" | "check_in_early" | "error";
+    98→    98→
+    99→    99→// ---- Animation variants ----
+   100→   100→
+   101→   101→const fadeInUp = {
+   102→   102→  initial: { opacity: 0, y: 20 },
+   103→   103→  animate: { opacity: 1, y: 0 },
+   104→   104→  exit: { opacity: 0, y: -10 },
+   105→   105→  transition: { duration: 0.5, ease: "easeOut" as const },
+   106→   106→} as const;
+   107→   107→
+   108→   108→const staggerContainer = {
+   109→   109→  animate: { transition: { staggerChildren: 0.1 } },
+   110→   110→};
+   111→   111→
+   112→   112→const checkmarkVariants = {
+   113→   113→  initial: { scale: 0, opacity: 0 },
+   114→   114→  animate: {
+   115→   115→    scale: 1,
+   116→   116→    opacity: 1,
+   117→   117→    transition: { type: "spring" as const, stiffness: 200, damping: 15, delay: 0.2 },
+   118→   118→  },
+   119→   119→} as const;
+   120→   120→
+   121→   121→const checkCirclePathVariants = {
+   122→   122→  initial: { pathLength: 0, opacity: 0 },
+   123→   123→  animate: {
+   124→   124→    pathLength: 1,
+   125→   125→    opacity: 1,
+   126→   126→    transition: { pathLength: { duration: 0.6, ease: "easeInOut" as const, delay: 0.5 }, opacity: { duration: 0.1, delay: 0.5 } },
+   127→   127→  },
+   128→   128→} as const;
+   129→   129→
+   130→   130→// ---- Countdown Component ----
+   131→   131→
+   132→   132→function CountdownTimer({ targetDate }: { targetDate: Date }) {
+   133→   133→  const [now, setNow] = useState(new Date());
+   134→   134→  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   135→   135→
+   136→   136→  useEffect(() => {
+   137→   137→    intervalRef.current = setInterval(() => setNow(new Date()), 60000);
+   138→   138→    return () => {
+   139→   139→      if (intervalRef.current) clearInterval(intervalRef.current);
+   140→   140→    };
+   141→   141→  }, []);
+   142→   142→
+   143→   143→  const days = differenceInDays(targetDate, now);
+   144→   144→  const hours = differenceInHours(targetDate, now) % 24;
+   145→   145→
+   146→   146→  if (days > 0) {
+   147→   147→    return (
+   148→   148→      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
+   149→   149→        <Timer className="size-5 text-emerald-600" />
+   150→   150→        <span className="font-semibold text-lg">
+   151→   151→          {days} day{days !== 1 ? "s" : ""} and {hours} hour{hours !== 1 ? "s" : ""} until your appointment
+   152→   152→        </span>
+   153→   153→      </div>
+   154→   154→    );
+   155→   155→  }
+   156→   156→
+   157→   157→  if (hours > 0) {
+   158→   158→    const mins = differenceInMinutes(targetDate, now) % 60;
+   159→   159→    return (
+   160→   160→      <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
+   161→   161→        <Timer className="size-5 text-emerald-600" />
+   162→   162→        <span className="font-semibold text-lg">
+   163→   163→          {hours} hour{hours !== 1 ? "s" : ""} and {mins} minute{mins !== 1 ? "s" : ""} until your appointment
+   164→   164→        </span>
+   165→   165→      </div>
+   166→   166→    );
+   167→   167→  }
+   168→   168→
+   169→   169→  return (
+   170→   170→    <div className="flex items-center gap-2 text-amber-700 bg-amber-50 rounded-lg px-4 py-3">
+   171→   171→      <Timer className="size-5 text-amber-600" />
+   172→   172→      <span className="font-semibold text-lg">Your appointment is very soon!</span>
+   173→   173→    </div>
+   174→   174→  );
+   175→   175→}
+   176→   176→
+   177→   177→// ---- Format currency ----
+   178→   178→
+   179→   179→function formatCents(cents: number): string {
+   180→   180→  return `$${(cents / 100).toFixed(2)}`;
+   181→   181→}
+   182→   182→
+   183→   183→// ---- Main Page Component ----
+   184→   184→
+   185→   185→export default function ManagePage() {
+   186→   186→  const params = useParams();
+   187→   187→  const token = params.token as string;
+   188→   188→  const [pageState, setPageState] = useState<PageState>("loading");
+   189→   189→  const [data, setData] = useState<ManageData | null>(null);
+   190→   190→  const [checkInLoading, setCheckInLoading] = useState(false);
+   191→   191→  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+   192→   192→  const fetchedRef = useRef(false);
+   193→   193→
+   194→   194→  useEffect(() => {
+   195→   195→    if (!token || fetchedRef.current) return;
+   196→   196→    fetchedRef.current = true;
+   197→   197→
+   198→   198→    let cancelled = false;
+   199→   199→
+   200→   200→    (async () => {
+   201→   201→      try {
+   202→   202→        // Detect token format: 64-hex raw token vs cuid token ID (QR code links)
+   203→   203→        const isRawToken = /^[0-9a-fA-F]{64}$/.test(token);
+   204→   204→        const apiUrl = isRawToken
+   205→   205→          ? `/api/manage?token=${encodeURIComponent(token)}`
+   206→   206→          : `/api/manage?tokenId=${encodeURIComponent(token)}`;
+   207→   207→        const res = await fetch(apiUrl);
+   208→   208→        if (cancelled) return;
+   209→   209→
+   210→   210→        if (res.status === 404) {
+   211→   211→          setPageState("not_found");
+   212→   212→          return;
+   213→   213→        }
+   214→   214→
+   215→   215→        if (res.status === 410) {
+   216→   216→          const body = await res.json();
+   217→   217→          if (body.code === "APPOINTMENT_CANCELLED") {
+   218→   218→            setPageState("cancelled");
+   219→   219→          } else {
+   220→   220→            setPageState("expired");
+   221→   221→          }
+   222→   222→          return;
+   223→   223→        }
+   224→   224→
+   225→   225→        if (res.status === 400) {
+   226→   226→          const body = await res.json();
+   227→   227→          if (body.code === "CHECK_IN_TOO_EARLY") {
+   228→   228→            setPageState("check_in_early");
+   229→   229→            setData(body);
+   230→   230→          } else {
+   231→   231→            setPageState("error");
+   232→   232→            setErrorMessage(body.error || "Invalid request");
+   233→   233→          }
+   234→   234→          return;
+   235→   235→        }
+   236→   236→
+   237→   237→        if (!res.ok) {
+   238→   238→          setPageState("error");
+   239→   239→          setErrorMessage("Something went wrong. Please try again.");
+   240→   240→          return;
+   241→   241→        }
+   242→   242→
+   243→   243→        const body = await res.json();
+   244→   244→        setData(body);
+   245→   245→        setPageState("valid");
+   246→   246→      } catch {
+   247→   247→        if (cancelled) return;
+   248→   248→        setPageState("error");
+   249→   249→        setErrorMessage("Unable to connect. Please check your internet and try again.");
+   250→   250→      }
+   251→   251→    })();
+   252→   252→
+   253→   253→    return () => { cancelled = true; };
+   254→   254→  }, [token]);
+   255→   255→
+   256→   256→  // Determine if check-in button should show
+   257→   257→  const showCheckInButton = () => {
+   258→   258→    if (!data || pageState !== "valid") return false;
+   259→   259→    if (data.token.purpose !== "CHECK_IN") return false;
+   260→   260→    if (data.token.consumedAt) return false;
+   261→   261→    if (data.appointment.status !== "BOOKED") return false;
+   262→   262→
+   263→   263→    const now = new Date();
+   264→   264→    const windowStart = subHours(new Date(data.appointment.startTime), 24);
+   265→   265→    return isAfter(now, windowStart);
+   266→   266→  };
+   267→   267→
+   268→   268→  // ---- Render: Loading State ----
+   269→   269→
+   270→   270→  if (pageState === "loading") {
+   271→   271→    return (
+   272→   272→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   273→   273→        <Header />
+   274→   274→        <main className="flex-1 flex items-center justify-center p-4">
+   275→   275→          <motion.div
+   276→   276→            className="text-center"
+   277→   277→            initial={{ opacity: 0 }}
+   278→   278→            animate={{ opacity: 1 }}
+   279→   279→          >
+   280→   280→            <Loader2 className="size-10 text-emerald-600 animate-spin mx-auto mb-4" />
+   281→   281→            <p className="text-muted-foreground text-lg">Loading your appointment details…</p>
+   282→   282→          </motion.div>
+   283→   283→        </main>
+   284→   284→        <Footer />
+   285→   285→      </div>
+   286→   286→    );
+   287→   287→  }
+   288→   288→
+   289→   289→  // ---- Render: Error / Expired / Not Found States ----
+   290→   290→
+   291→   291→  if (pageState === "not_found" || pageState === "expired" || pageState === "cancelled" || pageState === "error" || pageState === "check_in_early") {
+   292→   292→    return (
+   293→   293→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   294→   294→        <Header />
+   295→   295→        <main className="flex-1 flex items-center justify-center p-4">
+   296→   296→          <motion.div
+   297→   297→            className="max-w-md w-full"
+   298→   298→            {...fadeInUp}
+   299→   299→          >
+   300→   300→            <Card className="text-center border-0 shadow-lg">
+   301→   301→              <CardContent className="pt-10 pb-8 px-8">
+   302→   302→                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-5">
+   303→   303→                  <AlertCircle className="size-8 text-amber-500" />
+   304→   304→                </div>
+   305→   305→
+   306→   306→                {pageState === "not_found" && (
+   307→   307→                  <>
+   308→   308→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   309→   309→                      Link Not Found
+   310→   310→                    </h2>
+   311→   311→                    <p className="text-muted-foreground mb-6">
+   312→   312→                      We couldn&apos;t find an appointment associated with this link.
+   313→   313→                      It may have been removed or the link may be incorrect.
+   314→   314→                    </p>
+   315→   315→                  </>
+   316→   316→                )}
+   317→   317→
+   318→   318→                {pageState === "expired" && (
+   319→   319→                  <>
+   320→   320→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   321→   321→                      Link Expired
+   322→   322→                    </h2>
+   323→   323→                    <p className="text-muted-foreground mb-6">
+   324→   324→                      This appointment link has expired. Appointment management links are valid
+   325→   325→                      for 7 days after the scheduled appointment date.
+   326→   326→                    </p>
+   327→   327→                  </>
+   328→   328→                )}
+   329→   329→
+   330→   330→                {pageState === "cancelled" && (
+   331→   331→                  <>
+   332→   332→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   333→   333→                      Appointment Cancelled
+   334→   334→                    </h2>
+   335→   335→                    <p className="text-muted-foreground mb-6">
+   336→   336→                      This appointment has been cancelled. If you believe this is an error,
+   337→   337→                      please contact the clinic directly.
+   338→   338→                    </p>
+   339→   339→                  </>
+   340→   340→                )}
+   341→   341→
+   342→   342→                {pageState === "check_in_early" && (
+   343→   343→                  <>
+   344→   344→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   345→   345→                      Check-In Not Yet Available
+   346→   346→                    </h2>
+   347→   347→                    <p className="text-muted-foreground mb-6">
+   348→   348→                      Check-in opens 24 hours before your appointment time.
+   349→   349→                      Please check back closer to your appointment.
+   350→   350→                    </p>
+   351→   351→                  </>
+   352→   352→                )}
+   353→   353→
+   354→   354→                {pageState === "error" && (
+   355→   355→                  <>
+   356→   356→                    <h2 className="text-xl font-semibold text-foreground mb-2">
+   357→   357→                      Something Went Wrong
+   358→   358→                    </h2>
+   359→   359→                    <p className="text-muted-foreground mb-6">
+   360→   360→                      {errorMessage || "An unexpected error occurred. Please try again."}
+   361→   361→                    </p>
+   362→   362→                  </>
+   363→   363→                )}
+   364→   364→
+   365→   365→                <Separator className="my-6" />
+   366→   366→
+   367→   367→                <div className="bg-muted/50 rounded-lg p-4">
+   368→   368→                  <p className="text-sm text-muted-foreground">
+   369→   369→                    Need help? Please call the clinic directly:
+   370→   370→                  </p>
+   371→   371→                  <div className="flex items-center justify-center gap-2 mt-2">
+   372→   372→                    <Phone className="size-4 text-emerald-600" />
+   373→   373→                    <span className="font-semibold text-foreground text-lg">
+   374→   374→                      {data?.clinic?.phoneNumber || "(555) 123-4567"}
+   375→   375→                    </span>
+   376→   376→                  </div>
+   377→   377→                </div>
+   378→   378→              </CardContent>
+   379→   379→            </Card>
+   380→   380→          </motion.div>
+   381→   381→        </main>
+   382→   382→        <Footer />
+   383→   383→      </div>
+   384→   384→    );
+   385→   385→  }
+   386→   386→
+   387→   387→  // ---- Render: Valid Appointment ----
+   388→   388→
+   389→   389→  if (pageState === "valid" && data) {
+   390→   390→    const startTime = new Date(data.appointment.startTime);
+   391→   391→    const endTime = new Date(data.appointment.endTime);
+   392→   392→    const isInPerson = data.appointment.modality === "IN_PERSON";
+   393→   393→    const isVideo = data.appointment.modality === "VIDEO";
+   394→   394→    const isCheckedIn = data.token.consumedAt !== null;
+   395→   395→    const justCheckedIn = data.token.justCheckedIn === true;
+   396→   396→    const providerName = `${data.provider.firstName} ${data.provider.lastName}${data.provider.credentials ? `, ${data.provider.credentials}` : ""}`;
+   397→   397→
+   398→   398→    // Payment display logic
+   399→   399→    const getPaymentDisplay = () => {
+   400→   400→      if (data.appointment.isDemoInsurance || data.insurance) {
+   401→   401→        if (data.appointment.isDemoInsurance) {
+   402→   402→          return { label: "Demo Insurance", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+   403→   403→        }
+   404→   404→        if (data.ledger?.amountCents && data.ledger.amountCents > 0) {
+   405→   405→          return { label: `Insurance + ${formatCents(data.ledger.amountCents)} deposit`, sublabel: "Deposit will be applied to your copay", color: "bg-blue-100 text-blue-800" };
+   406→   406→        }
+   407→   407→        return { label: "Insurance", sublabel: "Please bring your insurance card", color: "bg-emerald-100 text-emerald-800" };
+   408→   408→      }
+   409→   409→
+   410→   410→      if (data.appointment.selfPayCents > 0) {
+   411→   411→        return { label: "Self-Pay", sublabel: `Total: ${formatCents(data.appointment.selfPayCents)}`, color: "bg-amber-100 text-amber-800" };
+   412→   412→      }
+   413→   413→
+   414→   414→      if (data.appointment.depositCents > 0) {
+   415→   415→        return { label: `Deposit: ${formatCents(data.appointment.depositCents)}`, sublabel: "Remaining balance due at visit", color: "bg-amber-100 text-amber-800" };
+   416→   416→      }
+   417→   417→
+   418→   418→      return { label: "Free Visit", sublabel: "No payment required", color: "bg-emerald-100 text-emerald-800" };
+   419→   419→    };
+   420→   420→
+   421→   421→    const paymentInfo = getPaymentDisplay();
+   422→   422→
+   423→   423→    return (
+   424→   424→      <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white">
+   425→   425→        <Header />
+   426→   426→
+   427→   427→        <main className="flex-1 py-6 px-4">
+   428→   428→          <div className="max-w-2xl mx-auto space-y-5">
+   429→   429→            <AnimatePresence mode="wait">
+   430→   430→              {/* ---- Check-In Success Overlay ---- */}
+   431→   431→              {justCheckedIn && (
+   432→   432→                <motion.div
+   433→   433→                  key="checkin-success"
+   434→   434→                  initial={{ opacity: 0, scale: 0.95 }}
+   435→   435→                  animate={{ opacity: 1, scale: 1 }}
+   436→   436→                  className="mb-2"
+   437→   437→                >
+   438→   438→                  <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-700 text-white overflow-hidden">
+   439→   439→                    <CardContent className="pt-8 pb-8 px-8 text-center">
+   440→   440→                      <motion.div
+   441→   441→                        className="w-20 h-20 rounded-full bg-background/20 flex items-center justify-center mx-auto mb-5"
+   442→   442→                        variants={checkmarkVariants}
+   443→   443→                        initial="initial"
+   444→   444→                        animate="animate"
+   445→   445→                      >
+   446→   446→                        <motion.svg
+   447→   447→                          className="size-10 text-white"
+   448→   448→                          viewBox="0 0 24 24"
+   449→   449→                          fill="none"
+   450→   450→                          stroke="currentColor"
+   451→   451→                          strokeWidth={3}
+   452→   452→                          strokeLinecap="round"
+   453→   453→                          strokeLinejoin="round"
+   454→   454→                        >
+   455→   455→                          <motion.path
+   456→   456→                            d="M5 13l4 4L19 7"
+   457→   457→                            variants={checkCirclePathVariants}
+   458→   458→                            initial="initial"
+   459→   459→                            animate="animate"
+   460→   460→                          />
+   461→   461→                        </motion.svg>
+   462→   462→                      </motion.div>
+   463→   463→                      <h2 className="text-2xl font-bold mb-2">You&apos;re Checked In!</h2>
+   464→   464→                      <p className="text-emerald-100 text-lg mb-1">
+   465→   465→                        {data.clinic.name}
+   466→   466→                      </p>
+   467→   467→                      <p className="text-emerald-100/80">
+   468→   468→                        {format(startTime, "EEEE, MMMM d, yyyy")} at {format(startTime, "h:mm a")}
+   469→   469→                      </p>
+   470→   470→                      {isVideo && data.clinic.videoVisitLink && (
+   471→   471→                        <div className="mt-5">
+   472→   472→                          <Button
+   473→   473→                            size="lg"
+   474→   474→                            className="bg-card text-emerald-700 hover:bg-emerald-50 font-semibold rounded-lg"
+   475→   475→                            asChild
+   476→   476→                          >
+   477→   477→                            <a href={data.clinic.videoVisitLink} target="_blank" rel="noopener noreferrer">
+   478→   478→                              <Video className="size-4" />
+   479→   479→                              Join Video Visit
+   480→   480→                            </a>
+   481→   481→                          </Button>
+   482→   482→                        </div>
+   483→   483→                      )}
+   484→   484→                    </CardContent>
+   485→   485→                  </Card>
+   486→   486→                </motion.div>
+   487→   487→              )}
+   488→   488→
+   489→   489→              {/* ---- Appointment Card ---- */}
+   490→   490→              <motion.div
+   491→   491→                key="appointment-card"
+   492→   492→                variants={staggerContainer}
+   493→   493→                initial="initial"
+   494→   494→                animate="animate"
+   495→   495→                className="space-y-5"
+   496→   496→              >
+   497→   497→                {/* Status Banner */}
+   498→   498→                {(isCheckedIn || justCheckedIn) && !justCheckedIn && (
+   499→   499→                  <motion.div {...fadeInUp}>
+   500→   500→                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+   501→   501→                      <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+   502→   502→                      <span className="text-emerald-800 font-medium">You are checked in for this appointment</span>
+   503→   503→                    </div>
+   504→   504→                  </motion.div>
+   505→   505→                )}
+   506→   506→
+   507→   507→                {/* Main Appointment Card */}
+   508→   508→                <motion.div {...fadeInUp}>
+   509→   509→                  <Card className="border-0 shadow-lg overflow-hidden status-card-gradient-border">
+   510→   510→                    {/* Gradient Top Bar */}
+   511→   511→                    <div className="h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+   512→   512→
+   513→   513→                    <CardHeader className="pb-4">
+   514→   514→                      <div className="flex items-start gap-4">
+   515→   515→                        {/* Clinic Logo/Placeholder */}
+   516→   516→                        <div className="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+   517→   517→                          {data.clinic.logoUrl ? (
+   518→   518→                            <img
+   519→   519→                              src={data.clinic.logoUrl}
+   520→   520→                              alt={data.clinic.name}
+   521→   521→                              className="w-10 h-10 rounded-lg object-cover"
+   522→   522→                            />
+   523→   523→                          ) : (
+   524→   524→                            <Building2 className="size-6 text-emerald-600" />
+   525→   525→                          )}
+   526→   526→                        </div>
+   527→   527→                        <div className="min-w-0 flex-1">
+   528→   528→                          <CardTitle className="text-xl">{data.clinic.name}</CardTitle>
+   529→   529→                          <CardDescription className="flex items-start gap-1.5 mt-1.5">
+   530→   530→                            <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+   531→   531→                            <span>
+   532→   532→                              {data.clinic.streetAddress}, {data.clinic.city},{" "}
+   533→   533→                              {data.clinic.state} {data.clinic.zipCode}
+   534→   534→                            </span>
+   535→   535→                          </CardDescription>
+   536→   536→                        </div>
+   537→   537→                      </div>
+   538→   538→                    </CardHeader>
+   539→   539→
+   540→   540→                    <CardContent className="space-y-5">
+   541→   541→                      {/* Appointment Date/Time + Modality */}
+   542→   542→                      <div className="grid gap-4 sm:grid-cols-2">
+   543→   543→                        <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
+   544→   544→                          <Calendar className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+   545→   545→                          <div>
+   546→   546→                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+   547→   547→                              Date
+   548→   548→                            </p>
+   549→   549→                            <p className="text-base font-semibold text-foreground mt-0.5">
+   550→   550→                              {format(startTime, "EEEE, MMMM d, yyyy")}
+   551→   551→                            </p>
+   552→   552→                          </div>
+   553→   553→                        </div>
+   554→   554→                        <div className="flex items-start gap-3 bg-muted/40 rounded-lg p-4">
+   555→   555→                          <Clock className="size-5 text-emerald-600 mt-0.5 shrink-0" />
+   556→   556→                          <div>
+   557→   557→                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+   558→   558→                              Time
+   559→   559→                            </p>
+   560→   560→                            <p className="text-base font-semibold text-foreground mt-0.5">
+   561→   561→                              {format(startTime, "h:mm a")} – {format(endTime, "h:mm a")}
+   562→   562→                            </p>
+   563→   563→                          </div>
+   564→   564→                        </div>
+   565→   565→                      </div>
+   566→   566→
+   567→   567→                      {/* Modality Badge */}
+   568→   568→                      <div className="flex items-center gap-2">
+   569→   569→                        {isVideo ? (
+   570→   570→                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 gap-1.5 px-3 py-1 text-sm">
+   571→   571→                            <Video className="size-3.5" />
+   572→   572→                            Video Visit
+   573→   573→                          </Badge>
+   574→   574→                        ) : (
+   575→   575→                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 gap-1.5 px-3 py-1 text-sm">
+   576→   576→                            <Building2 className="size-3.5" />
+   577→   577→                            In-Clinic
+   578→   578→                          </Badge>
+   579→   579→                        )}
+   580→   580→                        <Badge variant="outline" className="text-sm px-3 py-1">
+   581→   581→                          {data.service.name}
+   582→   582→                        </Badge>
+   583→   583→                      </div>
+   584→   584→
+   585→   585→                      {/* Video link for active check-in */}
+   586→   586→                      {isVideo && isCheckedIn && data.clinic.videoVisitLink && !justCheckedIn && (
+   587→   587→                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+   588→   588→                          <a
+   589→   589→                            href={data.clinic.videoVisitLink}
+   590→   590→                            target="_blank"
+   591→   591→                            rel="noopener noreferrer"
+   592→   592→                            className="flex items-center gap-3 text-blue-700 hover:text-blue-900 transition-colors"
+   593→   593→                          >
+   594→   594→                            <Video className="size-5 shrink-0" />
+   595→   595→                            <div>
+   596→   596→                              <p className="font-semibold">Join Your Video Visit</p>
+   597→   597→                              <p className="text-sm text-blue-600">Click to open the video call link</p>
+   598→   598→                            </div>
+   599→   599→                          </a>
+   600→   600→                        </div>
+   601→   601→                      )}
+   602→   602→
+   603→   603→                      <Separator />
+   604→   604→
+   605→   605→                      {/* Provider Info */}
+   606→   606→                      <div className="flex items-center gap-4">
+   607→   607→                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-200">
+   608→   608→                          {data.provider.photoUrl ? (
+   609→   609→                            <img
+   610→   610→                              src={data.provider.photoUrl}
+   611→   611→                              alt={providerName}
+   612→   612→                              className="w-full h-full rounded-full object-cover"
+   613→   613→                            />
+   614→   614→                          ) : (
+   615→   615→                            <User className="size-5 text-emerald-600" />
+   616→   616→                          )}
+   617→   617→                        </div>
+   618→   618→                        <div>
+   619→   619→                          <p className="font-semibold text-foreground text-base">{providerName}</p>
+   620→   620→                          <p className="text-sm text-muted-foreground">{data.specialty.name}</p>
+   621→   621→                        </div>
+   622→   622→                      </div>
+   623→   623→
+   624→   624→                      <Separator />
+   625→   625→
+   626→   626→                      {/* Insurance & Payment */}
+   627→   627→                      <div className="space-y-3">
+   628→   628→                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+   629→   629→                          <CreditCard className="size-4" />
+   630→   630→                          Payment &amp; Insurance
+   631→   631→                        </h3>
+   632→   632→
+   633→   633→                        {data.insurance && !data.appointment.isDemoInsurance && (
+   634→   634→                          <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-3">
+   635→   635→                            <span className="text-sm text-muted-foreground">Insurance</span>
+   636→   636→                            <span className="font-medium text-foreground">{data.insurance.name}</span>
+   637→   637→                          </div>
+   638→   638→                        )}
+   639→   639→
+   640→   640→                        <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-3">
+   641→   641→                          <span className="text-sm text-muted-foreground">Status</span>
+   642→   642→                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold ${paymentInfo.color}`}>
+   643→   643→                            {paymentInfo.label}
+   644→   644→                          </span>
+   645→   645→                        </div>
+   646→   646→                        <p className="text-xs text-muted-foreground pl-1">{paymentInfo.sublabel}</p>
+   647→   647→                      </div>
+   648→   648→
+   649→   649→                      <Separator />
+   650→   650→
+   651→   651→                      {/* Countdown */}
+   652→   652→                      {data.appointment.status === "BOOKED" && (
+   653→   653→                        <CountdownTimer targetDate={startTime} />
+   654→   654→                      )}
+   655→   655→                    </CardContent>
+   656→   656→
+   657→   657→                    {/* Check-In Button in Footer */}
+   658→   658→                    {showCheckInButton() && (
+   659→   659→                      <CardFooter className="pt-0">
+   660→   660→                        <Button
+   661→   661→                          size="lg"
+   662→   662→                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg checkin-pulse-glow"
+   663→   663→                          disabled={checkInLoading}
+   664→   664→                          onClick={async () => {
+   665→   665→                            setCheckInLoading(true);
+   666→   666→                            try {
+   667→   667→                              const res = await fetch(`/api/manage?token=${encodeURIComponent(token)}`);
+   668→   668→                              const body = await res.json();
+   669→   669→                              if (res.ok) {
+   670→   670→                                setData(body);
+   671→   671→                              }
+   672→   672→                            } catch {
+   673→   673→                              // Keep existing data on re-fetch failure
+   674→   674→                            }
+   675→   675→                            setCheckInLoading(false);
+   676→   676→                          }}
+   677→   677→                        >
+   678→   678→                          {checkInLoading ? (
+   679→   679→                            <>
+   680→   680→                              <Loader2 className="size-5 animate-spin" />
+   681→   681→                              Checking In…
+   682→   682→                            </>
+   683→   683→                          ) : (
+   684→   684→                            <>
+   685→   685→                              <Shield className="size-5" />
+   686→   686→                              Check In for Your Appointment
+   687→   687→                            </>
+   688→   688→                          )}
+   689→   689→                        </Button>
+   690→   690→                      </CardFooter>
+   691→   691→                    )}
+   692→   692→                  </Card>
+   693→   693→                </motion.div>
+   694→   694→
+   695→   695→                {/* ---- QR Code Section (BOOKED or CONFIRMED only) ---- */}
+   696→   696→                {(data.appointment.status === "BOOKED" || data.appointment.status === "CONFIRMED") && (
+   697→   697→                  <motion.div {...fadeInUp}>
+   698→   698→                    <Card className="border-emerald-200 shadow-md bg-card">
+   699→   699→                      <CardHeader className="pb-2">
+   700→   700→                        <CardTitle className="text-lg flex items-center gap-2">
+   701→   701→                          <QrCode className="size-5 text-emerald-600" />
+   702→   702→                          Your Appointment QR Code
+   703→   703→                        </CardTitle>
+   704→   704→                        <CardDescription className="text-sm">
+   705→   705→                          Scan this QR code to quickly access your appointment management page.
+   706→   706→                        </CardDescription>
+   707→   707→                      </CardHeader>
+   708→   708→                      <CardContent>
+   709→   709→                        <QrCodeDisplay
+   710→   710→                          appointmentId={data.appointment.id}
+   711→   711→                          patientName={data.appointment.patientName}
+   712→   712→                          manageUrl={typeof window !== "undefined" ? window.location.href : undefined}
+   713→   713→                        />
+   714→   714→                      </CardContent>
+   715→   715→                    </Card>
+   716→   716→                  </motion.div>
+   717→   717→                )}
+   718→   718→
+   719→   719→                {/* ---- What to Know Section ---- */}
+   720→   720→                <motion.div {...fadeInUp}>
+   721→   721→                  <Card className="border-0 shadow-md card-hover-lift">
+   722→   722→                    <CardHeader>
+   723→   723→                      <CardTitle className="text-lg flex items-center gap-2">
+   724→   724→                        <FileText className="size-5 text-emerald-600" />
+   725→   725→                        What to Know Before Your Visit
+   726→   726→                      </CardTitle>
+   727→   727→                    </CardHeader>
+   728→   728→                    <CardContent className="space-y-4">
+   729→   729→                      <div className="flex items-start gap-3">
+   730→   730→                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   731→   731→                          <Clock className="size-3.5 text-emerald-700" />
+   732→   732→                        </div>
+   733→   733→                        <div>
+   734→   734→                          <p className="font-medium text-foreground text-sm">
+   735→   735→                            Arrive 10–15 Minutes Early
+   736→   736→                          </p>
+   737→   737→                          <p className="text-sm text-muted-foreground">
+   738→   738→                            {isVideo
+   739→   739→                              ? "Join the video link a few minutes early to test your camera and microphone."
+   740→   740→                              : "This gives you time to check in, complete any remaining paperwork, and get settled."}
+   741→   741→                          </p>
+   742→   742→                        </div>
+   743→   743→                      </div>
+   744→   744→
+   745→   745→                      <div className="flex items-start gap-3">
+   746→   746→                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   747→   747→                          <CreditCard className="size-3.5 text-emerald-700" />
+   748→   748→                        </div>
+   749→   749→                        <div>
+   750→   750→                          <p className="font-medium text-foreground text-sm">
+   751→   751→                            Bring Your Insurance Card &amp; ID
+   752→   752→                          </p>
+   753→   753→                          <p className="text-sm text-muted-foreground">
+   754→   754→                            {data.insurance && !data.appointment.isDemoInsurance
+   755→   755→                              ? `Please bring your ${data.insurance.name} insurance card and a valid photo ID.`
+   756→   756→                              : "Please bring a valid photo ID to your appointment."}
+   757→   757→                          </p>
+   758→   758→                        </div>
+   759→   759→                      </div>
+   760→   760→
+   761→   761→                      {isVideo && (
+   762→   762→                        <div className="flex items-start gap-3">
+   763→   763→                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   764→   764→                            <Video className="size-3.5 text-emerald-700" />
+   765→   765→                          </div>
+   766→   766→                          <div>
+   767→   767→                            <p className="font-medium text-foreground text-sm">
+   768→   768→                              Prepare Your Device
+   769→   769→                            </p>
+   770→   770→                            <p className="text-sm text-muted-foreground">
+   771→   771→                              Find a quiet, well-lit space with a stable internet connection. Use a device with a camera and microphone.
+   772→   772→                            </p>
+   773→   773→                          </div>
+   774→   774→                        </div>
+   775→   775→                      )}
+   776→   776→
+   777→   777→                      {!data.appointment.intakeCompleted && (
+   778→   778→                        <div className="flex items-start gap-3">
+   779→   779→                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+   780→   780→                            <FileText className="size-3.5 text-emerald-700" />
+   781→   781→                          </div>
+   782→   782→                          <div>
+   783→   783→                            <p className="font-medium text-foreground text-sm">
+   784→   784→                              Intake Forms
+   785→   785→                            </p>
+   786→   786→                            <p className="text-sm text-muted-foreground">
+   787→   787→                              You may be asked to complete intake forms before or at the time of your visit to help your provider prepare.
+   788→   788→                            </p>
+   789→   789→                          </div>
+   790→   790→                        </div>
+   791→   791→                      )}
+   792→   792→                    </CardContent>
+   793→   793→                  </Card>
+   794→   794→                </motion.div>
+   795→   795→
+   796→   796→                {/* ---- Complete Intake Form Button ---- */}
+   797→   797→                {!data.appointment.intakeCompleted && data.appointment.status === "BOOKED" && (
+   798→   798→                  <motion.div {...fadeInUp}>
+   799→   799→                    <Button
+   800→   800→                      size="lg"
+   801→   801→                      variant="outline"
+   802→   802→                      className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 font-semibold text-base h-12 rounded-lg"
+   803→   803→                      asChild
+   804→   804→                    >
+   805→   805→                      <Link href={`/intake/${token}`}>
+   806→   806→                        <FileText className="size-5" />
+   807→   807→                        Complete Intake Form
+   808→   808→                      </Link>
+   809→   809→                    </Button>
+   810→   810→                  </motion.div>
+   811→   811→                )}
+   812→   812→
+   813→   813→                {/* ---- Cancellation Policy ---- */}
+   814→   814→                <motion.div {...fadeInUp}>
+   815→   815→                  <Card className="border-0 shadow-md card-hover-lift bg-muted/30 border-l-4 border-l-red-300/60">
+   816→   816→                    <CardContent className="py-5 px-6">
+   817→   817→                      <div className="flex items-start gap-3">
+   818→   818→                        <AlertCircle className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+   819→   819→                        <div>
+   820→   820→                          <p className="font-medium text-foreground text-sm">Cancellation Policy</p>
+   821→   821→                          <p className="text-sm text-muted-foreground mt-1">
+   822→   822→                            Please cancel or reschedule at least 24 hours before your appointment to avoid
+   823→   823→                            any deposit forfeiture. Contact the clinic directly to make changes.
+   824→   824→                          </p>
+   825→   825→                        </div>
+   826→   826→                      </div>
+   827→   827→                    </CardContent>
+   828→   828→                  </Card>
+   829→   829→                </motion.div>
+   830→   830→
+   831→   831→                {/* ---- Leave a Review Button (completed appointments) ---- */}
+   832→   832→                {data.appointment.status === "COMPLETED" && (
+   833→   833→                  <motion.div {...fadeInUp}>
+   834→   834→                    <Button
+   835→   835→                      size="lg"
+   836→   836→                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base h-12 rounded-lg"
+   837→   837→                      asChild
+   838→   838→                    >
+   839→   839→                      <a href={`/review/${token}`}>
+   840→   840→                        <Star className="size-5" />
+   841→   841→                        Leave a Review
+   842→   842→                      </a>
+   843→   843→                    </Button>
+   844→   844→                  </motion.div>
+   845→   845→                )}
+   846→   846→
+   847→   847→                {/* ---- Clinic Contact ---- */}
+   848→   848→                <motion.div {...fadeInUp}>
+   849→   849→                  <div className="text-center py-3">
+   850→   850→                    <p className="text-sm text-muted-foreground mb-2">Questions about your appointment?</p>
+   851→   851→                    <a
+   852→   852→                      href={`tel:${data.clinic.phoneNumber}`}
+   853→   853→                      className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 font-medium transition-colors"
+   854→   854→                    >
+   855→   855→                      <Phone className="size-4" />
+   856→   856→                      {data.clinic.phoneNumber}
+   857→   857→                    </a>
+   858→   858→                  </div>
+   859→   859→                </motion.div>
+   860→   860→              </motion.div>
+   861→   861→            </AnimatePresence>
+   862→   862→          </div>
+   863→   863→        </main>
+   864→   864→
+   865→   865→        <Footer />
+   866→   866→      </div>
+   867→   867→    );
+   868→   868→  }
+   869→   869→
+   870→   870→  // Fallback (shouldn't reach here)
+   871→   871→  return null;
+   872→   872→}
+   873→   873→
+   874→   874→// ---- Header Component ----
+   875→   875→
+   876→   876→function Header() {
+   877→   877→  return (
+   878→   878→    <header className="bg-background/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-50">
+   879→   879→      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+   880→   880→        <div className="flex items-center gap-2">
+   881→   881→          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   882→   882→            <Heart className="size-4 text-white" />
+   883→   883→          </div>
+   884→   884→          <span className="font-bold text-lg text-foreground tracking-tight">
+   885→   885→            DoctA
+   886→   886→          </span>
+   887→   887→        </div>
+   888→   888→        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   889→   889→          <Shield className="size-3.5 text-emerald-600" />
+   890→   890→          <span>Secure Patient Portal</span>
+   891→   891→        </div>
+   892→   892→      </div>
+   893→   893→    </header>
+   894→   894→  );
+   895→   895→}
+   896→   896→
+   897→   897→// ---- Footer Component ----
+   898→   898→
+   899→   899→function Footer() {
+   900→   900→  return (
+   901→   901→    <footer className="border-t border-border/50 bg-background/80 mt-auto">
+   902→   902→      <div className="max-w-4xl mx-auto px-4 py-4 text-center">
+   903→   903→        <p className="text-xs text-muted-foreground">
+   904→   904→          Powered by <span className="font-semibold text-foreground">DoctA</span> &middot; Patient Self-Service Portal
+   905→   905→        </p>
+   906→   906→      </div>
+   907→   907→    </footer>
+   908→   908→  );
+   909→   909→}

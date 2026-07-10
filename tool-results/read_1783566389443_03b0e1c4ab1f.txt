@@ -1,0 +1,252 @@
+     1→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:72:    circleBg: "bg-emerald-100",
+     2→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:73:    circleColor: "text-emerald-600",
+     3→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:74:    borderColor: "border-l-emerald-500",
+     4→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:345:          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+     5→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:347:              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+     6→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:348:              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
+     7→/home/z/my-project/src/app/staff/dashboard/activity/page.tsx:381:        <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-t-xl" />
+     8→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:198:  COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+     9→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:489:    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-emerald-600" /> : <ArrowDown className="size-3 ml-1 text-emerald-600" />;
+    10→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:856:      <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50">
+    11→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:884:    OFFERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    12→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:886:    FULFILLED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    13→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:944:            <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+    14→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:966:            <QrCode className="size-3.5 mr-2 text-emerald-600" />
+    15→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:993:          <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+    16→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:994:            <User className="size-4 text-emerald-600" />
+    17→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:999:            className="text-left cursor-pointer hover:text-emerald-700 transition-colors min-w-0"
+    18→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1066:                      : "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+    19→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1141:            className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+    20→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1171:                  ? "bg-emerald-600 text-white"
+    21→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1183:                  ? "bg-emerald-600 text-white"
+    22→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1201:            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer flex items-center gap-1"
+    23→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1346:                                <CheckCircle2 className="size-3.5 mr-2 text-emerald-600" />
+    24→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1492:                    className={`border-b border-border/30 transition-colors hover:bg-emerald-50/30 ${
+    25→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1511:                        className="flex items-center gap-2 text-left cursor-pointer hover:text-emerald-700 transition-colors w-full"
+    26→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1513:                        <div className="size-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+    27→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1514:                          <User className="size-3.5 text-emerald-600" />
+    28→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1635:                    className={`size-8 cursor-pointer ${pageNum === page ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+    29→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1786:                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
+    30→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1787:                                : "border-border/60 hover:border-emerald-300 hover:bg-emerald-50/50 text-foreground"
+    31→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1806:                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+    32→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1807:                  <p className="text-xs font-medium text-emerald-800 mb-1">New Appointment Time</p>
+    33→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1812:                      <div className="flex items-center gap-2 text-sm text-emerald-700">
+    34→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1871:              <QrCode className="size-5 text-emerald-600" />
+    35→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1973:                              ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+    36→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1997:                        <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center">
+    37→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:1998:                          <User className="size-4 text-emerald-600" />
+    38→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2017:                          className="size-8 p-0 cursor-pointer text-muted-foreground hover:text-emerald-700"
+    39→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2098:                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+    40→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2168:                        className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+    41→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2171:                        <span className="text-sm font-medium text-foreground group-hover:text-emerald-700 transition-colors">
+    42→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2184:                      <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center">
+    43→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2185:                        <FileText className="size-4 text-emerald-600" />
+    44→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2207:                          <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+    45→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2258:                          className="h-8 text-xs cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700"
+    46→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2277:                    <Shield className="size-4 text-emerald-600" />
+    47→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2285:                          <Badge variant="outline" className="mt-1 border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+    48→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2292:                          <span className="text-emerald-600 font-medium">Free</span>
+    49→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2314:                      <CreditCard className="size-4 text-emerald-600" />
+    50→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2376:                          className="h-8 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+    51→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2415:                      <Hash className="size-4 text-emerald-600" />
+    52→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2462:                    <StickyNote className="size-4 text-emerald-600" />
+    53→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2481:                            <div className="size-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-semibold text-emerald-700">
+    54→/home/z/my-project/src/app/staff/dashboard/appointments/page.tsx:2519:                      className="size-9 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer self-end"
+    55→/home/z/my-project/src/app/staff/dashboard/admin/appointments/page.tsx:137:    COMPLETED: { label: "Completed", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+    56→/home/z/my-project/src/app/staff/dashboard/admin/appointments/page.tsx:148:    ACTIVE: { label: "Active", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200" },
+    57→/home/z/my-project/src/app/staff/dashboard/admin/appointments/page.tsx:558:                                  className="size-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+    58→/home/z/my-project/src/app/staff/dashboard/admin/appointments/page.tsx:988:                          : "bg-emerald-100 dark:bg-emerald-900/40"
+    59→/home/z/my-project/src/app/staff/dashboard/admin/appointments/page.tsx:993:                          <Phone className="size-4 text-emerald-600 dark:text-emerald-400" />
+    60→/home/z/my-project/src/app/staff/dashboard/admin/clinics/page.tsx:142:    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    61→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:394:          icon={<CheckCircle2 className="size-5 text-emerald-500" />}
+    62→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:489:              <Activity className="size-4 text-emerald-500" />
+    63→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:536:                      className="text-emerald-500"
+    64→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:580:                        <div className="size-3 rounded-full bg-emerald-500" />
+    65→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:594:                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+    66→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:660:              <DollarSign className="size-4 text-emerald-500" />
+    67→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:685:                      color: "bg-emerald-500",
+    68→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:727:                    color="bg-emerald-500"
+    69→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:797:                      <td className="py-2.5 pr-4 text-right tabular-nums text-emerald-600">
+    70→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:892:                  color: "bg-emerald-500",
+    71→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:959:            <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+    72→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:961:                <ThumbsUp className="size-5 text-emerald-600 dark:text-emerald-400" />
+    73→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:963:                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+    74→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:971:              <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+    75→/home/z/my-project/src/app/staff/dashboard/admin/analytics/page.tsx:980:      <Card className="bg-gradient-to-r from-purple-600 to-emerald-500 border-0">
+    76→/home/z/my-project/src/app/staff/dashboard/admin/providers/page.tsx:94:    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    77→/home/z/my-project/src/app/staff/dashboard/admin/providers/page.tsx:109:    className: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800",
+    78→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:318:                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+    79→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:351:                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+    80→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:480:    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200";
+    81→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:879:                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+    82→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:932:                              <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 text-xs">
+    83→/home/z/my-project/src/app/staff/dashboard/admin/financial/page.tsx:986:                                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+    84→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:176:    case "RUNNING": return "bg-emerald-500 text-white";
+    85→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:471:              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+    86→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:474:                  <DollarSign className="size-4 text-emerald-500" />
+    87→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:588:                    <Activity className="size-3.5 text-emerald-500" />
+    88→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:613:                            className="text-emerald-500"
+    89→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:634:                          <div className="size-3 rounded-full bg-emerald-500" />
+    90→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:686:                    <CreditCard className="size-3.5 text-emerald-500" />
+    91→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:694:                      <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 p-3">
+    92→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:696:                        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+    93→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:730:                            className="h-full bg-emerald-500 rounded-full transition-all"
+    94→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:749:              <Server className="size-4 text-emerald-500" />
+    95→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:792:                          <span className="font-medium text-emerald-600">{state.cron.counts.pendingAppointments}</span> pending
+    96→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:814:                        <div className={`size-7 rounded-lg flex items-center justify-center ${state.integrations?.stripe?.configured ? "bg-emerald-100 dark:bg-emerald-950/50" : "bg-red-100 dark:bg-red-950/50"}`}>
+    97→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:816:                            ? <CheckCircle2 className="size-3.5 text-emerald-600" />
+    98→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:837:                        <div className={`size-7 rounded-lg flex items-center justify-center ${state.integrations?.jwt?.configured ? "bg-emerald-100 dark:bg-emerald-950/50" : "bg-red-100 dark:bg-red-950/50"}`}>
+    99→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:839:                            ? <Shield className="size-3.5 text-emerald-600" />
+   100→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:903:                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   101→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:913:                              {ex.resolved && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-200">Resolved</Badge>}
+   102→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:944:                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   103→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:987:                      <CheckCircle2 className="size-6 text-emerald-500 mx-auto mb-1.5" />
+   104→/home/z/my-project/src/app/staff/dashboard/admin/page.tsx:1074:                      <CalendarPlus className="size-3.5 text-emerald-600" />
+   105→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:381:                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+   106→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:396:                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   107→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:429:                  <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   108→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:430:                    <Key className="size-4 text-emerald-600 dark:text-emerald-400" />
+   109→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:445:                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Configured</Badge>
+   110→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:460:                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   111→/home/z/my-project/src/app/staff/dashboard/admin/infrastructure/page.tsx:586:                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+   112→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:116:  CLINIC_RECEPTION: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+   113→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:121:  Accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+   114→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:568:                <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+   115→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:570:                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+   116→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:572:                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+   117→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:607:              <div className="flex items-center justify-center size-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   118→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:608:                <Users className="size-5 text-emerald-700 dark:text-emerald-400" />
+   119→/home/z/my-project/src/app/staff/dashboard/admin/users/page.tsx:686:                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+   120→/home/z/my-project/src/app/staff/dashboard/page.tsx:103:                <TrendingUp className="size-3 text-emerald-600" />
+   121→/home/z/my-project/src/app/staff/dashboard/page.tsx:104:                <span className="text-emerald-600">{trend}</span>
+   122→/home/z/my-project/src/app/staff/dashboard/page.tsx:157:              : "bg-emerald-50 text-emerald-600 border-emerald-200"
+   123→/home/z/my-project/src/app/staff/dashboard/page.tsx:211:  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-emerald-600", bg: "bg-emerald-100", borderColor: "border-l-emerald-500" },
+   124→/home/z/my-project/src/app/staff/dashboard/page.tsx:254:      <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+   125→/home/z/my-project/src/app/staff/dashboard/page.tsx:258:            <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   126→/home/z/my-project/src/app/staff/dashboard/page.tsx:259:              <Bell className="size-4 text-emerald-600" />
+   127→/home/z/my-project/src/app/staff/dashboard/page.tsx:325:              className="w-full flex items-center justify-center gap-1 pt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+   128→/home/z/my-project/src/app/staff/dashboard/page.tsx:435:            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 cursor-pointer"
+   129→/home/z/my-project/src/app/staff/dashboard/page.tsx:451:          gradient="bg-gradient-to-r from-emerald-500 to-teal-500"
+   130→/home/z/my-project/src/app/staff/dashboard/page.tsx:452:          iconBg="bg-emerald-100 text-emerald-600"
+   131→/home/z/my-project/src/app/staff/dashboard/page.tsx:482:      <div className="h-px bg-gradient-to-r from-emerald-200/30 via-emerald-200/50 to-transparent" />
+   132→/home/z/my-project/src/app/staff/dashboard/page.tsx:491:                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   133→/home/z/my-project/src/app/staff/dashboard/page.tsx:492:                  <Activity className="size-4 text-emerald-600" />
+   134→/home/z/my-project/src/app/staff/dashboard/page.tsx:499:                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+   135→/home/z/my-project/src/app/staff/dashboard/page.tsx:500:                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+   136→/home/z/my-project/src/app/staff/dashboard/page.tsx:549:                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   137→/home/z/my-project/src/app/staff/dashboard/page.tsx:550:                  <TrendingUp className="size-4 text-emerald-600" />
+   138→/home/z/my-project/src/app/staff/dashboard/page.tsx:558:                className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 transition-all text-left cursor-pointer group"
+   139→/home/z/my-project/src/app/staff/dashboard/page.tsx:560:                <div className="size-9 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+   140→/home/z/my-project/src/app/staff/dashboard/page.tsx:564:                  <p className="text-sm font-medium text-emerald-900">New Booking</p>
+   141→/home/z/my-project/src/app/staff/dashboard/page.tsx:565:                  <p className="text-xs text-emerald-700/70">Book for a phone-in patient</p>
+   142→/home/z/my-project/src/app/staff/dashboard/page.tsx:567:                <ArrowRight className="size-4 text-emerald-400 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+   143→/home/z/my-project/src/app/staff/dashboard/page.tsx:604:                <div className="size-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+   144→/home/z/my-project/src/app/staff/dashboard/page.tsx:605:                  <BarChart3 className="size-4 text-emerald-600" />
+   145→/home/z/my-project/src/app/staff/dashboard/page.tsx:622:                          ? "bg-emerald-500"
+   146→/home/z/my-project/src/app/staff/dashboard/page.tsx:633:                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+   147→/home/z/my-project/src/app/staff/dashboard/page.tsx:635:                      <CheckCircle2 className="size-3.5 text-emerald-600" />
+   148→/home/z/my-project/src/app/staff/dashboard/page.tsx:636:                      <span className="text-xs text-emerald-700 font-medium">Completed</span>
+   149→/home/z/my-project/src/app/staff/dashboard/page.tsx:638:                    <p className="text-xl font-bold text-emerald-800">{data.stats.completedCount}</p>
+   150→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:71:  CLINIC_ADMIN: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
+   151→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:78:  Accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
+   152→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:214:            <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+   153→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:215:              <Users className="size-5 text-emerald-600" />
+   154→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:256:                          <div className="size-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+   155→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:257:                            <Shield className="size-3.5 text-emerald-600" />
+   156→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:357:            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-4 space-y-3">
+   157→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:359:                <BadgeCheck className="size-5 text-emerald-600" />
+   158→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:360:                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+   159→/home/z/my-project/src/app/staff/dashboard/settings/staff/page.tsx:434:                              ? "bg-emerald-500"
+   160→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:147:  { value: PROVIDER_STATUS.ACTIVE, label: "Active", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+   161→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:586:        <Button onClick={openAddDialog} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+   162→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:643:                  <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-sm font-medium">
+   163→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:895:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   164→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:989:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   165→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1106:            <Button size="sm" onClick={onAddTemplate} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+   166→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1144:                                <Building2 className="size-3 text-emerald-500" />
+   167→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1220:                                <Building2 className="size-3 text-emerald-500" />
+   168→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1290:                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 pl-3 pr-1.5 py-1"
+   169→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1292:                    <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+   170→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1295:                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+   171→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1301:                      className="h-5 w-5 p-0 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-800/40"
+   172→/home/z/my-project/src/app/staff/dashboard/settings/providers/page.tsx:1354:                                    ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-900/10"
+   173→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:264:            <DollarSign className="size-5 text-emerald-600" />
+   174→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:294:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   175→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:322:                <Stethoscope className="size-5 text-emerald-600" />
+   176→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:354:                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+   177→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:361:                        className="border border-border rounded-lg p-4 hover:border-emerald-200 transition-colors"
+   178→/home/z/my-project/src/app/staff/dashboard/settings/services/page.tsx:532:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   179→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:277:            <DollarSign className="size-5 text-emerald-600" />
+   180→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:354:            <Clock className="size-5 text-emerald-600" />
+   181→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:431:            <RefreshCw className="size-5 text-emerald-600" />
+   182→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:465:                    <Icon className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+   183→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:484:            <CreditCard className="size-5 text-emerald-600" />
+   184→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:504:                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-border hover:border-emerald-200 transition-colors"
+   185→/home/z/my-project/src/app/staff/dashboard/settings/financial/page.tsx:550:          className="bg-emerald-600 hover:bg-emerald-700 text-white px-8"
+   186→/home/z/my-project/src/app/staff/dashboard/settings/hours/page.tsx:319:              <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+   187→/home/z/my-project/src/app/staff/dashboard/settings/hours/page.tsx:320:                <Clock className="size-5 text-emerald-600" />
+   188→/home/z/my-project/src/app/staff/dashboard/settings/communications/page.tsx:364:              <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+   189→/home/z/my-project/src/app/staff/dashboard/settings/communications/page.tsx:365:                <MessageSquare className="size-5 text-emerald-600" />
+   190→/home/z/my-project/src/app/staff/dashboard/settings/communications/page.tsx:562:                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+   191→/home/z/my-project/src/app/staff/dashboard/admin/taxonomy/page.tsx:747:          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+   192→/home/z/my-project/src/app/staff/dashboard/admin/taxonomy/page.tsx:874:                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+   193→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:246:          className="relative flex-shrink-0 rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden flex items-center justify-center bg-muted/30 cursor-pointer hover:border-emerald-500/50 transition-colors"
+   194→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:286:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   195→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:402:        <MapPin className="size-8 text-emerald-500/60" />
+   196→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:687:            <Building2 className="size-5 text-emerald-600" />
+   197→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:761:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   198→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:778:            <Building2 className="size-5 text-emerald-600" />
+   199→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:795:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   200→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:812:            <MapPin className="size-5 text-emerald-600" />
+   201→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:903:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   202→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:920:            <ImageIcon className="size-5 text-emerald-600" />
+   203→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1003:            <Star className="size-5 text-emerald-600" />
+   204→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1014:              <Car className="size-4 text-emerald-600" />
+   205→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1029:              <Footprints className="size-4 text-emerald-600" />
+   206→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1044:              <HelpCircle className="size-4 text-emerald-600" />
+   207→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1074:              <Star className="size-4 text-emerald-600" />
+   208→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1084:                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
+   209→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1085:                        : "border-border hover:border-emerald-300"
+   210→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1109:                  <Languages className="size-4 text-emerald-600" />
+   211→/home/z/my-project/src/app/staff/dashboard/settings/profile/page.tsx:1158:              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+   212→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:75:  AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-200",
+   213→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:381:        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+   214→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:382:          <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+   215→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:386:          <div className="h-5 w-px bg-emerald-200" />
+   216→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:400:            className="cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+   217→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:511:                    <Calendar className="size-4 text-emerald-600" />
+   218→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:516:                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+   219→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:563:                              ${isSelected ? "ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50" : "border-border/50 hover:border-emerald-200 hover:bg-emerald-50/20"}
+   220→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:571:                                  <CheckSquare className="size-4 text-emerald-600" />
+   221→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:594:                                <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+   222→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:652:                  You are about to <span className="font-semibold text-emerald-600">unblock</span>{" "}
+   223→/home/z/my-project/src/app/staff/dashboard/slots/page.tsx:684:                    ? "bg-emerald-600 hover:bg-emerald-700"
+   224→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:440:          <Loader2 className="size-8 text-emerald-600 animate-spin" />
+   225→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:460:            className="absolute top-4 left-0 h-0.5 bg-emerald-500 rounded-full transition-all duration-500 ease-out"
+   226→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:479:                      ? "size-9 bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
+   227→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:481:                        ? "size-8 bg-emerald-500 text-white"
+   228→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:495:                      ? "text-emerald-700"
+   229→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:497:                        ? "text-emerald-600"
+   230→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:536:                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   231→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:537:                    : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   232→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:544:                      ? "bg-emerald-600 text-white"
+   233→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:545:                      : "bg-emerald-100 text-emerald-700"
+   234→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:566:                  <Check className="size-5 text-emerald-600 ml-auto shrink-0" />
+   235→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:631:                <Loader2 className="size-6 text-emerald-600 animate-spin" />
+   236→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:653:                      <Building2 className="size-3.5 text-emerald-600" />
+   237→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:654:                      <span className="text-xs font-medium text-emerald-700">
+   238→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:668:                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   239→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:669:                                : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   240→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:676:                                  ? "text-emerald-700"
+   241→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:758:          <Card className="shadow-sm border-l-4 border-l-emerald-500">
+   242→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:760:              <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+   243→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:761:                <Calendar className="size-4 text-emerald-700" />
+   244→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:792:              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+   245→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:799:              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+   246→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:965:                        ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   247→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:966:                        : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   248→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:973:                          ? "bg-emerald-600 text-white"
+   249→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:990:                      <Check className="size-4 text-emerald-600 ml-auto shrink-0" />
+   250→/home/z/my-project/src/app/staff/dashboard/book/page.tsx:997:            <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
+   251→
+   252→[Showing results with pagination = limit: 250]

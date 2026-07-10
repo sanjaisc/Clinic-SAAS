@@ -1,0 +1,1051 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import {
+     6→  CalendarDays,
+     7→  TrendingUp,
+     8→  XCircle,
+     9→  BarChart3,
+    10→
+    11→  Star,
+    12→  Activity,
+    13→  CheckCircle2,
+    14→  DollarSign,
+    15→  UserX,
+    16→  Search,
+    17→  Eye,
+    18→  MousePointerClick,
+    19→  ShoppingCart,
+    20→  ThumbsUp,
+    21→  ArrowRight,
+    22→  Building2,
+    23→  ChevronDown,
+    24→} from "lucide-react";
+    25→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Badge } from "@/components/ui/badge";
+    28→import { Skeleton } from "@/components/ui/skeleton";
+    29→import {
+    30→  Popover,
+    31→  PopoverContent,
+    32→  PopoverTrigger,
+    33→} from "@/components/ui/popover";
+    34→import { Calendar } from "@/components/ui/calendar";
+    35→import { format, parseISO } from "date-fns";
+    36→import type { DoctASessionUser } from "@/lib/auth";
+    37→
+    38→// ---------------------------------------------------------------------------
+    39→// Types
+    40→// ---------------------------------------------------------------------------
+    41→type Period = "TODAY" | "7D" | "30D" | "90D" | "custom";
+    42→
+    43→interface AnalyticsData {
+    44→  period: { start: string; end: string; days: number };
+    45→  appointmentVolume: Array<{ date: string; count: number }>;
+    46→  modalitySplit: {
+    47→    inPerson: number;
+    48→    video: number;
+    49→    inPersonPct: number;
+    50→    videoPct: number;
+    51→  };
+    52→  noShowDistribution: Array<{ day: string; count: number }>;
+    53→  depositCapture: {
+    54→    totalDepositCents: number;
+    55→    capturedCents: number;
+    56→    forfeitedCents: number;
+    57→    refundedCents: number;
+    58→  };
+    59→  summaryStats: {
+    60→    totalAppointments: number;
+    61→    completedAppointments: number;
+    62→    noShowCount: number;
+    63→    cancellationRate: number;
+    64→    avgRating: number;
+    65→    totalRevenue: number;
+    66→  };
+    67→  clinicBreakdown: Array<{
+    68→    clinicId: string;
+    69→    clinicName: string;
+    70→    appointments: number;
+    71→    completed: number;
+    72→    noShows: number;
+    73→    revenue: number;
+    74→    rating: number;
+    75→  }>;
+    76→}
+    77→
+    78→interface ConversionData {
+    79→  period: { start: string; end: string };
+    80→  funnel: {
+    81→    totalSearches: number;
+    82→    clinicViews: number;
+    83→    bookingStarts: number;
+    84→    bookingCompletes: number;
+    85→  };
+    86→  conversionRates: {
+    87→    searchToClinicView: number;
+    88→    clinicViewToBookingStart: number;
+    89→    bookingStartToComplete: number;
+    90→    searchToBooking: number;
+    91→  };
+    92→  recommendationAcceptRate: number;
+    93→  uniqueSessions: {
+    94→    searches: number;
+    95→    clinicViews: number;
+    96→    bookingStarts: number;
+    97→    bookingCompletes: number;
+    98→  };
+    99→}
+   100→
+   101→const PERIODS: { key: Period; label: string }[] = [
+   102→  { key: "TODAY", label: "Today" },
+   103→  { key: "7D", label: "7 Days" },
+   104→  { key: "30D", label: "30 Days" },
+   105→  { key: "90D", label: "90 Days" },
+   106→];
+   107→
+   108→// ---------------------------------------------------------------------------
+   109→// Helper: format cents to dollars
+   110→// ---------------------------------------------------------------------------
+   111→function fmtCents(cents: number): string {
+   112→  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+   113→}
+   114→
+   115→// ---------------------------------------------------------------------------
+   116→// Component
+   117→// ---------------------------------------------------------------------------
+   118→export default function AdminAnalyticsPage() {
+   119→  const { data: session } = useSession();
+   120→  const user = session?.user as DoctASessionUser | undefined;
+   121→
+   122→  // Date filtering
+   123→  const [period, setPeriod] = useState<Period>("30D");
+   124→  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+   125→  const [dateTo, setDateTo] = useState<Date | undefined>();
+   126→  const [calOpen, setCalOpen] = useState<"from" | "to" | null>(null);
+   127→
+   128→  // Data
+   129→  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+   130→  const [conversion, setConversion] = useState<ConversionData | null>(null);
+   131→  const [loading, setLoading] = useState(true);
+   132→  const [error, setError] = useState<string | null>(null);
+   133→  const [refreshKey, setRefreshKey] = useState(0);
+   134→
+   135→  useEffect(() => {
+   136→    if (!user) return;
+   137→    // Build params for both calls
+   138→    const params = new URLSearchParams();
+   139→    if (period === "custom" && dateFrom && dateTo) {
+   140→      params.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
+   141→      params.set("dateTo", format(dateTo, "yyyy-MM-dd"));
+   142→    } else if (period !== "custom") {
+   143→      params.set("period", period);
+   144→    }
+   145→
+   146→    const convParams = new URLSearchParams();
+   147→    if (dateFrom && dateTo) {
+   148→      convParams.set("dateFrom", format(dateFrom, "yyyy-MM-dd"));
+   149→      convParams.set("dateTo", format(dateTo, "yyyy-MM-dd"));
+   150→    }
+   151→
+   152→    let cancelled = false;
+   153→
+   154→    // Use an async IIFE to avoid synchronous setState in effect body
+   155→    (async () => {
+   156→      setLoading(true);
+   157→      setError(null);
+   158→      try {
+   159→        const [aData, cData] = await Promise.all([
+   160→          fetch(`/api/staff/admin/analytics?${params.toString()}`).then((r) => {
+   161→            if (!r.ok) throw new Error("Analytics fetch failed");
+   162→            return r.json();
+   163→          }),
+   164→          fetch(`/api/staff/admin/conversion?${convParams.toString()}`).then(
+   165→            (r) => {
+   166→              if (!r.ok) throw new Error("Conversion fetch failed");
+   167→              return r.json();
+   168→            }
+   169→          ),
+   170→        ]);
+   171→        if (!cancelled) {
+   172→          setAnalytics(aData);
+   173→          setConversion(cData);
+   174→        }
+   175→      } catch (err) {
+   176→        if (!cancelled) setError((err as Error).message);
+   177→      } finally {
+   178→        if (!cancelled) setLoading(false);
+   179→      }
+   180→    })();
+   181→
+   182→    return () => {
+   183→      cancelled = true;
+   184→    };
+   185→  }, [user, period, dateFrom, dateTo, refreshKey]);
+   186→
+   187→  const handleApply = () => {
+   188→    setPeriod("custom");
+   189→    setRefreshKey((k) => k + 1);
+   190→  };
+   191→
+   192→  // ---------------------------------------------------------------------------
+   193→  // Render: Loading skeleton
+   194→  // ---------------------------------------------------------------------------
+   195→  if (loading && !analytics) {
+   196→    return (
+   197→      <div className="space-y-6 animate-pulse">
+   198→        {/* Date bar skeleton */}
+   199→        <div className="flex flex-wrap gap-2 items-center">
+   200→          {Array.from({ length: 4 }).map((_, i) => (
+   201→            <Skeleton key={i} className="h-9 w-24 rounded-lg" />
+   202→          ))}
+   203→          <Skeleton className="h-9 w-32 rounded-lg" />
+   204→        </div>
+   205→        {/* Stat cards */}
+   206→        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+   207→          {Array.from({ length: 5 }).map((_, i) => (
+   208→            <Card key={i}>
+   209→              <CardContent className="p-4">
+   210→                <Skeleton className="h-4 w-24 mb-2" />
+   211→                <Skeleton className="h-7 w-16" />
+   212→              </CardContent>
+   213→            </Card>
+   214→          ))}
+   215→        </div>
+   216→        {/* Charts */}
+   217→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   218→          {Array.from({ length: 4 }).map((_, i) => (
+   219→            <Card key={i}>
+   220→              <CardContent className="p-6">
+   221→                <Skeleton className="h-5 w-36 mb-4" />
+   222→                <Skeleton className="h-48 w-full" />
+   223→              </CardContent>
+   224→            </Card>
+   225→          ))}
+   226→        </div>
+   227→      </div>
+   228→    );
+   229→  }
+   230→
+   231→  if (error) {
+   232→    return (
+   233→      <div className="text-center py-12 space-y-4">
+   234→        <XCircle className="size-12 text-red-400 mx-auto" />
+   235→        <p className="text-sm text-muted-foreground">{error}</p>
+   236→        <Button variant="outline" onClick={() => setRefreshKey((k) => k + 1)}>
+   237→          Retry
+   238→        </Button>
+   239→      </div>
+   240→    );
+   241→  }
+   242→
+   243→  if (!analytics || !conversion) return null;
+   244→
+   245→  // ---------------------------------------------------------------------------
+   246→  // Derived chart data
+   247→  // ---------------------------------------------------------------------------
+   248→  const maxVolume = Math.max(...analytics.appointmentVolume.map((d) => d.count), 1);
+   249→  const maxNoShow = Math.max(...analytics.noShowDistribution.map((d) => d.count), 1);
+   250→  const maxDeposit = Math.max(
+   251→    analytics.depositCapture.totalDepositCents,
+   252→    analytics.depositCapture.capturedCents,
+   253→    analytics.depositCapture.forfeitedCents,
+   254→    analytics.depositCapture.refundedCents,
+   255→    1
+   256→  );
+   257→
+   258→  return (
+   259→    <div className="space-y-6">
+   260→      {/* ================================================================= */}
+   261→      {/* DATE FILTERING BAR                                                */}
+   262→      {/* ================================================================= */}
+   263→      <Card>
+   264→        <CardContent className="p-4">
+   265→          <div className="flex flex-wrap items-center gap-3">
+   266→            <span className="text-sm font-medium text-muted-foreground mr-1">
+   267→              Period:
+   268→            </span>
+   269→            {PERIODS.map((p) => (
+   270→              <Button
+   271→                key={p.key}
+   272→                size="sm"
+   273→                variant={period === p.key ? "default" : "outline"}
+   274→                className={
+   275→                  period === p.key
+   276→                    ? "bg-purple-600 hover:bg-purple-700 text-white"
+   277→                    : ""
+   278→                }
+   279→                onClick={() => setPeriod(p.key)}
+   280→              >
+   281→                {p.label}
+   282→              </Button>
+   283→            ))}
+   284→
+   285→            <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+   286→
+   287→            {/* Custom date range */}
+   288→            <div className="flex items-center gap-2">
+   289→              <Popover
+   290→                open={calOpen === "from"}
+   291→                onOpenChange={(open) =>
+   292→                  setCalOpen(open ? "from" : null)
+   293→                }
+   294→              >
+   295→                <PopoverTrigger asChild>
+   296→                  <Button
+   297→                    size="sm"
+   298→                    variant={period === "custom" ? "default" : "outline"}
+   299→                    className={
+   300→                      period === "custom"
+   301→                        ? "bg-purple-600 hover:bg-purple-700 text-white"
+   302→                        : ""
+   303→                    }
+   304→                  >
+   305→                    {dateFrom
+   306→                      ? format(dateFrom, "MMM d, yyyy")
+   307→                      : "From"}
+   308→                    <ChevronDown className="size-3 ml-1" />
+   309→                  </Button>
+   310→                </PopoverTrigger>
+   311→                <PopoverContent className="w-auto p-0" align="start">
+   312→                  <Calendar
+   313→                    mode="single"
+   314→                    selected={dateFrom}
+   315→                    onSelect={(d) => {
+   316→                      setDateFrom(d);
+   317→                      setPeriod("custom");
+   318→                      setCalOpen("to");
+   319→                    }}
+   320→                    disabled={(d) =>
+   321→                      dateTo ? d > dateTo : d > new Date()
+   322→                    }
+   323→                    initialFocus
+   324→                  />
+   325→                </PopoverContent>
+   326→              </Popover>
+   327→
+   328→              <span className="text-xs text-muted-foreground">to</span>
+   329→
+   330→              <Popover
+   331→                open={calOpen === "to"}
+   332→                onOpenChange={(open) => setCalOpen(open ? "to" : null)}
+   333→              >
+   334→                <PopoverTrigger asChild>
+   335→                  <Button
+   336→                    size="sm"
+   337→                    variant={period === "custom" ? "default" : "outline"}
+   338→                    className={
+   339→                      period === "custom"
+   340→                        ? "bg-purple-600 hover:bg-purple-700 text-white"
+   341→                        : ""
+   342→                    }
+   343→                  >
+   344→                    {dateTo
+   345→                      ? format(dateTo, "MMM d, yyyy")
+   346→                      : "To"}
+   347→                    <ChevronDown className="size-3 ml-1" />
+   348→                  </Button>
+   349→                </PopoverTrigger>
+   350→                <PopoverContent className="w-auto p-0" align="start">
+   351→                  <Calendar
+   352→                    mode="single"
+   353→                    selected={dateTo}
+   354→                    onSelect={(d) => {
+   355→                      setDateTo(d);
+   356→                      setPeriod("custom");
+   357→                      setCalOpen(null);
+   358→                    }}
+   359→                    disabled={(d) =>
+   360→                      dateFrom ? d < dateFrom || d > new Date() : d > new Date()
+   361→                    }
+   362→                  initialFocus
+   363→                  />
+   364→                </PopoverContent>
+   365→              </Popover>
+   366→
+   367→              {period === "custom" && (
+   368→                <Button size="sm" onClick={handleApply}>
+   369→                  Apply
+   370→                </Button>
+   371→              )}
+   372→            </div>
+   373→
+   374→            {analytics.period && (
+   375→              <span className="text-xs text-muted-foreground ml-auto">
+   376→                {analytics.period.start} → {analytics.period.end}
+   377→              </span>
+   378→            )}
+   379→          </div>
+   380→        </CardContent>
+   381→      </Card>
+   382→
+   383→      {/* ================================================================= */}
+   384→      {/* SUMMARY STATS ROW                                                 */}
+   385→      {/* ================================================================= */}
+   386→      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+   387→        <StatCard
+   388→          icon={<CalendarDays className="size-5 text-purple-500" />}
+   389→          label="Total Appointments"
+   390→          value={analytics.summaryStats.totalAppointments.toLocaleString()}
+   391→          sub={`Last ${analytics.period.days} days`}
+   392→        />
+   393→        <StatCard
+   394→          icon={<CheckCircle2 className="size-5 text-emerald-500" />}
+   395→          label="Completed"
+   396→          value={analytics.summaryStats.completedAppointments.toLocaleString()}
+   397→          sub={
+   398→            analytics.summaryStats.totalAppointments > 0
+   399→              ? `${Math.round((analytics.summaryStats.completedAppointments / analytics.summaryStats.totalAppointments) * 100)}% completion`
+   400→              : "N/A"
+   401→          }
+   402→        />
+   403→        <StatCard
+   404→          icon={<UserX className="size-5 text-amber-500" />}
+   405→          label="No-Shows"
+   406→          value={analytics.summaryStats.noShowCount.toLocaleString()}
+   407→          sub={
+   408→            analytics.summaryStats.totalAppointments > 0
+   409→              ? `${Math.round((analytics.summaryStats.noShowCount / analytics.summaryStats.totalAppointments) * 100)}% rate`
+   410→              : "N/A"
+   411→          }
+   412→        />
+   413→        <StatCard
+   414→          icon={<XCircle className="size-5 text-red-400" />}
+   415→          label="Cancellation Rate"
+   416→          value={`${analytics.summaryStats.cancellationRate}%`}
+   417→          sub="of total appointments"
+   418→        />
+   419→        <StatCard
+   420→          icon={<Star className="size-5 text-yellow-500" />}
+   421→          label="Avg Rating"
+   422→          value={analytics.summaryStats.avgRating.toFixed(1)}
+   423→          sub="across all reviews"
+   424→        />
+   425→      </div>
+   426→
+   427→      {/* ================================================================= */}
+   428→      {/* CHARTS SECTION (G1)                                               */}
+   429→      {/* ================================================================= */}
+   430→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   431→        {/* --- Appointment Volume (Area Chart) --- */}
+   432→        <Card>
+   433→          <CardHeader className="pb-3">
+   434→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   435→              <TrendingUp className="size-4 text-purple-500" />
+   436→              Appointment Volume
+   437→            </CardTitle>
+   438→          </CardHeader>
+   439→          <CardContent className="p-4 pt-0">
+   440→            <div className="h-48 flex items-end gap-px">
+   441→              {analytics.appointmentVolume.map((d, idx) => {
+   442→                const heightPct = (d.count / maxVolume) * 100;
+   443→                const showLabel =
+   444→                  analytics.period.days <= 7 ||
+   445→                  idx === 0 ||
+   446→                  idx === analytics.appointmentVolume.length - 1 ||
+   447→                  idx === Math.floor(analytics.appointmentVolume.length / 2);
+   448→                return (
+   449→                  <div
+   450→                    key={d.date}
+   451→                    className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-0"
+   452→                  >
+   453→                    {/* Tooltip */}
+   454→                    <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover border border-border rounded-md px-2 py-1 shadow-md whitespace-nowrap">
+   455→                      <p className="text-xs font-medium">
+   456→                        {format(parseISO(d.date), "MMM d")}
+   457→                      </p>
+   458→                      <p className="text-xs text-muted-foreground">
+   459→                        {d.count} appointments
+   460→                      </p>
+   461→                    </div>
+   462→                    {/* Bar */}
+   463→                    <div
+   464→                      className="w-full bg-purple-500/80 hover:bg-purple-600 rounded-t-sm transition-colors min-h-[2px]"
+   465→                      style={{ height: `${Math.max(heightPct, 1)}%` }}
+   466→                    />
+   467→                    {/* Label */}
+   468→                    {showLabel && (
+   469→                      <span className="text-[10px] text-muted-foreground mt-1 truncate w-full text-center">
+   470→                        {format(parseISO(d.date), "MMM d")}
+   471→                      </span>
+   472→                    )}
+   473→                  </div>
+   474→                );
+   475→              })}
+   476→            </div>
+   477→            {analytics.appointmentVolume.every((d) => d.count === 0) && (
+   478→              <p className="text-sm text-muted-foreground text-center py-8">
+   479→                No appointment data for this period
+   480→              </p>
+   481→            )}
+   482→          </CardContent>
+   483→        </Card>
+   484→
+   485→        {/* --- Modality Split (Donut Chart) --- */}
+   486→        <Card>
+   487→          <CardHeader className="pb-3">
+   488→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   489→              <Activity className="size-4 text-emerald-500" />
+   490→              Modality Split
+   491→            </CardTitle>
+   492→          </CardHeader>
+   493→          <CardContent className="p-4 pt-0">
+   494→            {analytics.modalitySplit.inPerson + analytics.modalitySplit.video ===
+   495→            0 ? (
+   496→              <p className="text-sm text-muted-foreground text-center py-8">
+   497→                No modality data for this period
+   498→              </p>
+   499→            ) : (
+   500→              <div className="flex items-center gap-8">
+   501→                {/* CSS Donut Chart */}
+   502→                <div className="relative size-40 shrink-0">
+   503→                  <svg viewBox="0 0 36 36" className="size-full -rotate-90">
+   504→                    <circle
+   505→                      cx="18"
+   506→                      cy="18"
+   507→                      r="15.91549"
+   508→                      fill="none"
+   509→                      stroke="currentColor"
+   510→                      strokeWidth="3"
+   511→                      className="text-muted/30"
+   512→                    />
+   513→                    <circle
+   514→                      cx="18"
+   515→                      cy="18"
+   516→                      r="15.91549"
+   517→                      fill="none"
+   518→                      stroke="currentColor"
+   519→                      strokeWidth="3"
+   520→                      strokeDasharray={`${analytics.modalitySplit.inPersonPct} ${100 - analytics.modalitySplit.inPersonPct}`}
+   521→                      strokeDashoffset="0"
+   522→                      className="text-purple-600"
+   523→                      style={{
+   524→                        transition: "stroke-dasharray 0.6s ease",
+   525→                      }}
+   526→                    />
+   527→                    <circle
+   528→                      cx="18"
+   529→                      cy="18"
+   530→                      r="15.91549"
+   531→                      fill="none"
+   532→                      stroke="currentColor"
+   533→                      strokeWidth="3"
+   534→                      strokeDasharray={`${analytics.modalitySplit.videoPct} ${100 - analytics.modalitySplit.videoPct}`}
+   535→                      strokeDashoffset={`${-analytics.modalitySplit.inPersonPct}`}
+   536→                      className="text-emerald-500"
+   537→                      style={{
+   538→                        transition: "stroke-dasharray 0.6s ease",
+   539→                      }}
+   540→                    />
+   541→                  </svg>
+   542→                  <div className="absolute inset-0 flex items-center justify-center">
+   543→                    <span className="text-sm font-semibold">
+   544→                      {analytics.modalitySplit.inPerson +
+   545→                        analytics.modalitySplit.video}
+   546→                    </span>
+   547→                  </div>
+   548→                </div>
+   549→                {/* Legend */}
+   550→                <div className="space-y-4 flex-1">
+   551→                  <div className="space-y-1">
+   552→                    <div className="flex items-center justify-between">
+   553→                      <div className="flex items-center gap-2">
+   554→                        <div className="size-3 rounded-full bg-purple-600" />
+   555→                        <span className="text-sm font-medium">
+   556→                          In-Person
+   557→                        </span>
+   558→                      </div>
+   559→                      <div className="text-right">
+   560→                        <span className="text-sm font-semibold">
+   561→                          {analytics.modalitySplit.inPerson}
+   562→                        </span>
+   563→                        <span className="text-xs text-muted-foreground ml-1">
+   564→                          ({analytics.modalitySplit.inPersonPct}%)
+   565→                        </span>
+   566→                      </div>
+   567→                    </div>
+   568→                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+   569→                      <div
+   570→                        className="h-full bg-purple-600 rounded-full transition-all duration-500"
+   571→                        style={{
+   572→                          width: `${analytics.modalitySplit.inPersonPct}%`,
+   573→                        }}
+   574→                      />
+   575→                    </div>
+   576→                  </div>
+   577→                  <div className="space-y-1">
+   578→                    <div className="flex items-center justify-between">
+   579→                      <div className="flex items-center gap-2">
+   580→                        <div className="size-3 rounded-full bg-emerald-500" />
+   581→                        <span className="text-sm font-medium">Video</span>
+   582→                      </div>
+   583→                      <div className="text-right">
+   584→                        <span className="text-sm font-semibold">
+   585→                          {analytics.modalitySplit.video}
+   586→                        </span>
+   587→                        <span className="text-xs text-muted-foreground ml-1">
+   588→                          ({analytics.modalitySplit.videoPct}%)
+   589→                        </span>
+   590→                      </div>
+   591→                    </div>
+   592→                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+   593→                      <div
+   594→                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+   595→                        style={{
+   596→                          width: `${analytics.modalitySplit.videoPct}%`,
+   597→                        }}
+   598→                      />
+   599→                    </div>
+   600→                  </div>
+   601→                </div>
+   602→              </div>
+   603→            )}
+   604→          </CardContent>
+   605→        </Card>
+   606→
+   607→        {/* --- No-Show Distribution (Bar Chart) --- */}
+   608→        <Card>
+   609→          <CardHeader className="pb-3">
+   610→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   611→              <UserX className="size-4 text-amber-500" />
+   612→              No-Show Distribution by Day
+   613→            </CardTitle>
+   614→          </CardHeader>
+   615→          <CardContent className="p-4 pt-0">
+   616→            {analytics.noShowDistribution.every((d) => d.count === 0) ? (
+   617→              <p className="text-sm text-muted-foreground text-center py-8">
+   618→                No no-show data for this period
+   619→              </p>
+   620→            ) : (
+   621→              <div className="space-y-2">
+   622→                {analytics.noShowDistribution.map((d) => {
+   623→                  const widthPct = (d.count / maxNoShow) * 100;
+   624→                  return (
+   625→                    <div key={d.day} className="flex items-center gap-3">
+   626→                      <span className="text-xs font-medium w-8 text-right text-muted-foreground">
+   627→                        {d.day}
+   628→                      </span>
+   629→                      <div className="flex-1 h-7 bg-muted rounded-md overflow-hidden relative">
+   630→                        <div
+   631→                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-md transition-all duration-500 flex items-center px-2"
+   632→                          style={{
+   633→                            width: `${Math.max(widthPct, d.count > 0 ? 8 : 0)}%`,
+   634→                          }}
+   635→                        >
+   636→                          {widthPct > 20 && (
+   637→                            <span className="text-[10px] font-semibold text-white">
+   638→                              {d.count}
+   639→                            </span>
+   640→                          )}
+   641→                        </div>
+   642→                        {widthPct <= 20 && d.count > 0 && (
+   643→                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground">
+   644→                            {d.count}
+   645→                          </span>
+   646→                        )}
+   647→                      </div>
+   648→                    </div>
+   649→                  );
+   650→                })}
+   651→              </div>
+   652→            )}
+   653→          </CardContent>
+   654→        </Card>
+   655→
+   656→        {/* --- Deposit Capture (Stacked Horizontal Bar) --- */}
+   657→        <Card>
+   658→          <CardHeader className="pb-3">
+   659→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   660→              <DollarSign className="size-4 text-emerald-500" />
+   661→              Deposit Capture
+   662→            </CardTitle>
+   663→          </CardHeader>
+   664→          <CardContent className="p-4 pt-0">
+   665→            {analytics.depositCapture.totalDepositCents === 0 &&
+   666→            analytics.depositCapture.capturedCents === 0 &&
+   667→            analytics.depositCapture.forfeitedCents === 0 &&
+   668→            analytics.depositCapture.refundedCents === 0 ? (
+   669→              <p className="text-sm text-muted-foreground text-center py-8">
+   670→                No deposit data for this period
+   671→              </p>
+   672→            ) : (
+   673→              <div className="space-y-4">
+   674→                {/* Stacked bar */}
+   675→                <div className="h-10 rounded-lg overflow-hidden flex bg-muted">
+   676→                  {[
+   677→                    {
+   678→                      label: "Authorized",
+   679→                      value: analytics.depositCapture.totalDepositCents,
+   680→                      color: "bg-blue-500",
+   681→                    },
+   682→                    {
+   683→                      label: "Captured",
+   684→                      value: analytics.depositCapture.capturedCents,
+   685→                      color: "bg-emerald-500",
+   686→                    },
+   687→                    {
+   688→                      label: "Forfeited",
+   689→                      value: analytics.depositCapture.forfeitedCents,
+   690→                      color: "bg-amber-500",
+   691→                    },
+   692→                    {
+   693→                      label: "Refunded",
+   694→                      value: analytics.depositCapture.refundedCents,
+   695→                      color: "bg-red-400",
+   696→                    },
+   697→                  ].map((seg) => {
+   698→                    const widthPct =
+   699→                      maxDeposit > 0
+   700→                        ? (seg.value / maxDeposit) * 100
+   701→                        : 0;
+   702→                    if (widthPct === 0) return null;
+   703→                    return (
+   704→                      <div
+   705→                        key={seg.label}
+   706→                        className={`${seg.color} flex items-center justify-center transition-all duration-500 min-w-0`}
+   707→                        style={{ width: `${widthPct}%` }}
+   708→                        title={`${seg.label}: ${fmtCents(seg.value)}`}
+   709→                      >
+   710→                        {widthPct > 12 && (
+   711→                          <span className="text-[10px] font-semibold text-white truncate px-1">
+   712→                            {seg.label}
+   713→                          </span>
+   714→                        )}
+   715→                      </div>
+   716→                    );
+   717→                  })}
+   718→                </div>
+   719→                {/* Legend */}
+   720→                <div className="grid grid-cols-2 gap-3">
+   721→                  <DepositLegendItem
+   722→                    color="bg-blue-500"
+   723→                    label="Authorized"
+   724→                    value={fmtCents(analytics.depositCapture.totalDepositCents)}
+   725→                  />
+   726→                  <DepositLegendItem
+   727→                    color="bg-emerald-500"
+   728→                    label="Captured"
+   729→                    value={fmtCents(analytics.depositCapture.capturedCents)}
+   730→                  />
+   731→                  <DepositLegendItem
+   732→                    color="bg-amber-500"
+   733→                    label="Forfeited"
+   734→                    value={fmtCents(analytics.depositCapture.forfeitedCents)}
+   735→                  />
+   736→                  <DepositLegendItem
+   737→                    color="bg-red-400"
+   738→                    label="Refunded"
+   739→                    value={fmtCents(analytics.depositCapture.refundedCents)}
+   740→                  />
+   741→                </div>
+   742→              </div>
+   743→            )}
+   744→          </CardContent>
+   745→        </Card>
+   746→      </div>
+   747→
+   748→      {/* ================================================================= */}
+   749→      {/* CLINIC BREAKDOWN TABLE                                            */}
+   750→      {/* ================================================================= */}
+   751→      <Card>
+   752→        <CardHeader className="pb-3">
+   753→          <CardTitle className="text-base font-semibold flex items-center gap-2">
+   754→            <Building2 className="size-4 text-purple-500" />
+   755→            Clinic Breakdown
+   756→          </CardTitle>
+   757→        </CardHeader>
+   758→        <CardContent className="p-4 pt-0">
+   759→          {analytics.clinicBreakdown.length === 0 ? (
+   760→            <p className="text-sm text-muted-foreground text-center py-8">
+   761→              No clinic data for this period
+   762→            </p>
+   763→          ) : (
+   764→            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+   765→              <table className="w-full text-sm">
+   766→                <thead className="sticky top-0 bg-card z-10">
+   767→                  <tr className="border-b text-left">
+   768→                    <th className="pb-2 font-medium text-muted-foreground pr-4">
+   769→                      Clinic Name
+   770→                    </th>
+   771→                    <th className="pb-2 font-medium text-muted-foreground text-right pr-4">
+   772→                      Appts
+   773→                    </th>
+   774→                    <th className="pb-2 font-medium text-muted-foreground text-right pr-4">
+   775→                      Completed
+   776→                    </th>
+   777→                    <th className="pb-2 font-medium text-muted-foreground text-right pr-4">
+   778→                      No-Shows
+   779→                    </th>
+   780→                    <th className="pb-2 font-medium text-muted-foreground text-right pr-4">
+   781→                      Revenue
+   782→                    </th>
+   783→                    <th className="pb-2 font-medium text-muted-foreground text-right">
+   784→                      Rating
+   785→                    </th>
+   786→                  </tr>
+   787→                </thead>
+   788→                <tbody className="divide-y">
+   789→                  {analytics.clinicBreakdown.map((clinic) => (
+   790→                    <tr key={clinic.clinicId} className="hover:bg-muted/50 transition-colors">
+   791→                      <td className="py-2.5 pr-4 font-medium truncate max-w-[200px]">
+   792→                        {clinic.clinicName}
+   793→                      </td>
+   794→                      <td className="py-2.5 pr-4 text-right tabular-nums">
+   795→                        {clinic.appointments}
+   796→                      </td>
+   797→                      <td className="py-2.5 pr-4 text-right tabular-nums text-emerald-600">
+   798→                        {clinic.completed}
+   799→                      </td>
+   800→                      <td className="py-2.5 pr-4 text-right tabular-nums text-amber-600">
+   801→                        {clinic.noShows}
+   802→                      </td>
+   803→                      <td className="py-2.5 pr-4 text-right tabular-nums font-medium">
+   804→                        {fmtCents(clinic.revenue)}
+   805→                      </td>
+   806→                      <td className="py-2.5 text-right tabular-nums">
+   807→                        <div className="flex items-center justify-end gap-1">
+   808→                          <Star className="size-3 text-yellow-500 fill-yellow-500" />
+   809→                          {clinic.rating > 0 ? clinic.rating.toFixed(1) : "—"}
+   810→                        </div>
+   811→                      </td>
+   812→                    </tr>
+   813→                  ))}
+   814→                </tbody>
+   815→              </table>
+   816→            </div>
+   817→          )}
+   818→        </CardContent>
+   819→      </Card>
+   820→
+   821→      {/* ================================================================= */}
+   822→      {/* CONVERSION METRICS SECTION (G2)                                   */}
+   823→      {/* ================================================================= */}
+   824→      <Card>
+   825→        <CardHeader className="pb-3">
+   826→          <CardTitle className="text-base font-semibold flex items-center gap-2">
+   827→            <BarChart3 className="size-4 text-purple-500" />
+   828→            Conversion Funnel
+   829→          </CardTitle>
+   830→        </CardHeader>
+   831→        <CardContent className="p-4 pt-0">
+   832→          <div className="space-y-6">
+   833→            {/* Overall Rate */}
+   834→            <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-950/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+   835→              <div>
+   836→                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+   837→                  Overall Search → Booking Rate
+   838→                </p>
+   839→                <p className="text-xs text-muted-foreground">
+   840→                  From search to completed booking
+   841→                </p>
+   842→              </div>
+   843→              <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+   844→                {conversion.conversionRates.searchToBooking}%
+   845→              </span>
+   846→            </div>
+   847→
+   848→            {/* Funnel Steps */}
+   849→            <div className="space-y-0">
+   850→              {[
+   851→                {
+   852→                  icon: <Search className="size-4" />,
+   853→                  label: "Searches",
+   854→                  count: conversion.funnel.totalSearches,
+   855→                  unique: conversion.uniqueSessions.searches,
+   856→                  color: "bg-purple-500",
+   857→                  pct: 100,
+   858→                },
+   859→                {
+   860→                  icon: <Eye className="size-4" />,
+   861→                  label: "Clinic Views",
+   862→                  count: conversion.funnel.clinicViews,
+   863→                  unique: conversion.uniqueSessions.clinicViews,
+   864→                  color: "bg-indigo-500",
+   865→                  rate: conversion.conversionRates.searchToClinicView,
+   866→                  pct:
+   867→                    conversion.funnel.totalSearches > 0
+   868→                      ? (conversion.funnel.clinicViews /
+   869→                          conversion.funnel.totalSearches) *
+   870→                        100
+   871→                      : 0,
+   872→                },
+   873→                {
+   874→                  icon: <MousePointerClick className="size-4" />,
+   875→                  label: "Booking Starts",
+   876→                  count: conversion.funnel.bookingStarts,
+   877→                  unique: conversion.uniqueSessions.bookingStarts,
+   878→                  color: "bg-blue-500",
+   879→                  rate: conversion.conversionRates.clinicViewToBookingStart,
+   880→                  pct:
+   881→                    conversion.funnel.totalSearches > 0
+   882→                      ? (conversion.funnel.bookingStarts /
+   883→                          conversion.funnel.totalSearches) *
+   884→                        100
+   885→                      : 0,
+   886→                },
+   887→                {
+   888→                  icon: <ShoppingCart className="size-4" />,
+   889→                  label: "Booking Completes",
+   890→                  count: conversion.funnel.bookingCompletes,
+   891→                  unique: conversion.uniqueSessions.bookingCompletes,
+   892→                  color: "bg-emerald-500",
+   893→                  rate: conversion.conversionRates.bookingStartToComplete,
+   894→                  pct:
+   895→                    conversion.funnel.totalSearches > 0
+   896→                      ? (conversion.funnel.bookingCompletes /
+   897→                          conversion.funnel.totalSearches) *
+   898→                        100
+   899→                      : 0,
+   900→                },
+   901→              ].map((step, idx) => (
+   902→                <div key={step.label}>
+   903→                  {/* Step row */}
+   904→                  <div className="flex items-center gap-4 py-3">
+   905→                    {/* Icon */}
+   906→                    <div
+   907→                      className={`${step.color} text-white rounded-lg p-2 shrink-0`}
+   908→                    >
+   909→                      {step.icon}
+   910→                    </div>
+   911→                    {/* Label + count */}
+   912→                    <div className="flex-1 min-w-0">
+   913→                      <div className="flex items-center gap-2">
+   914→                        <span className="text-sm font-medium">
+   915→                          {step.label}
+   916→                        </span>
+   917→                        <Badge variant="secondary" className="text-[10px] px-1.5">
+   918→                          {step.count}
+   919→                        </Badge>
+   920→                        {step.unique > 0 && (
+   921→                          <span className="text-[10px] text-muted-foreground">
+   922→                            ({step.unique} sessions)
+   923→                          </span>
+   924→                        )}
+   925→                      </div>
+   926→                      {step.rate !== undefined && idx > 0 && (
+   927→                        <p className="text-xs text-muted-foreground">
+   928→                          {step.rate}% from previous step
+   929→                        </p>
+   930→                      )}
+   931→                    </div>
+   932→                    {/* Percentage bar */}
+   933→                    <div className="w-32 md:w-48 h-5 bg-muted rounded-full overflow-hidden shrink-0">
+   934→                      <div
+   935→                        className={`${step.color} h-full rounded-full transition-all duration-700 flex items-center justify-end pr-2`}
+   936→                        style={{
+   937→                          width: `${Math.max(step.pct, step.count > 0 ? 2 : 0)}%`,
+   938→                        }}
+   939→                      >
+   940→                        {step.pct > 15 && (
+   941→                          <span className="text-[9px] font-semibold text-white">
+   942→                            {Math.round(step.pct)}%
+   943→                          </span>
+   944→                        )}
+   945→                      </div>
+   946→                    </div>
+   947→                  </div>
+   948→                  {/* Arrow connector */}
+   949→                  {idx < 3 && (
+   950→                    <div className="flex justify-center">
+   951→                      <ArrowRight className="size-4 text-muted-foreground/40 -my-1" />
+   952→                    </div>
+   953→                  )}
+   954→                </div>
+   955→              ))}
+   956→            </div>
+   957→
+   958→            {/* Recommendation Acceptance */}
+   959→            <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+   960→              <div className="flex items-center gap-3">
+   961→                <ThumbsUp className="size-5 text-emerald-600 dark:text-emerald-400" />
+   962→                <div>
+   963→                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+   964→                    Recommendation Acceptance Rate
+   965→                  </p>
+   966→                  <p className="text-xs text-muted-foreground">
+   967→                    Patients who accepted clinic recommendations
+   968→                  </p>
+   969→                </div>
+   970→              </div>
+   971→              <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+   972→                {conversion.recommendationAcceptRate}%
+   973→              </span>
+   974→            </div>
+   975→          </div>
+   976→        </CardContent>
+   977→      </Card>
+   978→
+   979→      {/* Revenue highlight */}
+   980→      <Card className="bg-gradient-to-r from-purple-600 to-emerald-500 border-0">
+   981→        <CardContent className="p-6 flex items-center justify-between">
+   982→          <div className="flex items-center gap-3">
+   983→            <div className="size-10 rounded-full bg-white/20 flex items-center justify-center">
+   984→              <DollarSign className="size-5 text-white" />
+   985→            </div>
+   986→            <div>
+   987→              <p className="text-sm font-medium text-white/80">
+   988→                Total Revenue (Completed Appointments)
+   989→              </p>
+   990→              <p className="text-xs text-white/60">
+   991→                Capture + Full + Balance payments
+   992→              </p>
+   993→            </div>
+   994→          </div>
+   995→          <span className="text-3xl font-bold text-white">
+   996→            {fmtCents(analytics.summaryStats.totalRevenue)}
+   997→          </span>
+   998→        </CardContent>
+   999→      </Card>
+  1000→    </div>
+  1001→  );
+  1002→}
+  1003→
+  1004→// ---------------------------------------------------------------------------
+  1005→// Sub-components
+  1006→// ---------------------------------------------------------------------------
+  1007→
+  1008→function StatCard({
+  1009→  icon,
+  1010→  label,
+  1011→  value,
+  1012→  sub,
+  1013→}: {
+  1014→  icon: React.ReactNode;
+  1015→  label: string;
+  1016→  value: string;
+  1017→  sub: string;
+  1018→}) {
+  1019→  return (
+  1020→    <Card className="hover:shadow-md transition-shadow">
+  1021→      <CardContent className="p-4">
+  1022→        <div className="flex items-center gap-2 mb-2">
+  1023→          {icon}
+  1024→          <span className="text-xs font-medium text-muted-foreground">
+  1025→            {label}
+  1026→          </span>
+  1027→        </div>
+  1028→        <p className="text-2xl font-bold tracking-tight">{value}</p>
+  1029→        <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>
+  1030→      </CardContent>
+  1031→    </Card>
+  1032→  );
+  1033→}
+  1034→
+  1035→function DepositLegendItem({
+  1036→  color,
+  1037→  label,
+  1038→  value,
+  1039→}: {
+  1040→  color: string;
+  1041→  label: string;
+  1042→  value: string;
+  1043→}) {
+  1044→  return (
+  1045→    <div className="flex items-center gap-2">
+  1046→      <div className={`size-2.5 rounded-sm ${color} shrink-0`} />
+  1047→      <span className="text-xs text-muted-foreground flex-1">{label}</span>
+  1048→      <span className="text-xs font-semibold tabular-nums">{value}</span>
+  1049→    </div>
+  1050→  );
+  1051→}

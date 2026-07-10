@@ -1,0 +1,715 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import { useClinicContext } from "@/hooks/use-clinic-context";
+     7→import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
+     8→import {
+     9→  Clock,
+    10→  CalendarDays,
+    11→  Calendar,
+    12→  Lock,
+    13→  Unlock,
+    14→  ExternalLink,
+    15→  CheckSquare,
+    16→  Square,
+    17→  Loader2,
+    18→  AlertTriangle,
+    19→  ChevronDown,
+    20→  ChevronRight,
+    21→  User,
+    22→  Filter,
+    23→  X,
+    24→} from "lucide-react";
+    25→import { Button } from "@/components/ui/button";
+    26→import { Input } from "@/components/ui/input";
+    27→import { Badge } from "@/components/ui/badge";
+    28→import { Skeleton } from "@/components/ui/skeleton";
+    29→import { Checkbox } from "@/components/ui/checkbox";
+    30→import {
+    31→  Select,
+    32→  SelectContent,
+    33→  SelectItem,
+    34→  SelectTrigger,
+    35→  SelectValue,
+    36→} from "@/components/ui/select";
+    37→import {
+    38→  Dialog,
+    39→  DialogContent,
+    40→  DialogHeader,
+    41→  DialogTitle,
+    42→  DialogDescription,
+    43→  DialogFooter,
+    44→} from "@/components/ui/dialog";
+    45→import { Separator } from "@/components/ui/separator";
+    46→import { format, parseISO, isSameDay } from "date-fns";
+    47→
+    48→// =============================================================================
+    49→// Types
+    50→// =============================================================================
+    51→
+    52→interface SlotItem {
+    53→  id: string;
+    54→  startTime: string;
+    55→  endTime: string;
+    56→  modality: string;
+    57→  status: string;
+    58→  provider: { id: string; firstName: string; lastName: string; credentials: string | null };
+    59→  appointment: { id: string; patientName: string; status: string } | null;
+    60→  templateId: string | null;
+    61→}
+    62→
+    63→interface ProviderOption {
+    64→  id: string;
+    65→  firstName: string;
+    66→  lastName: string;
+    67→  credentials: string | null;
+    68→}
+    69→
+    70→// =============================================================================
+    71→// Constants
+    72→// =============================================================================
+    73→
+    74→const SLOT_STATUS_STYLES: Record<string, string> = {
+    75→  AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    76→  LOCKED: "bg-amber-100 text-amber-700 border-amber-200",
+    77→  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+    78→  BOOKED_EXTERNALLY: "bg-purple-100 text-purple-700 border-purple-200",
+    79→  BLOCKED: "bg-red-100 text-red-700 border-red-200",
+    80→  CLOSED: "bg-gray-100 text-gray-500 border-gray-200",
+    81→};
+    82→
+    83→const SLOT_STATUS_LABELS: Record<string, string> = {
+    84→  AVAILABLE: "Available",
+    85→  LOCKED: "Locked",
+    86→  BOOKED: "Booked",
+    87→  BOOKED_EXTERNALLY: "Ext. Booked",
+    88→  BLOCKED: "Blocked",
+    89→  CLOSED: "Closed",
+    90→};
+    91→
+    92→const STATUS_FILTER_OPTIONS = [
+    93→  { value: "", label: "All Statuses" },
+    94→  { value: "AVAILABLE", label: "Available" },
+    95→  { value: "BOOKED", label: "Booked" },
+    96→  { value: "BOOKED_EXTERNALLY", label: "Externally Booked" },
+    97→  { value: "BLOCKED", label: "Blocked" },
+    98→  { value: "LOCKED", label: "Locked" },
+    99→  { value: "CLOSED", label: "Closed" },
+   100→];
+   101→
+   102→// =============================================================================
+   103→// Component
+   104→// =============================================================================
+   105→
+   106→export default function SlotManagementPage() {
+   107→  const { data: session } = useSession();
+   108→  const {
+   109→    clinicId: effectiveClinicId,
+   110→    isSystemManager,
+   111→    clinics,
+   112→    setClinicId,
+   113→    clinicsLoading,
+   114→    ready,
+   115→  } = useClinicContext();
+   116→  const clinicId = effectiveClinicId ?? undefined;
+   117→
+   118→  // Filters
+   119→  const [providerId, setProviderId] = useState<string>("");
+   120→  const [dateFrom, setDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
+   121→  const [dateTo, setDateTo] = useState(() => format(new Date().setDate(new Date().getDate() + 6), "yyyy-MM-dd"));
+   122→  const [statusFilter, setStatusFilter] = useState<string>("");
+   123→
+   124→  // Data
+   125→  const [slots, setSlots] = useState<SlotItem[]>([]);
+   126→  const [providers, setProviders] = useState<ProviderOption[]>([]);
+   127→  const [loading, setLoading] = useState(false);
+   128→  const [error, setError] = useState<string | null>(null);
+   129→
+   130→  // Selection
+   131→  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+   132→
+   133→  // Confirmation dialog
+   134→  const [confirmAction, setConfirmAction] = useState<"BLOCK" | "UNBLOCK" | "BOOKED_EXTERNALLY" | null>(null);
+   135→  const [actionLoading, setActionLoading] = useState(false);
+   136→
+   137→  // Expanded dates
+   138→  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+   139→
+   140→  // Toggle date expansion
+   141→  const toggleDate = (dateStr: string) => {
+   142→    setExpandedDates((prev) => {
+   143→      const next = new Set(prev);
+   144→      if (next.has(dateStr)) {
+   145→        next.delete(dateStr);
+   146→      } else {
+   147→        next.add(dateStr);
+   148→      }
+   149→      return next;
+   150→    });
+   151→  };
+   152→
+   153→  // Fetch slots
+   154→  const fetchSlots = useCallback(async () => {
+   155→    if (!providerId || !dateFrom || !dateTo) return;
+   156→    setLoading(true);
+   157→    setError(null);
+   158→    try {
+   159→      const params = new URLSearchParams({
+   160→        providerId,
+   161→        dateFrom,
+   162→        dateTo,
+   163→      });
+   164→      if (statusFilter) params.set("status", statusFilter);
+   165→      if (clinicId) params.set("clinicId", clinicId);
+   166→
+   167→      const res = await fetch(`/api/staff/slots?${params.toString()}`);
+   168→      if (!res.ok) {
+   169→        const data = await res.json().catch(() => ({}));
+   170→        throw new Error(data.error || "Failed to fetch slots");
+   171→      }
+   172→      const data = await res.json();
+   173→      setSlots(data || []);
+   174→    } catch (err) {
+   175→      setError(err instanceof Error ? err.message : "Unknown error");
+   176→    } finally {
+   177→      setLoading(false);
+   178→    }
+   179→  }, [providerId, dateFrom, dateTo, statusFilter, clinicId]);
+   180→
+   181→  // Fetch providers for this clinic
+   182→  useEffect(() => {
+   183→    if (!clinicId) return;
+   184→    setProviders([]);
+   185→    setProviderId("");
+   186→    (async () => {
+   187→      try {
+   188→        const params = new URLSearchParams();
+   189→        params.set("clinicId", clinicId);
+   190→        const res = await fetch(`/api/staff/providers?${params.toString()}`);
+   191→        if (res.ok) {
+   192→          const data = await res.json();
+   193→          const allProviders = (data.providers || []).map(
+   194→            (p: Record<string, unknown>) => ({
+   195→              id: p.id as string,
+   196→              firstName: (p.firstName as string) || "",
+   197→              lastName: (p.lastName as string) || "",
+   198→              credentials: (p.credentials as string) || null,
+   199→            })
+   200→          );
+   201→          setProviders(allProviders);
+   202→          // Auto-select first provider
+   203→          if (allProviders.length > 0) {
+   204→            setProviderId(allProviders[0].id);
+   205→          }
+   206→        }
+   207→      } catch {
+   208→        // non-critical
+   209→      }
+   210→    })();
+   211→  }, [clinicId]);
+   212→
+   213→  // Fetch slots when filters change
+   214→  useEffect(() => {
+   215→    fetchSlots();
+   216→  }, [fetchSlots]);
+   217→
+   218→  // Reset selection on filter change
+   219→  useEffect(() => {
+   220→    setSelectedIds(new Set());
+   221→  }, [providerId, dateFrom, dateTo, statusFilter]);
+   222→
+   223→  // Toggle slot selection
+   224→  const toggleSlot = (id: string) => {
+   225→    setSelectedIds((prev) => {
+   226→      const next = new Set(prev);
+   227→      if (next.has(id)) {
+   228→        next.delete(id);
+   229→      } else {
+   230→        next.add(id);
+   231→      }
+   232→      return next;
+   233→    });
+   234→  };
+   235→
+   236→  // Select/deselect all visible
+   237→  const toggleAll = () => {
+   238→    const actionableSlots = slots.filter((s) =>
+   239→      s.status === "AVAILABLE" || s.status === "BLOCKED"
+   240→    );
+   241→    if (selectedIds.size === actionableSlots.length) {
+   242→      setSelectedIds(new Set());
+   243→    } else {
+   244→      setSelectedIds(new Set(actionableSlots.map((s) => s.id)));
+   245→    }
+   246→  };
+   247→
+   248→  // Execute slot action
+   249→  const executeAction = async () => {
+   250→    if (!confirmAction || selectedIds.size === 0) return;
+   251→    setActionLoading(true);
+   252→    try {
+   253→      const params = new URLSearchParams();
+   254→      if (clinicId) params.set("clinicId", clinicId);
+   255→
+   256→      const res = await fetch(`/api/staff/slots?${params.toString()}`, {
+   257→        method: "PATCH",
+   258→        headers: { "Content-Type": "application/json" },
+   259→        body: JSON.stringify({
+   260→          slotIds: Array.from(selectedIds),
+   261→          action: confirmAction,
+   262→        }),
+   263→      });
+   264→
+   265→      if (!res.ok) {
+   266→        const data = await res.json().catch(() => ({}));
+   267→        throw new Error(data.error || "Failed to update slots");
+   268→      }
+   269→
+   270→      const result = await res.json();
+   271→      setSelectedIds(new Set());
+   272→      setConfirmAction(null);
+   273→      fetchSlots();
+   274→
+   275→      const actionLabel = confirmAction === 'BLOCK' ? 'blocked' : confirmAction === 'UNBLOCK' ? 'unblocked' : 'marked as externally booked';
+   276→      toast.success(`${result.updatedCount} slot(s) ${actionLabel}`, {
+   277→        description: result.skipped?.length
+   278→          ? `${result.skipped.length} slot(s) skipped (invalid transitions)`
+   279→          : undefined,
+   280→      });
+   281→    } catch (err) {
+   282→      toast.error(err instanceof Error ? err.message : "Failed to update slots");
+   283→    } finally {
+   284→      setActionLoading(false);
+   285→    }
+   286→  };
+   287→
+   288→  // Group slots by date
+   289→  const slotsByDate = slots.reduce<Record<string, SlotItem[]>>((acc, slot) => {
+   290→    const dateKey = format(parseISO(slot.startTime), "yyyy-MM-dd");
+   291→    if (!acc[dateKey]) acc[dateKey] = [];
+   292→    acc[dateKey].push(slot);
+   293→    return acc;
+   294→  }, {});
+   295→
+   296→  const sortedDates = Object.keys(slotsByDate).sort();
+   297→
+   298→  // Check which actions are possible for selected
+   299→  const selectedSlots = slots.filter((s) => selectedIds.has(s.id));
+   300→  const hasAvailable = selectedSlots.some((s) => s.status === "AVAILABLE");
+   301→  const hasBlocked = selectedSlots.some((s) => s.status === "BLOCKED");
+   302→
+   303→  return (
+   304→    <div className="space-y-4">
+   305→      {/* Clinic selector for SYSTEM_MANAGER */}
+   306→      {isSystemManager && (
+   307→        <ClinicSelectorBar
+   308→          clinics={clinics}
+   309→          selectedId={effectiveClinicId}
+   310→          onSelect={setClinicId}
+   311→          loading={clinicsLoading}
+   312→        />
+   313→      )}
+   314→
+   315→      {/* Page Header */}
+   316→      <div>
+   317→        <h1 className="text-xl font-semibold text-foreground">Slot Management</h1>
+   318→        <p className="text-sm text-muted-foreground mt-0.5">
+   319→          View, block, and manage provider time slots
+   320→        </p>
+   321→      </div>
+   322→
+   323→      {/* Filter Bar */}
+   324→      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+   325→        <div className="flex flex-col sm:flex-row gap-2.5">
+   326→          {/* Provider Select */}
+   327→          <Select value={providerId} onValueChange={setProviderId}>
+   328→            <SelectTrigger className="w-full sm:w-64 h-9">
+   329→              <SelectValue placeholder="Select provider..." />
+   330→            </SelectTrigger>
+   331→            <SelectContent>
+   332→              {providers.map((p) => (
+   333→                <SelectItem key={p.id} value={p.id}>
+   334→                  Dr. {p.firstName} {p.lastName}
+   335→                  {p.credentials ? `, ${p.credentials}` : ""}
+   336→                </SelectItem>
+   337→              ))}
+   338→            </SelectContent>
+   339→          </Select>
+   340→
+   341→          {/* Status Filter */}
+   342→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   343→            <SelectTrigger className="w-full sm:w-44 h-9">
+   344→              <SelectValue placeholder="All Statuses" />
+   345→            </SelectTrigger>
+   346→            <SelectContent>
+   347→              {STATUS_FILTER_OPTIONS.map((opt) => (
+   348→                <SelectItem key={opt.value || "__all"} value={opt.value || "__all"}>
+   349→                  {opt.label}
+   350→                </SelectItem>
+   351→              ))}
+   352→            </SelectContent>
+   353→          </Select>
+   354→
+   355→          {/* Date From */}
+   356→          <div className="flex items-center gap-1.5">
+   357→            <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+   358→            <Input
+   359→              type="date"
+   360→              value={dateFrom}
+   361→              onChange={(e) => setDateFrom(e.target.value)}
+   362→              className="h-9 w-36"
+   363→            />
+   364→          </div>
+   365→
+   366→          {/* Date To */}
+   367→          <div className="flex items-center gap-1.5">
+   368→            <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+   369→            <Input
+   370→              type="date"
+   371→              value={dateTo}
+   372→              onChange={(e) => setDateTo(e.target.value)}
+   373→              className="h-9 w-36"
+   374→            />
+   375→          </div>
+   376→        </div>
+   377→      </div>
+   378→
+   379→      {/* Action Bar */}
+   380→      {selectedIds.size > 0 && (
+   381→        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+   382→          <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+   383→            <CheckSquare className="size-4" />
+   384→            {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""} selected
+   385→          </div>
+   386→          <div className="h-5 w-px bg-emerald-200" />
+   387→          <Button
+   388→            variant="outline"
+   389→            size="sm"
+   390→            className="cursor-pointer border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+   391→            disabled={!hasAvailable}
+   392→            onClick={() => setConfirmAction("BLOCK")}
+   393→          >
+   394→            <Lock className="size-3.5 mr-1.5" />
+   395→            Block Selected
+   396→          </Button>
+   397→          <Button
+   398→            variant="outline"
+   399→            size="sm"
+   400→            className="cursor-pointer border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+   401→            disabled={!hasBlocked}
+   402→            onClick={() => setConfirmAction("UNBLOCK")}
+   403→          >
+   404→            <Unlock className="size-3.5 mr-1.5" />
+   405→            Unblock Selected
+   406→          </Button>
+   407→          <Button
+   408→            variant="outline"
+   409→            size="sm"
+   410→            className="cursor-pointer border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+   411→            disabled={!hasAvailable}
+   412→            onClick={() => setConfirmAction("BOOKED_EXTERNALLY")}
+   413→          >
+   414→            <ExternalLink className="size-3.5 mr-1.5" />
+   415→            Mark Ext. Booked
+   416→          </Button>
+   417→          <div className="ml-auto">
+   418→            <Button
+   419→              variant="ghost"
+   420→              size="sm"
+   421→              className="cursor-pointer text-muted-foreground"
+   422→              onClick={() => setSelectedIds(new Set())}
+   423→            >
+   424→              <X className="size-3.5 mr-1" />
+   425→              Clear
+   426→            </Button>
+   427→          </div>
+   428→        </div>
+   429→      )}
+   430→
+   431→      {/* Results */}
+   432→      {!providerId ? (
+   433→        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+   434→          <div className="flex flex-col items-center gap-3">
+   435→            <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+   436→              <CalendarDays className="size-5 text-muted-foreground/60" />
+   437→            </div>
+   438→            <p className="text-sm font-medium text-muted-foreground">Select a provider to view slots</p>
+   439→          </div>
+   440→        </div>
+   441→      ) : loading ? (
+   442→        <div className="space-y-3">
+   443→          {Array.from({ length: 3 }).map((_, i) => (
+   444→            <div key={i} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-2">
+   445→              <Skeleton className="h-5 w-36" />
+   446→              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+   447→                {Array.from({ length: 6 }).map((_, j) => (
+   448→                  <Skeleton key={j} className="h-20 rounded-lg" />
+   449→                ))}
+   450→              </div>
+   451→            </div>
+   452→          ))}
+   453→        </div>
+   454→      ) : error ? (
+   455→        <div className="bg-white rounded-xl border border-red-200 bg-red-50/30 p-8 text-center">
+   456→          <p className="text-sm text-red-600">{error}</p>
+   457→          <Button variant="outline" size="sm" onClick={fetchSlots} className="mt-2">
+   458→            Retry
+   459→          </Button>
+   460→        </div>
+   461→      ) : sortedDates.length === 0 ? (
+   462→        <div className="bg-white rounded-xl border border-border/60 shadow-sm p-16 text-center">
+   463→          <div className="flex flex-col items-center gap-3">
+   464→            <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+   465→              <Clock className="size-5 text-muted-foreground/60" />
+   466→            </div>
+   467→            <p className="text-sm font-medium text-muted-foreground">No slots found</p>
+   468→            <p className="text-xs text-muted-foreground/70">
+   469→              Try adjusting the date range or status filter
+   470→            </p>
+   471→          </div>
+   472→        </div>
+   473→      ) : (
+   474→        <div className="space-y-3">
+   475→          {/* Select All Toggle */}
+   476→          <div className="flex items-center justify-between">
+   477→            <p className="text-sm text-muted-foreground">
+   478→              <span className="font-medium text-foreground">{slots.length}</span> slot{slots.length !== 1 ? "s" : ""} across{" "}
+   479→              <span className="font-medium text-foreground">{sortedDates.length}</span> day{sortedDates.length !== 1 ? "s" : ""}
+   480→            </p>
+   481→            <Button
+   482→              variant="ghost"
+   483→              size="sm"
+   484→              className="cursor-pointer text-xs h-7"
+   485→              onClick={toggleAll}
+   486→            >
+   487→              {selectedIds.size > 0 ? "Deselect All" : "Select All Available"}
+   488→            </Button>
+   489→          </div>
+   490→
+   491→          {/* Date Groups */}
+   492→          {sortedDates.map((dateKey) => {
+   493→            const dateSlots = slotsByDate[dateKey];
+   494→            const dateObj = parseISO(dateKey);
+   495→            const isToday = isSameDay(dateObj, new Date());
+   496→            const isExpanded = expandedDates.has(dateKey) || sortedDates.length <= 3;
+   497→
+   498→            return (
+   499→              <div key={dateKey} className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+   500→                {/* Date Header */}
+   501→                <button
+   502→                  onClick={() => toggleDate(dateKey)}
+   503→                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+   504→                >
+   505→                  <div className="flex items-center gap-2.5">
+   506→                    {isExpanded ? (
+   507→                      <ChevronDown className="size-4 text-muted-foreground" />
+   508→                    ) : (
+   509→                      <ChevronRight className="size-4 text-muted-foreground" />
+   510→                    )}
+   511→                    <Calendar className="size-4 text-emerald-600" />
+   512→                    <span className="text-sm font-semibold">
+   513→                      {format(dateObj, "EEEE, MMMM d, yyyy")}
+   514→                    </span>
+   515→                    {isToday && (
+   516→                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+   517→                        Today
+   518→                      </Badge>
+   519→                    )}
+   520→                  </div>
+   521→                  <div className="flex items-center gap-2">
+   522→                    <span className="text-xs text-muted-foreground">
+   523→                      {dateSlots.length} slot{dateSlots.length !== 1 ? "s" : ""}
+   524→                    </span>
+   525→                    {/* Status summary */}
+   526→                    <div className="hidden sm:flex items-center gap-1">
+   527→                      {(() => {
+   528→                        const counts: Record<string, number> = {};
+   529→                        dateSlots.forEach((s) => {
+   530→                          counts[s.status] = (counts[s.status] || 0) + 1;
+   531→                        });
+   532→                        return Object.entries(counts)
+   533→                          .filter(([, count]) => count > 0)
+   534→                          .map(([status, count]) => (
+   535→                            <Badge
+   536→                              key={status}
+   537→                              variant="outline"
+   538→                              className={`text-[10px] ${SLOT_STATUS_STYLES[status] || ""}`}
+   539→                            >
+   540→                              {count} {SLOT_STATUS_LABELS[status]}
+   541→                            </Badge>
+   542→                          ));
+   543→                      })()}
+   544→                    </div>
+   545→                  </div>
+   546→                </button>
+   547→
+   548→                {/* Slots Grid */}
+   549→                {isExpanded && (
+   550→                  <div className="border-t border-border/30">
+   551→                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 p-3">
+   552→                      {dateSlots.map((slot) => {
+   553→                        const isSelected = selectedIds.has(slot.id);
+   554→                        const isSelectable =
+   555→                          slot.status === "AVAILABLE" || slot.status === "BLOCKED";
+   556→
+   557→                        return (
+   558→                          <div
+   559→                            key={slot.id}
+   560→                            onClick={() => isSelectable && toggleSlot(slot.id)}
+   561→                            className={`
+   562→                              relative rounded-lg border p-3 transition-all cursor-pointer
+   563→                              ${isSelected ? "ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50" : "border-border/50 hover:border-emerald-200 hover:bg-emerald-50/20"}
+   564→                              ${!isSelectable ? "opacity-70 cursor-default" : ""}
+   565→                            `}
+   566→                          >
+   567→                            {/* Checkbox for selectable */}
+   568→                            {isSelectable && (
+   569→                              <div className="absolute top-2 right-2">
+   570→                                {isSelected ? (
+   571→                                  <CheckSquare className="size-4 text-emerald-600" />
+   572→                                ) : (
+   573→                                  <Square className="size-4 text-muted-foreground/40" />
+   574→                                )}
+   575→                              </div>
+   576→                            )}
+   577→
+   578→                            {/* Time */}
+   579→                            <div className="flex items-center gap-1.5 mb-1.5">
+   580→                              <Clock className="size-3.5 text-muted-foreground" />
+   581→                              <span className="text-sm font-medium">
+   582→                                {format(parseISO(slot.startTime), "h:mm a")}
+   583→                              </span>
+   584→                            </div>
+   585→
+   586→                            {/* Modality */}
+   587→                            <div className="mb-2">
+   588→                              {slot.modality === "VIDEO" ? (
+   589→                                <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 text-[10px]">
+   590→                                  <Calendar className="size-2.5 mr-0.5" />
+   591→                                  Video
+   592→                                </Badge>
+   593→                              ) : (
+   594→                                <Badge variant="outline" className="border-emerald-200 text-emerald-600 bg-emerald-50 text-[10px]">
+   595→                                  <CalendarDays className="size-2.5 mr-0.5" />
+   596→                                  In-Clinic
+   597→                                </Badge>
+   598→                              )}
+   599→                            </div>
+   600→
+   601→                            {/* Status Badge */}
+   602→                            <Badge className={`${SLOT_STATUS_STYLES[slot.status] || ""} border text-[10px]`}>
+   603→                              {SLOT_STATUS_LABELS[slot.status] || slot.status}
+   604→                            </Badge>
+   605→
+   606→                            {/* Appointment info */}
+   607→                            {slot.appointment && (
+   608→                              <div className="mt-1.5 pt-1.5 border-t border-border/30">
+   609→                                <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+   610→                                  <User className="size-2.5" />
+   611→                                  {slot.appointment.patientName}
+   612→                                </p>
+   613→                              </div>
+   614→                            )}
+   615→                          </div>
+   616→                        );
+   617→                      })}
+   618→                    </div>
+   619→                  </div>
+   620→                )}
+   621→              </div>
+   622→            );
+   623→          })}
+   624→        </div>
+   625→      )}
+   626→
+   627→      {/* ================================================================== */}
+   628→      {/* CONFIRMATION DIALOG                                                */}
+   629→      {/* ================================================================== */}
+   630→      <Dialog
+   631→        open={!!confirmAction}
+   632→        onOpenChange={(open) => {
+   633→          if (!open) setConfirmAction(null);
+   634→        }}
+   635→      >
+   636→        <DialogContent className="sm:max-w-md">
+   637→          <DialogHeader>
+   638→            <DialogTitle className="flex items-center gap-2">
+   639→              <AlertTriangle className="size-5 text-amber-500" />
+   640→              Confirm Slot Action
+   641→            </DialogTitle>
+   642→            <DialogDescription>
+   643→              {confirmAction === "BLOCK" && (
+   644→                <>
+   645→                  You are about to <span className="font-semibold text-red-600">block</span>{" "}
+   646→                  {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""}. Blocked slots will not
+   647→                  be available for patient booking.
+   648→                </>
+   649→              )}
+   650→              {confirmAction === "UNBLOCK" && (
+   651→                <>
+   652→                  You are about to <span className="font-semibold text-emerald-600">unblock</span>{" "}
+   653→                  {selectedIds.size} slot{selectedIds.size !== 1 ? "s" : ""}. These slots will become
+   654→                  available for patient booking.
+   655→                </>
+   656→              )}
+   657→              {confirmAction === "BOOKED_EXTERNALLY" && (
+   658→                <>
+   659→                  You are about to mark {selectedIds.size} slot
+   660→                  {selectedIds.size !== 1 ? "s" : ""} as{" "}
+   661→                  <span className="font-semibold text-purple-600">externally booked</span>. These
+   662→                  slots will be shown as booked but will not have a DoctA appointment
+   663→                  associated.
+   664→                </>
+   665→              )}
+   666→            </DialogDescription>
+   667→          </DialogHeader>
+   668→          <DialogFooter className="gap-2">
+   669→            <Button
+   670→              variant="outline"
+   671→              onClick={() => setConfirmAction(null)}
+   672→              className="cursor-pointer"
+   673→              disabled={actionLoading}
+   674→            >
+   675→              Cancel
+   676→            </Button>
+   677→            <Button
+   678→              onClick={executeAction}
+   679→              disabled={actionLoading}
+   680→              className={`cursor-pointer ${
+   681→                confirmAction === "BLOCK"
+   682→                  ? "bg-red-600 hover:bg-red-700"
+   683→                  : confirmAction === "UNBLOCK"
+   684→                    ? "bg-emerald-600 hover:bg-emerald-700"
+   685→                    : "bg-purple-600 hover:bg-purple-700"
+   686→              } text-white`}
+   687→            >
+   688→              {actionLoading ? (
+   689→                <>
+   690→                  <Loader2 className="size-4 mr-1.5 animate-spin" />
+   691→                  Updating...
+   692→                </>
+   693→              ) : confirmAction === "BLOCK" ? (
+   694→                <>
+   695→                  <Lock className="size-4 mr-1.5" />
+   696→                  Block {selectedIds.size} Slot{selectedIds.size !== 1 ? "s" : ""}
+   697→                </>
+   698→              ) : confirmAction === "UNBLOCK" ? (
+   699→                <>
+   700→                  <Unlock className="size-4 mr-1.5" />
+   701→                  Unblock {selectedIds.size} Slot{selectedIds.size !== 1 ? "s" : ""}
+   702→                </>
+   703→              ) : (
+   704→                <>
+   705→                  <ExternalLink className="size-4 mr-1.5" />
+   706→                  Mark {selectedIds.size} as Ext. Booked
+   707→                </>
+   708→              )}
+   709→            </Button>
+   710→          </DialogFooter>
+   711→        </DialogContent>
+   712→      </Dialog>
+   713→    </div>
+   714→  );
+   715→}

@@ -1,0 +1,1526 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from "react";
+     4→import { format } from "date-fns";
+     5→import {
+     6→  CalendarPlus,
+     7→  ArrowLeft,
+     8→  ArrowRight,
+     9→  Check,
+    10→  CheckCircle2,
+    11→  Loader2,
+    12→  AlertCircle,
+    13→  Calendar,
+    14→  Clock,
+    15→  User,
+    16→  Baby,
+    17→  Shield,
+    18→  Copy,
+    19→  ExternalLink,
+    20→  Building2,
+    21→  Stethoscope,
+    22→  FileText,
+    23→  CreditCard,
+    24→  Phone,
+    25→  Mail,
+    26→  ChevronRight,
+    27→  UserPlus,
+    28→  ClipboardList,
+    29→  Eye,
+    30→  EyeOff,
+    31→  RefreshCw,
+    32→  UserCheck,
+    33→} from "lucide-react";
+    34→import { Button } from "@/components/ui/button";
+    35→import { Input } from "@/components/ui/input";
+    36→import { Label } from "@/components/ui/label";
+    37→import { Textarea } from "@/components/ui/textarea";
+    38→import {
+    39→  Select,
+    40→  SelectTrigger,
+    41→  SelectValue,
+    42→  SelectContent,
+    43→  SelectItem,
+    44→} from "@/components/ui/select";
+    45→import { Card, CardContent } from "@/components/ui/card";
+    46→import { Badge } from "@/components/ui/badge";
+    47→import { Separator } from "@/components/ui/separator";
+    48→import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+    49→import {
+    50→  Popover,
+    51→  PopoverContent,
+    52→  PopoverTrigger,
+    53→} from "@/components/ui/popover";
+    54→import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+    55→import { cn } from "@/lib/utils";
+    56→import { PATIENT_TYPE, SLOT_MODALITY } from "@/lib/enums";
+    57→
+    58→// =============================================================================
+    59→// Types
+    60→// =============================================================================
+    61→
+    62→interface Provider {
+    63→  id: string;
+    64→  firstName: string;
+    65→  lastName: string;
+    66→  credentials: string | null;
+    67→  slotDurationMinutes: number;
+    68→  providerServices: Array<{
+    69→    service: { id: string; name: string; specialtyId: string };
+    70→  }>;
+    71→}
+    72→
+    73→interface Service {
+    74→  id: string;
+    75→  name: string;
+    76→  specialtyId: string;
+    77→  durationMinutes: number;
+    78→  selfPayPriceCents: number;
+    79→}
+    80→
+    81→interface Insurance {
+    82→  id: string;
+    83→  name: string;
+    84→  isDemo: boolean;
+    85→}
+    86→
+    87→interface Slot {
+    88→  id: string;
+    89→  startTime: string;
+    90→  endTime: string;
+    91→  modality: string;
+    92→}
+    93→
+    94→interface BookingFormData {
+    95→  providerId: string;
+    96→  selectedDate: Date | undefined;
+    97→  slotId: string;
+    98→  patientName: string;
+    99→  patientDob: string;
+   100→  patientPhone: string;
+   101→  patientEmail: string;
+   102→  patientType: "ADULT" | "PEDIATRIC";
+   103→  guardianName: string;
+   104→  guardianRelation: string;
+   105→  reasonForVisit: string;
+   106→  serviceId: string;
+   107→  insuranceId: string;
+   108→  internalNotes: string;
+   109→}
+   110→
+   111→interface BookingResult {
+   112→  appointment: {
+   113→    id: string;
+   114→    startTime: string;
+   115→    endTime: string;
+   116→    modality: string;
+   117→    status: string;
+   118→    patientName: string;
+   119→    patientType: string;
+   120→    reasonForVisit: string;
+   121→    paymentMethod: string;
+   122→    paymentStatus: string;
+   123→    depositCents: number;
+   124→    selfPayCents: number;
+   125→    clinicName: string;
+   126→    providerName: string;
+   127→    providerCredentials?: string;
+   128→    serviceName: string;
+   129→    specialtyName: string;
+   130→  };
+   131→  token: string;
+   132→}
+   133→
+   134→// =============================================================================
+   135→// Step definitions
+   136→// =============================================================================
+   137→
+   138→const STEPS = [
+   139→  { label: "Provider & Slot", icon: CalendarPlus, description: "Choose time" },
+   140→  { label: "Patient Info", icon: User, description: "Patient details" },
+   141→  { label: "Visit Details", icon: ClipboardList, description: "Service & reason" },
+   142→  { label: "Review", icon: CheckCircle2, description: "Confirm booking" },
+   143→  { label: "Confirmed", icon: Check, description: "Booking complete" },
+   144→] as const;
+   145→
+   146→// =============================================================================
+   147→// Main Component
+   148→// =============================================================================
+   149→
+   150→export default function ManualBookPage() {
+   151→  const [step, setStep] = useState(1);
+   152→  const [loading, setLoading] = useState(false);
+   153→  const [error, setError] = useState<string | null>(null);
+   154→  const [submitting, setSubmitting] = useState(false);
+   155→  const [tokenRevealed, setTokenRevealed] = useState(false);
+   156→  const [copied, setCopied] = useState(false);
+   157→
+   158→  // Form data
+   159→  const [form, setForm] = useState<BookingFormData>({
+   160→    providerId: "",
+   161→    selectedDate: undefined,
+   162→    slotId: "",
+   163→    patientName: "",
+   164→    patientDob: "",
+   165→    patientPhone: "",
+   166→    patientEmail: "",
+   167→    patientType: "ADULT",
+   168→    guardianName: "",
+   169→    guardianRelation: "",
+   170→    reasonForVisit: "",
+   171→    serviceId: "",
+   172→    insuranceId: "",
+   173→    internalNotes: "",
+   174→  });
+   175→
+   176→  // API data
+   177→  const [providers, setProviders] = useState<Provider[]>([]);
+   178→  const [services, setServices] = useState<Service[]>([]);
+   179→  const [insurances, setInsurances] = useState<Insurance[]>([]);
+   180→  const [slots, setSlots] = useState<Slot[]>([]);
+   181→  const [slotsLoading, setSlotsLoading] = useState(false);
+   182→  const [initialLoading, setInitialLoading] = useState(true);
+   183→  const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
+   184→
+   185→  // ---- Fetch initial data ----
+   186→  useEffect(() => {
+   187→    async function fetchData() {
+   188→      try {
+   189→        setInitialLoading(true);
+   190→        const res = await fetch("/api/staff/book");
+   191→        if (!res.ok) throw new Error("Failed to load booking data");
+   192→        const data = await res.json();
+   193→        setProviders(data.providers);
+   194→        setServices(data.services);
+   195→        setInsurances(data.insurances);
+   196→      } catch (err) {
+   197→        setError(err instanceof Error ? err.message : "Failed to load data");
+   198→      } finally {
+   199→        setInitialLoading(false);
+   200→      }
+   201→    }
+   202→    fetchData();
+   203→  }, []);
+   204→
+   205→  // ---- Fetch slots when provider + date are selected ----
+   206→  const fetchSlots = useCallback(async (providerId: string, date: Date) => {
+   207→    try {
+   208→      setSlotsLoading(true);
+   209→      setError(null);
+   210→      const dateStr = format(date, "yyyy-MM-dd");
+   211→      const res = await fetch(
+   212→        `/api/staff/book?providerId=${providerId}&date=${dateStr}`
+   213→      );
+   214→      if (!res.ok) {
+   215→        const data = await res.json();
+   216→        throw new Error(data.error || "Failed to load slots");
+   217→      }
+   218→      const data = await res.json();
+   219→      setSlots(data.slots);
+   220→      setForm((prev) => ({ ...prev, slotId: "" }));
+   221→    } catch (err) {
+   222→      setError(err instanceof Error ? err.message : "Failed to load slots");
+   223→      setSlots([]);
+   224→    } finally {
+   225→      setSlotsLoading(false);
+   226→    }
+   227→  }, []);
+   228→
+   229→  // ---- Handlers ----
+   230→  const handleProviderSelect = (providerId: string) => {
+   231→    setForm((prev) => ({ ...prev, providerId, slotId: "" }));
+   232→    setSlots([]);
+   233→    if (form.selectedDate) {
+   234→      fetchSlots(providerId, form.selectedDate);
+   235→    }
+   236→  };
+   237→
+   238→  const handleDateSelect = (date: Date | undefined) => {
+   239→    setForm((prev) => ({ ...prev, selectedDate: date, slotId: "" }));
+   240→    setSlots([]);
+   241→    if (date && form.providerId) {
+   242→      fetchSlots(form.providerId, date);
+   243→    }
+   244→  };
+   245→
+   246→  const handleSlotSelect = (slotId: string) => {
+   247→    setForm((prev) => ({ ...prev, slotId }));
+   248→  };
+   249→
+   250→  const updateField = <K extends keyof BookingFormData>(
+   251→    key: K,
+   252→    value: BookingFormData[K]
+   253→  ) => {
+   254→    setForm((prev) => ({ ...prev, [key]: value }));
+   255→  };
+   256→
+   257→  const formatCents = (cents: number) => {
+   258→    return `$${(cents / 100).toFixed(2)}`;
+   259→  };
+   260→
+   261→  // ---- Validation per step ----
+   262→  const validateStep = (stepNum: number): boolean => {
+   263→    setError(null);
+   264→    switch (stepNum) {
+   265→      case 1:
+   266→        if (!form.providerId) {
+   267→          setError("Please select a provider");
+   268→          return false;
+   269→        }
+   270→        if (!form.selectedDate) {
+   271→          setError("Please select a date");
+   272→          return false;
+   273→        }
+   274→        if (!form.slotId) {
+   275→          setError("Please select a time slot");
+   276→          return false;
+   277→        }
+   278→        return true;
+   279→      case 2:
+   280→        if (!form.patientName.trim()) {
+   281→          setError("Patient name is required");
+   282→          return false;
+   283→        }
+   284→        if (!form.patientDob) {
+   285→          setError("Date of birth is required");
+   286→          return false;
+   287→        }
+   288→        if (isNaN(new Date(form.patientDob).getTime())) {
+   289→          setError("Please enter a valid date of birth");
+   290→          return false;
+   291→        }
+   292→        if (!form.patientPhone.trim()) {
+   293→          setError("Phone number is required");
+   294→          return false;
+   295→        }
+   296→        if (!form.patientEmail.trim()) {
+   297→          setError("Email is required");
+   298→          return false;
+   299→        }
+   300→        if (
+   301→          form.patientType === "PEDIATRIC" &&
+   302→          (!form.guardianName.trim() || !form.guardianRelation.trim())
+   303→        ) {
+   304→          setError("Guardian name and relationship are required for pediatric patients");
+   305→          return false;
+   306→        }
+   307→        return true;
+   308→      case 3:
+   309→        if (!form.serviceId) {
+   310→          setError("Please select a service");
+   311→          return false;
+   312→        }
+   313→        if (!form.reasonForVisit.trim()) {
+   314→          setError("Reason for visit is required");
+   315→          return false;
+   316→        }
+   317→        return true;
+   318→      default:
+   319→        return true;
+   320→    }
+   321→  };
+   322→
+   323→  const handleNext = () => {
+   324→    if (!validateStep(step)) return;
+   325→    setStep((prev) => prev + 1);
+   326→  };
+   327→
+   328→  const handleBack = () => {
+   329→    setError(null);
+   330→    setStep((prev) => prev - 1);
+   331→  };
+   332→
+   333→  // ---- Submit booking ----
+   334→  const handleSubmit = async () => {
+   335→    if (submitting) return;
+   336→    setSubmitting(true);
+   337→    setError(null);
+   338→
+   339→    try {
+   340→      const body: Record<string, unknown> = {
+   341→        slotId: form.slotId,
+   342→        patientName: form.patientName,
+   343→        patientDob: form.patientDob,
+   344→        patientPhone: form.patientPhone,
+   345→        patientEmail: form.patientEmail,
+   346→        patientType: form.patientType,
+   347→        reasonForVisit: form.reasonForVisit,
+   348→        serviceId: form.serviceId,
+   349→      };
+   350→
+   351→      if (form.patientType === "PEDIATRIC") {
+   352→        body.guardianName = form.guardianName;
+   353→        body.guardianRelation = form.guardianRelation;
+   354→      }
+   355→      if (form.insuranceId) {
+   356→        body.insuranceId = form.insuranceId;
+   357→      }
+   358→      if (form.internalNotes.trim()) {
+   359→        body.internalNotes = form.internalNotes;
+   360→      }
+   361→
+   362→      const res = await fetch("/api/staff/book", {
+   363→        method: "POST",
+   364→        headers: { "Content-Type": "application/json" },
+   365→        body: JSON.stringify(body),
+   366→      });
+   367→
+   368→      const data = await res.json();
+   369→
+   370→      if (!res.ok) {
+   371→        throw new Error(data.error || "Booking failed");
+   372→      }
+   373→
+   374→      setBookingResult(data);
+   375→      setStep(5);
+   376→    } catch (err) {
+   377→      setError(err instanceof Error ? err.message : "Booking failed");
+   378→    } finally {
+   379→      setSubmitting(false);
+   380→    }
+   381→  };
+   382→
+   383→  // ---- Copy token ----
+   384→  const handleCopyToken = async () => {
+   385→    if (!bookingResult) return;
+   386→    try {
+   387→      const manageUrl = `${window.location.origin}/manage/${bookingResult.token}`;
+   388→      await navigator.clipboard.writeText(manageUrl);
+   389→      setCopied(true);
+   390→      setTimeout(() => setCopied(false), 2000);
+   391→    } catch {
+   392→      // Fallback
+   393→      const textarea = document.createElement("textarea");
+   394→      textarea.value = `${window.location.origin}/manage/${bookingResult.token}`;
+   395→      document.body.appendChild(textarea);
+   396→      textarea.select();
+   397→      document.execCommand("copy");
+   398→      document.body.removeChild(textarea);
+   399→      setCopied(true);
+   400→      setTimeout(() => setCopied(false), 2000);
+   401→    }
+   402→  };
+   403→
+   404→  // ---- Derived data ----
+   405→  const selectedProvider = useMemo(
+   406→    () => providers.find((p) => p.id === form.providerId),
+   407→    [providers, form.providerId]
+   408→  );
+   409→
+   410→  const selectedSlot = useMemo(
+   411→    () => slots.find((s) => s.id === form.slotId),
+   412→    [slots, form.slotId]
+   413→  );
+   414→
+   415→  const selectedService = useMemo(
+   416→    () => services.find((s) => s.id === form.serviceId),
+   417→    [services, form.serviceId]
+   418→  );
+   419→
+   420→  const selectedInsurance = useMemo(
+   421→    () => insurances.find((i) => i.id === form.insuranceId),
+   422→    [insurances, form.insuranceId]
+   423→  );
+   424→
+   425→  // ---- Guardian fields animation ----
+   426→  const showGuardianFields = form.patientType === "PEDIATRIC";
+   427→
+   428→  // Group slots by modality for display
+   429→  const inPersonSlots = slots.filter((s) => s.modality === SLOT_MODALITY.IN_PERSON);
+   430→  const videoSlots = slots.filter((s) => s.modality === SLOT_MODALITY.VIDEO);
+   431→
+   432→  // =============================================================================
+   433→  // Render: Loading
+   434→  // =============================================================================
+   435→
+   436→  if (initialLoading) {
+   437→    return (
+   438→      <div className="flex items-center justify-center py-20">
+   439→        <div className="flex flex-col items-center gap-3">
+   440→          <Loader2 className="size-8 text-emerald-600 animate-spin" />
+   441→          <p className="text-sm text-muted-foreground">Loading booking data...</p>
+   442→        </div>
+   443→      </div>
+   444→    );
+   445→  }
+   446→
+   447→  // =============================================================================
+   448→  // Render: Step Indicator
+   449→  // =============================================================================
+   450→
+   451→  function StepIndicator() {
+   452→    return (
+   453→      <div className="w-full mb-6">
+   454→        {/* Track line background */}
+   455→        <div className="relative flex items-center justify-between">
+   456→          {/* Background track */}
+   457→          <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted rounded-full" />
+   458→          {/* Progress fill */}
+   459→          <div
+   460→            className="absolute top-4 left-0 h-0.5 bg-emerald-500 rounded-full transition-all duration-500 ease-out"
+   461→            style={{ width: `${((Math.min(step, 4) - 1) / 3) * 100}%` }}
+   462→          />
+   463→
+   464→          {STEPS.map((s, idx) => {
+   465→            const stepNum = idx + 1;
+   466→            const isActive = step === stepNum;
+   467→            const isComplete = step > stepNum;
+   468→            const Icon = s.icon;
+   469→
+   470→            return (
+   471→              <div
+   472→                key={stepNum}
+   473→                className="relative flex flex-col items-center z-10"
+   474→              >
+   475→                <div
+   476→                  className={cn(
+   477→                    "flex items-center justify-center rounded-full transition-all duration-300",
+   478→                    isActive
+   479→                      ? "size-9 bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
+   480→                      : isComplete
+   481→                        ? "size-8 bg-emerald-500 text-white"
+   482→                        : "size-8 bg-muted text-muted-foreground"
+   483→                  )}
+   484→                >
+   485→                  {isComplete ? (
+   486→                    <Check className="size-4" />
+   487→                  ) : (
+   488→                    <Icon className="size-3.5" />
+   489→                  )}
+   490→                </div>
+   491→                <span
+   492→                  className={cn(
+   493→                    "text-xs mt-2 font-medium hidden sm:block",
+   494→                    isActive
+   495→                      ? "text-emerald-700"
+   496→                      : isComplete
+   497→                        ? "text-emerald-600"
+   498→                        : "text-muted-foreground"
+   499→                  )}
+   500→                >
+   501→                  {s.label}
+   502→                </span>
+   503→              </div>
+   504→            );
+   505→          })}
+   506→        </div>
+   507→      </div>
+   508→    );
+   509→  }
+   510→
+   511→  // =============================================================================
+   512→  // Render: Step 1 — Provider & Slot Selection
+   513→  // =============================================================================
+   514→
+   515→  function StepProviderSlot() {
+   516→    return (
+   517→      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-6">
+   518→        <div>
+   519→          <h2 className="text-lg font-semibold text-foreground">Select Provider</h2>
+   520→          <p className="text-sm text-muted-foreground mt-1">
+   521→            Choose a provider to see their available time slots
+   522→          </p>
+   523→        </div>
+   524→
+   525→        {/* Provider grid */}
+   526→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   527→          {providers.map((provider) => {
+   528→            const isSelected = form.providerId === provider.id;
+   529→            return (
+   530→              <button
+   531→                key={provider.id}
+   532→                onClick={() => handleProviderSelect(provider.id)}
+   533→                className={cn(
+   534→                  "flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
+   535→                  isSelected
+   536→                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   537→                    : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   538→                )}
+   539→              >
+   540→                <div
+   541→                  className={cn(
+   542→                    "size-10 rounded-full flex items-center justify-center shrink-0",
+   543→                    isSelected
+   544→                      ? "bg-emerald-600 text-white"
+   545→                      : "bg-emerald-100 text-emerald-700"
+   546→                  )}
+   547→                >
+   548→                  <Stethoscope className="size-4" />
+   549→                </div>
+   550→                <div className="min-w-0">
+   551→                  <p className="text-sm font-semibold text-foreground truncate">
+   552→                    Dr. {provider.firstName} {provider.lastName}
+   553→                    {provider.credentials && (
+   554→                      <span className="text-muted-foreground font-normal">
+   555→                        , {provider.credentials}
+   556→                      </span>
+   557→                    )}
+   558→                  </p>
+   559→                  <p className="text-xs text-muted-foreground">
+   560→                    {provider.providerServices.length} service
+   561→                    {provider.providerServices.length !== 1 ? "s" : ""} ·{" "}
+   562→                    {provider.slotDurationMinutes} min slots
+   563→                  </p>
+   564→                </div>
+   565→                {isSelected && (
+   566→                  <Check className="size-5 text-emerald-600 ml-auto shrink-0" />
+   567→                )}
+   568→              </button>
+   569→            );
+   570→          })}
+   571→        </div>
+   572→
+   573→        {/* Date picker */}
+   574→        {form.providerId && (
+   575→          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
+   576→            <Separator />
+   577→            <div>
+   578→              <h3 className="text-base font-semibold text-foreground">
+   579→                Select Date
+   580→              </h3>
+   581→              <p className="text-sm text-muted-foreground mt-1">
+   582→                Choose a date to view available time slots
+   583→              </p>
+   584→            </div>
+   585→
+   586→            <div className="flex justify-center">
+   587→              <Popover>
+   588→                <PopoverTrigger asChild>
+   589→                  <Button
+   590→                    variant="outline"
+   591→                    className={cn(
+   592→                      "w-full sm:w-auto sm:min-w-[280px] justify-start text-left font-normal cursor-pointer",
+   593→                      !form.selectedDate && "text-muted-foreground"
+   594→                    )}
+   595→                  >
+   596→                    <Calendar className="mr-2 size-4" />
+   597→                    {form.selectedDate
+   598→                      ? format(form.selectedDate, "EEEE, MMMM d, yyyy")
+   599→                      : "Pick a date"}
+   600→                  </Button>
+   601→                </PopoverTrigger>
+   602→                <PopoverContent className="w-auto p-0" align="center">
+   603→                  <CalendarComponent
+   604→                    mode="single"
+   605→                    selected={form.selectedDate}
+   606→                    onSelect={handleDateSelect}
+   607→                    disabled={{ before: new Date() }}
+   608→                    defaultMonth={new Date()}
+   609→                  />
+   610→                </PopoverContent>
+   611→              </Popover>
+   612→            </div>
+   613→          </div>
+   614→        )}
+   615→
+   616→        {/* Time slots */}
+   617→        {form.providerId && form.selectedDate && (
+   618→          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+   619→            <Separator />
+   620→            <div>
+   621→              <h3 className="text-base font-semibold text-foreground">
+   622→                Available Time Slots
+   623→              </h3>
+   624→              <p className="text-sm text-muted-foreground mt-1">
+   625→                {format(form.selectedDate, "EEEE, MMMM d, yyyy")}
+   626→              </p>
+   627→            </div>
+   628→
+   629→            {slotsLoading ? (
+   630→              <div className="flex items-center justify-center py-8">
+   631→                <Loader2 className="size-6 text-emerald-600 animate-spin" />
+   632→              </div>
+   633→            ) : slots.length === 0 ? (
+   634→              <Card className="shadow-sm">
+   635→                <CardContent className="flex flex-col items-center py-8 text-center">
+   636→                  <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
+   637→                    <Calendar className="size-5 text-muted-foreground" />
+   638→                  </div>
+   639→                  <p className="text-sm font-medium text-foreground">
+   640→                    No available slots
+   641→                  </p>
+   642→                  <p className="text-xs text-muted-foreground mt-1">
+   643→                    Try selecting a different date
+   644→                  </p>
+   645→                </CardContent>
+   646→              </Card>
+   647→            ) : (
+   648→              <div className="space-y-3">
+   649→                {/* In-Person slots */}
+   650→                {inPersonSlots.length > 0 && (
+   651→                  <div>
+   652→                    <div className="flex items-center gap-2 mb-2">
+   653→                      <Building2 className="size-3.5 text-emerald-600" />
+   654→                      <span className="text-xs font-medium text-emerald-700">
+   655→                        In-Person
+   656→                      </span>
+   657→                    </div>
+   658→                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+   659→                      {inPersonSlots.map((slot) => {
+   660→                        const isSelected = form.slotId === slot.id;
+   661→                        return (
+   662→                          <button
+   663→                            key={slot.id}
+   664→                            onClick={() => handleSlotSelect(slot.id)}
+   665→                            className={cn(
+   666→                              "flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer",
+   667→                              isSelected
+   668→                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   669→                                : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   670→                            )}
+   671→                          >
+   672→                            <span
+   673→                              className={cn(
+   674→                                "text-sm font-semibold",
+   675→                                isSelected
+   676→                                  ? "text-emerald-700"
+   677→                                  : "text-foreground"
+   678→                              )}
+   679→                            >
+   680→                              {format(new Date(slot.startTime), "h:mm a")}
+   681→                            </span>
+   682→                            <span className="text-[10px] text-muted-foreground">
+   683→                              {format(new Date(slot.endTime), "h:mm a")}
+   684→                            </span>
+   685→                          </button>
+   686→                        );
+   687→                      })}
+   688→                    </div>
+   689→                  </div>
+   690→                )}
+   691→
+   692→                {/* Video slots */}
+   693→                {videoSlots.length > 0 && (
+   694→                  <div>
+   695→                    <div className="flex items-center gap-2 mb-2">
+   696→                      <Eye className="size-3.5 text-blue-500" />
+   697→                      <span className="text-xs font-medium text-blue-600">
+   698→                        Video Visit
+   699→                      </span>
+   700→                    </div>
+   701→                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+   702→                      {videoSlots.map((slot) => {
+   703→                        const isSelected = form.slotId === slot.id;
+   704→                        return (
+   705→                          <button
+   706→                            key={slot.id}
+   707→                            onClick={() => handleSlotSelect(slot.id)}
+   708→                            className={cn(
+   709→                              "flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer",
+   710→                              isSelected
+   711→                                ? "border-blue-500 bg-blue-50 shadow-sm"
+   712→                                : "border-border hover:border-blue-200 hover:bg-blue-50/50"
+   713→                            )}
+   714→                          >
+   715→                            <span
+   716→                              className={cn(
+   717→                                "text-sm font-semibold",
+   718→                                isSelected
+   719→                                  ? "text-blue-700"
+   720→                                  : "text-foreground"
+   721→                              )}
+   722→                            >
+   723→                              {format(new Date(slot.startTime), "h:mm a")}
+   724→                            </span>
+   725→                            <span className="text-[10px] text-muted-foreground">
+   726→                              {format(new Date(slot.endTime), "h:mm a")}
+   727→                            </span>
+   728→                          </button>
+   729→                        );
+   730→                      })}
+   731→                    </div>
+   732→                  </div>
+   733→                )}
+   734→              </div>
+   735→            )}
+   736→          </div>
+   737→        )}
+   738→      </div>
+   739→    );
+   740→  }
+   741→
+   742→  // =============================================================================
+   743→  // Render: Step 2 — Patient Details
+   744→  // =============================================================================
+   745→
+   746→  function StepPatientDetails() {
+   747→    return (
+   748→      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-6">
+   749→        <div>
+   750→          <h2 className="text-lg font-semibold text-foreground">Patient Information</h2>
+   751→          <p className="text-sm text-muted-foreground mt-1">
+   752→            Enter the patient&apos;s details for the phone booking
+   753→          </p>
+   754→        </div>
+   755→
+   756→        {/* Selected slot summary */}
+   757→        {selectedSlot && selectedProvider && (
+   758→          <Card className="shadow-sm border-l-4 border-l-emerald-500">
+   759→            <CardContent className="p-4 flex items-center gap-3">
+   760→              <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+   761→                <Calendar className="size-4 text-emerald-700" />
+   762→              </div>
+   763→              <div className="min-w-0">
+   764→                <p className="text-sm font-semibold text-foreground truncate">
+   765→                  Dr. {selectedProvider.firstName} {selectedProvider.lastName}
+   766→                  {selectedProvider.credentials &&
+   767→                    `, ${selectedProvider.credentials}`}
+   768→                </p>
+   769→                <p className="text-xs text-muted-foreground">
+   770→                  {format(new Date(selectedSlot.startTime), "EEE, MMM d · h:mm a")}{" "}
+   771→                  – {format(new Date(selectedSlot.endTime), "h:mm a")}
+   772→                  {selectedSlot.modality === "IN_PERSON" ? " · In-Person" : " · Video"}
+   773→                </p>
+   774→              </div>
+   775→            </CardContent>
+   776→          </Card>
+   777→        )}
+   778→
+   779→        {/* Patient type toggle */}
+   780→        <div className="space-y-2">
+   781→          <Label className="text-sm font-medium">Patient Type</Label>
+   782→          <ToggleGroup
+   783→            type="single"
+   784→            value={form.patientType}
+   785→            onValueChange={(val) => {
+   786→              if (val) updateField("patientType", val as "ADULT" | "PEDIATRIC");
+   787→            }}
+   788→            className="justify-start"
+   789→          >
+   790→            <ToggleGroupItem
+   791→              value="ADULT"
+   792→              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+   793→            >
+   794→              <User className="size-4" />
+   795→              Adult
+   796→            </ToggleGroupItem>
+   797→            <ToggleGroupItem
+   798→              value="PEDIATRIC"
+   799→              className="flex items-center gap-2 px-4 py-2.5 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 cursor-pointer"
+   800→            >
+   801→              <Baby className="size-4" />
+   802→              Pediatric
+   803→            </ToggleGroupItem>
+   804→          </ToggleGroup>
+   805→        </div>
+   806→
+   807→        {/* Patient fields */}
+   808→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   809→          <div className="space-y-2 sm:col-span-2">
+   810→            <Label htmlFor="patientName" className="text-sm font-medium">
+   811→              Full Name <span className="text-red-500">*</span>
+   812→            </Label>
+   813→            <Input
+   814→              id="patientName"
+   815→              placeholder="John Doe"
+   816→              value={form.patientName}
+   817→              onChange={(e) => updateField("patientName", e.target.value)}
+   818→              className="rounded-xl"
+   819→            />
+   820→          </div>
+   821→
+   822→          <div className="space-y-2">
+   823→            <Label htmlFor="patientDob" className="text-sm font-medium">
+   824→              Date of Birth <span className="text-red-500">*</span>
+   825→            </Label>
+   826→            <Input
+   827→              id="patientDob"
+   828→              type="date"
+   829→              value={form.patientDob}
+   830→              onChange={(e) => updateField("patientDob", e.target.value)}
+   831→              className="rounded-xl"
+   832→            />
+   833→          </div>
+   834→
+   835→          <div className="space-y-2">
+   836→            <Label htmlFor="patientPhone" className="text-sm font-medium">
+   837→              Phone <span className="text-red-500">*</span>
+   838→            </Label>
+   839→            <div className="relative">
+   840→              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   841→              <Input
+   842→                id="patientPhone"
+   843→                type="tel"
+   844→                placeholder="(555) 123-4567"
+   845→                value={form.patientPhone}
+   846→                onChange={(e) => updateField("patientPhone", e.target.value)}
+   847→                className="pl-10 rounded-xl"
+   848→              />
+   849→            </div>
+   850→          </div>
+   851→
+   852→          <div className="space-y-2 sm:col-span-2">
+   853→            <Label htmlFor="patientEmail" className="text-sm font-medium">
+   854→              Email <span className="text-red-500">*</span>
+   855→            </Label>
+   856→            <div className="relative">
+   857→              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   858→              <Input
+   859→                id="patientEmail"
+   860→                type="email"
+   861→                placeholder="patient@email.com"
+   862→                value={form.patientEmail}
+   863→                onChange={(e) => updateField("patientEmail", e.target.value)}
+   864→                className="pl-10 rounded-xl"
+   865→              />
+   866→            </div>
+   867→          </div>
+   868→        </div>
+   869→
+   870→        {/* Guardian fields (smooth expand/collapse) */}
+   871→        <div
+   872→          className="overflow-hidden transition-all duration-300 ease-in-out"
+   873→          style={{
+   874→            maxHeight: showGuardianFields ? "200px" : "0px",
+   875→            opacity: showGuardianFields ? 1 : 0,
+   876→          }}
+   877→        >
+   878→          <Separator className="mb-4" />
+   879→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   880→            <div className="space-y-2">
+   881→              <Label htmlFor="guardianName" className="text-sm font-medium">
+   882→                Guardian Name <span className="text-red-500">*</span>
+   883→              </Label>
+   884→              <Input
+   885→                id="guardianName"
+   886→                placeholder="Jane Doe"
+   887→                value={form.guardianName}
+   888→                onChange={(e) => updateField("guardianName", e.target.value)}
+   889→                className="rounded-xl"
+   890→              />
+   891→            </div>
+   892→            <div className="space-y-2">
+   893→              <Label htmlFor="guardianRelation" className="text-sm font-medium">
+   894→                Relationship <span className="text-red-500">*</span>
+   895→              </Label>
+   896→              <Select
+   897→                value={form.guardianRelation}
+   898→                onValueChange={(val) => updateField("guardianRelation", val)}
+   899→              >
+   900→                <SelectTrigger className="rounded-xl">
+   901→                  <SelectValue placeholder="Select relationship" />
+   902→                </SelectTrigger>
+   903→                <SelectContent>
+   904→                  <SelectItem value="Mother">Mother</SelectItem>
+   905→                  <SelectItem value="Father">Father</SelectItem>
+   906→                  <SelectItem value="Legal Guardian">Legal Guardian</SelectItem>
+   907→                  <SelectItem value="Grandmother">Grandmother</SelectItem>
+   908→                  <SelectItem value="Grandfather">Grandfather</SelectItem>
+   909→                  <SelectItem value="Other">Other</SelectItem>
+   910→                </SelectContent>
+   911→              </Select>
+   912→            </div>
+   913→          </div>
+   914→        </div>
+   915→      </div>
+   916→    );
+   917→  }
+   918→
+   919→  // =============================================================================
+   920→  // Render: Step 3 — Visit Details
+   921→  // =============================================================================
+   922→
+   923→  function StepVisitDetails() {
+   924→    // Filter services to those offered by the selected provider
+   925→    const providerServices = selectedProvider
+   926→      ? selectedProvider.providerServices.map((ps) => ps.service.id)
+   927→      : [];
+   928→
+   929→    const availableServices = services.filter((s) =>
+   930→      providerServices.includes(s.id)
+   931→    );
+   932→
+   933→    // Auto-select service if only one available
+   934→    useEffect(() => {
+   935→      if (availableServices.length === 1 && form.serviceId !== availableServices[0].id) {
+   936→        updateField("serviceId", availableServices[0].id);
+   937→      }
+   938→    }, [availableServices.length]);
+   939→
+   940→    return (
+   941→      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-6">
+   942→        <div>
+   943→          <h2 className="text-lg font-semibold text-foreground">Visit Details</h2>
+   944→          <p className="text-sm text-muted-foreground mt-1">
+   945→            Select the service, insurance, and reason for visit
+   946→          </p>
+   947→        </div>
+   948→
+   949→        {/* Service selection */}
+   950→        <div className="space-y-2">
+   951→          <Label className="text-sm font-medium">
+   952→            Service <span className="text-red-500">*</span>
+   953→          </Label>
+   954→          {availableServices.length > 1 ? (
+   955→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   956→              {availableServices.map((service) => {
+   957→                const isSelected = form.serviceId === service.id;
+   958→                return (
+   959→                  <button
+   960→                    key={service.id}
+   961→                    onClick={() => updateField("serviceId", service.id)}
+   962→                    className={cn(
+   963→                      "flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer",
+   964→                      isSelected
+   965→                        ? "border-emerald-500 bg-emerald-50 shadow-sm"
+   966→                        : "border-border hover:border-emerald-200 hover:bg-emerald-50/50"
+   967→                    )}
+   968→                  >
+   969→                    <div
+   970→                      className={cn(
+   971→                        "size-8 rounded-full flex items-center justify-center shrink-0",
+   972→                        isSelected
+   973→                          ? "bg-emerald-600 text-white"
+   974→                          : "bg-muted text-muted-foreground"
+   975→                      )}
+   976→                    >
+   977→                      <ClipboardList className="size-3.5" />
+   978→                    </div>
+   979→                    <div className="min-w-0">
+   980→                      <p className="text-sm font-medium text-foreground truncate">
+   981→                        {service.name}
+   982→                      </p>
+   983→                      <p className="text-xs text-muted-foreground">
+   984→                        {service.durationMinutes} min
+   985→                        {service.selfPayPriceCents > 0 &&
+   986→                          ` · ${formatCents(service.selfPayPriceCents)}`}
+   987→                      </p>
+   988→                    </div>
+   989→                    {isSelected && (
+   990→                      <Check className="size-4 text-emerald-600 ml-auto shrink-0" />
+   991→                    )}
+   992→                  </button>
+   993→                );
+   994→              })}
+   995→            </div>
+   996→          ) : availableServices.length === 1 ? (
+   997→            <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50">
+   998→              <div className="flex items-center gap-3">
+   999→                <div className="size-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+  1000→                  <ClipboardList className="size-3.5" />
+  1001→                </div>
+  1002→                <div>
+  1003→                  <p className="text-sm font-medium text-foreground">
+  1004→                    {availableServices[0].name}
+  1005→                  </p>
+  1006→                  <p className="text-xs text-muted-foreground">
+  1007→                    {availableServices[0].durationMinutes} min
+  1008→                  </p>
+  1009→                </div>
+  1010→              </div>
+  1011→            </div>
+  1012→          ) : (
+  1013→            <p className="text-sm text-muted-foreground">
+  1014→              No services available for this provider.
+  1015→            </p>
+  1016→          )}
+  1017→
+  1018→          {/* Auto-select if only one */}
+  1019→          {availableServices.length === 1 && !form.serviceId && (
+  1020→            <input type="hidden" value={form.serviceId} readOnly />
+  1021→          )}
+  1022→        </div>
+  1023→
+  1024→        {/* Insurance selection */}
+  1025→        <div className="space-y-2">
+  1026→          <Label className="text-sm font-medium">Insurance (optional)</Label>
+  1027→          <Select
+  1028→            value={form.insuranceId}
+  1029→            onValueChange={(val) => updateField("insuranceId", val)}
+  1030→          >
+  1031→            <SelectTrigger className="rounded-xl">
+  1032→              <SelectValue placeholder="Select insurance or leave blank for self-pay" />
+  1033→            </SelectTrigger>
+  1034→            <SelectContent>
+  1035→              {insurances.map((insurance) => (
+  1036→                <SelectItem key={insurance.id} value={insurance.id}>
+  1037→                  {insurance.name}
+  1038→                  {insurance.isDemo && " (Demo)"}
+  1039→                </SelectItem>
+  1040→              ))}
+  1041→            </SelectContent>
+  1042→          </Select>
+  1043→          {!form.insuranceId && (
+  1044→            <p className="text-xs text-muted-foreground">
+  1045→              No insurance selected — self-pay rates will apply
+  1046→            </p>
+  1047→          )}
+  1048→          {selectedInsurance?.isDemo && (
+  1049→            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+  1050→              Demo Plan — $0 Copay
+  1051→            </Badge>
+  1052→          )}
+  1053→        </div>
+  1054→
+  1055→        {/* Reason for visit */}
+  1056→        <div className="space-y-2">
+  1057→          <Label htmlFor="reasonForVisit" className="text-sm font-medium">
+  1058→            Reason for Visit <span className="text-red-500">*</span>
+  1059→          </Label>
+  1060→          <Textarea
+  1061→            id="reasonForVisit"
+  1062→            placeholder="Briefly describe the reason for the visit..."
+  1063→            value={form.reasonForVisit}
+  1064→            onChange={(e) => updateField("reasonForVisit", e.target.value)}
+  1065→            className="rounded-xl min-h-[100px] resize-none"
+  1066→          />
+  1067→        </div>
+  1068→
+  1069→        {/* Internal notes (staff only) */}
+  1070→        <div className="space-y-2">
+  1071→          <Label htmlFor="internalNotes" className="text-sm font-medium">
+  1072→            Internal Notes{" "}
+  1073→            <span className="text-muted-foreground font-normal">
+  1074→              (staff only, not visible to patient)
+  1075→            </span>
+  1076→          </Label>
+  1077→          <Textarea
+  1078→            id="internalNotes"
+  1079→            placeholder="Any internal notes about this booking..."
+  1080→            value={form.internalNotes}
+  1081→            onChange={(e) => updateField("internalNotes", e.target.value)}
+  1082→            className="rounded-xl min-h-[80px] resize-none bg-muted/30"
+  1083→          />
+  1084→        </div>
+  1085→      </div>
+  1086→    );
+  1087→  }
+  1088→
+  1089→  // =============================================================================
+  1090→  // Render: Step 4 — Review
+  1091→  // =============================================================================
+  1092→
+  1093→  function StepReview() {
+  1094→    return (
+  1095→      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-5">
+  1096→        <div>
+  1097→          <h2 className="text-lg font-semibold text-foreground">
+  1098→            Review Booking Details
+  1099→          </h2>
+  1100→          <p className="text-sm text-muted-foreground mt-1">
+  1101→            Please verify all information before confirming the booking
+  1102→          </p>
+  1103→        </div>
+  1104→
+  1105→        {/* Provider & Slot */}
+  1106→        <Card className="shadow-sm rounded-xl">
+  1107→          <CardContent className="p-5 space-y-3">
+  1108→            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+  1109→              <Calendar className="size-4" />
+  1110→              Appointment
+  1111→            </div>
+  1112→            <Separator />
+  1113→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1114→              <ReviewRow
+  1115→                icon={<Stethoscope className="size-3.5" />}
+  1116→                label="Provider"
+  1117→                value={
+  1118→                  selectedProvider
+  1119→                    ? `Dr. ${selectedProvider.firstName} ${selectedProvider.lastName}${selectedProvider.credentials ? `, ${selectedProvider.credentials}` : ""}`
+  1120→                    : "—"
+  1121→                }
+  1122→              />
+  1123→              <ReviewRow
+  1124→                icon={<Calendar className="size-3.5" />}
+  1125→                label="Date & Time"
+  1126→                value={
+  1127→                  selectedSlot
+  1128→                    ? `${format(new Date(selectedSlot.startTime), "EEEE, MMMM d, yyyy")}\n${format(new Date(selectedSlot.startTime), "h:mm a")} – ${format(new Date(selectedSlot.endTime), "h:mm a")}`
+  1129→                    : "—"
+  1130→                }
+  1131→              />
+  1132→              <ReviewRow
+  1133→                icon={
+  1134→                  selectedSlot?.modality === "VIDEO" ? (
+  1135→                    <Eye className="size-3.5" />
+  1136→                  ) : (
+  1137→                    <Building2 className="size-3.5" />
+  1138→                  )
+  1139→                }
+  1140→                label="Modality"
+  1141→                value={
+  1142→                  selectedSlot?.modality === "VIDEO" ? "Video Visit" : "In-Person"
+  1143→                }
+  1144→              />
+  1145→              <ReviewRow
+  1146→                icon={<ClipboardList className="size-3.5" />}
+  1147→                label="Service"
+  1148→                value={selectedService?.name || "—"}
+  1149→              />
+  1150→            </div>
+  1151→          </CardContent>
+  1152→        </Card>
+  1153→
+  1154→        {/* Patient Info */}
+  1155→        <Card className="shadow-sm rounded-xl">
+  1156→          <CardContent className="p-5 space-y-3">
+  1157→            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+  1158→              <User className="size-4" />
+  1159→              Patient Information
+  1160→            </div>
+  1161→            <Separator />
+  1162→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1163→              <ReviewRow
+  1164→                icon={<User className="size-3.5" />}
+  1165→                label="Name"
+  1166→                value={form.patientName}
+  1167→              />
+  1168→              <ReviewRow
+  1169→                icon={<Calendar className="size-3.5" />}
+  1170→                label="Date of Birth"
+  1171→                value={form.patientDob ? format(new Date(form.patientDob), "MMMM d, yyyy") : "—"}
+  1172→              />
+  1173→              <ReviewRow
+  1174→                icon={<Phone className="size-3.5" />}
+  1175→                label="Phone"
+  1176→                value={form.patientPhone}
+  1177→              />
+  1178→              <ReviewRow
+  1179→                icon={<Mail className="size-3.5" />}
+  1180→                label="Email"
+  1181→                value={form.patientEmail}
+  1182→              />
+  1183→              <ReviewRow
+  1184→                icon={
+  1185→                  form.patientType === "PEDIATRIC" ? (
+  1186→                    <Baby className="size-3.5" />
+  1187→                  ) : (
+  1188→                    <User className="size-3.5" />
+  1189→                  )
+  1190→                }
+  1191→                label="Patient Type"
+  1192→                value={
+  1193→                  form.patientType === "PEDIATRIC" ? "Pediatric" : "Adult"
+  1194→                }
+  1195→              />
+  1196→              {form.patientType === "PEDIATRIC" && (
+  1197→                <ReviewRow
+  1198→                  icon={<UserPlus className="size-3.5" />}
+  1199→                  label="Guardian"
+  1200→                  value={`${form.guardianName} (${form.guardianRelation})`}
+  1201→                />
+  1202→              )}
+  1203→            </div>
+  1204→          </CardContent>
+  1205→        </Card>
+  1206→
+  1207→        {/* Visit Details */}
+  1208→        <Card className="shadow-sm rounded-xl">
+  1209→          <CardContent className="p-5 space-y-3">
+  1210→            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+  1211→              <FileText className="size-4" />
+  1212→              Visit Details
+  1213→            </div>
+  1214→            <Separator />
+  1215→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1216→              <ReviewRow
+  1217→                icon={<Shield className="size-3.5" />}
+  1218→                label="Insurance"
+  1219→                value={selectedInsurance?.name || "Self-Pay (Uninsured)"}
+  1220→              />
+  1221→              <ReviewRow
+  1222→                icon={<CreditCard className="size-3.5" />}
+  1223→                label="Payment"
+  1224→                value="Cash at Desk"
+  1225→              />
+  1226→              <ReviewRow
+  1227→                icon={<FileText className="size-3.5" />}
+  1228→                label="Reason for Visit"
+  1229→                value={form.reasonForVisit}
+  1230→                full
+  1231→              />
+  1232→            </div>
+  1233→            {form.internalNotes.trim() && (
+  1234→              <>
+  1235→                <Separator />
+  1236→                <div className="bg-muted/50 rounded-lg p-3">
+  1237→                  <p className="text-xs font-medium text-muted-foreground mb-1">
+  1238→                    Internal Notes (staff only)
+  1239→                  </p>
+  1240→                  <p className="text-sm text-foreground">{form.internalNotes}</p>
+  1241→                </div>
+  1242→              </>
+  1243→            )}
+  1244→          </CardContent>
+  1245→        </Card>
+  1246→      </div>
+  1247→    );
+  1248→  }
+  1249→
+  1250→  // =============================================================================
+  1251→  // Render: Step 5 — Confirmation
+  1252→  // =============================================================================
+  1253→
+  1254→  function StepConfirmation() {
+  1255→    if (!bookingResult) return null;
+  1256→
+  1257→    const { appointment, token } = bookingResult;
+  1258→    const manageUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/manage/${token}`;
+  1259→
+  1260→    return (
+  1261→      <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 space-y-6">
+  1262→        {/* Success header */}
+  1263→        <div className="text-center space-y-3">
+  1264→          <div className="inline-flex size-16 rounded-full bg-emerald-100 items-center justify-center">
+  1265→            <CheckCircle2 className="size-8 text-emerald-600" />
+  1266→          </div>
+  1267→          <div>
+  1268→            <h2 className="text-xl font-bold text-foreground">
+  1269→              Booking Confirmed!
+  1270→            </h2>
+  1271→            <p className="text-sm text-muted-foreground mt-1">
+  1272→              The appointment has been successfully created
+  1273→            </p>
+  1274→          </div>
+  1275→        </div>
+  1276→
+  1277→        {/* Appointment details card */}
+  1278→        <Card className="shadow-sm rounded-xl">
+  1279→          <CardContent className="p-5 space-y-3">
+  1280→            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+  1281→              <Calendar className="size-4" />
+  1282→              Appointment Details
+  1283→            </div>
+  1284→            <Separator />
+  1285→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1286→              <ReviewRow
+  1287→                icon={<Stethoscope className="size-3.5" />}
+  1288→                label="Provider"
+  1289→                value={`${appointment.providerName}${appointment.providerCredentials ? `, ${appointment.providerCredentials}` : ""}`}
+  1290→              />
+  1291→              <ReviewRow
+  1292→                icon={<Calendar className="size-3.5" />}
+  1293→                label="Date & Time"
+  1294→                value={`${format(new Date(appointment.startTime), "EEEE, MMMM d, yyyy")}\n${format(new Date(appointment.startTime), "h:mm a")} – ${format(new Date(appointment.endTime), "h:mm a")}`}
+  1295→              />
+  1296→              <ReviewRow
+  1297→                icon={<User className="size-3.5" />}
+  1298→                label="Patient"
+  1299→                value={appointment.patientName}
+  1300→              />
+  1301→              <ReviewRow
+  1302→                icon={<ClipboardList className="size-3.5" />}
+  1303→                label="Service"
+  1304→                value={`${appointment.specialtyName} — ${appointment.serviceName}`}
+  1305→              />
+  1306→              <ReviewRow
+  1307→                icon={<CreditCard className="size-3.5" />}
+  1308→                label="Payment"
+  1309→                value="Cash at Desk (Pending)"
+  1310→              />
+  1311→            </div>
+  1312→          </CardContent>
+  1313→        </Card>
+  1314→
+  1315→        {/* Management link */}
+  1316→        <Card className="shadow-sm rounded-xl border-emerald-200 bg-emerald-50/30">
+  1317→          <CardContent className="p-5 space-y-3">
+  1318→            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+  1319→              <Shield className="size-4" />
+  1320→              Patient Management Link
+  1321→            </div>
+  1322→            <p className="text-xs text-muted-foreground">
+  1323→              Share this link with the patient so they can manage their appointment
+  1324→              online.
+  1325→            </p>
+  1326→
+  1327→            {/* Token display */}
+  1328→            <div className="bg-white rounded-lg border p-3 space-y-2">
+  1329→              <div className="flex items-center justify-between">
+  1330→                <span className="text-xs font-medium text-muted-foreground">
+  1331→                  Management URL
+  1332→                </span>
+  1333→                <button
+  1334→                  onClick={handleCopyToken}
+  1335→                  className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
+  1336→                >
+  1337→                  {copied ? (
+  1338→                    <>
+  1339→                      <Check className="size-3" /> Copied!
+  1340→                    </>
+  1341→                  ) : (
+  1342→                    <>
+  1343→                      <Copy className="size-3" /> Copy Link
+  1344→                    </>
+  1345→                  )}
+  1346→                </button>
+  1347→              </div>
+  1348→              <div className="flex items-center gap-2">
+  1349→                <code className="flex-1 text-xs bg-muted/50 rounded px-2 py-1.5 break-all font-mono">
+  1350→                  {tokenRevealed ? manageUrl : `${manageUrl.substring(0, 30)}${"*".repeat(20)}`}
+  1351→                </code>
+  1352→                <button
+  1353→                  onClick={() => setTokenRevealed(!tokenRevealed)}
+  1354→                  className="shrink-0 size-8 rounded-lg border flex items-center justify-center hover:bg-muted/50 transition-colors cursor-pointer"
+  1355→                >
+  1356→                  {tokenRevealed ? (
+  1357→                    <EyeOff className="size-3.5 text-muted-foreground" />
+  1358→                  ) : (
+  1359→                    <Eye className="size-3.5 text-muted-foreground" />
+  1360→                  )}
+  1361→                </button>
+  1362→              </div>
+  1363→            </div>
+  1364→          </CardContent>
+  1365→        </Card>
+  1366→
+  1367→        {/* Actions */}
+  1368→        <div className="flex flex-col sm:flex-row gap-3">
+  1369→          <Button
+  1370→            onClick={() => {
+  1371→              setBookingResult(null);
+  1372→              setStep(1);
+  1373→              setForm({
+  1374→                providerId: "",
+  1375→                selectedDate: undefined,
+  1376→                slotId: "",
+  1377→                patientName: "",
+  1378→                patientDob: "",
+  1379→                patientPhone: "",
+  1380→                patientEmail: "",
+  1381→                patientType: "ADULT",
+  1382→                guardianName: "",
+  1383→                guardianRelation: "",
+  1384→                reasonForVisit: "",
+  1385→                serviceId: "",
+  1386→                insuranceId: "",
+  1387→                internalNotes: "",
+  1388→              });
+  1389→              setSlots([]);
+  1390→            }}
+  1391→            className="flex-1 bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 cursor-pointer"
+  1392→          >
+  1393→            <CalendarPlus className="size-4 mr-2" />
+  1394→            Book Another Appointment
+  1395→          </Button>
+  1396→        </div>
+  1397→      </div>
+  1398→    );
+  1399→  }
+  1400→
+  1401→  // =============================================================================
+  1402→  // Main Render
+  1403→  // =============================================================================
+  1404→
+  1405→  return (
+  1406→    <div className="max-w-3xl mx-auto space-y-2">
+  1407→      {/* Page header */}
+  1408→      <div className="flex items-center gap-3 mb-4">
+  1409→        <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+  1410→          <CalendarPlus className="size-5 text-emerald-600" />
+  1411→        </div>
+  1412→        <div>
+  1413→          <h1 className="text-xl font-bold text-foreground">Manual Booking</h1>
+  1414→          <p className="text-sm text-muted-foreground">
+  1415→            Book an appointment on behalf of a patient
+  1416→          </p>
+  1417→        </div>
+  1418→      </div>
+  1419→
+  1420→      {/* Step indicator (not on confirmation step) */}
+  1421→      {step < 5 && <StepIndicator />}
+  1422→
+  1423→      {/* Error banner */}
+  1424→      {error && (
+  1425→        <div className="animate-in fade-in duration-200">
+  1426→          <div className="flex items-start gap-3 p-4 rounded-xl border border-red-200 bg-red-50/50">
+  1427→            <AlertCircle className="size-5 text-red-500 shrink-0 mt-0.5" />
+  1428→            <div className="flex-1">
+  1429→              <p className="text-sm font-medium text-red-700">{error}</p>
+  1430→            </div>
+  1431→            {step < 5 && (
+  1432→              <button
+  1433→                onClick={() => setError(null)}
+  1434→                className="shrink-0 cursor-pointer p-0.5 rounded hover:bg-red-100 transition-colors"
+  1435→              >
+  1436→                <ArrowLeft className="size-4 text-red-400" />
+  1437→              </button>
+  1438→            )}
+  1439→          </div>
+  1440→        </div>
+  1441→      )}
+  1442→
+  1443→      {/* Step content */}
+  1444→      {step === 1 && <StepProviderSlot />}
+  1445→      {step === 2 && <StepPatientDetails />}
+  1446→      {step === 3 && <StepVisitDetails />}
+  1447→      {step === 4 && <StepReview />}
+  1448→      {step === 5 && <StepConfirmation />}
+  1449→
+  1450→      {/* Navigation buttons */}
+  1451→      {step < 5 && (
+  1452→        <div className="flex items-center justify-between pt-4 border-t mt-6">
+  1453→          <Button
+  1454→            variant="outline"
+  1455→            onClick={handleBack}
+  1456→            disabled={step === 1}
+  1457→            className="cursor-pointer rounded-xl"
+  1458→          >
+  1459→            <ArrowLeft className="size-4 mr-2" />
+  1460→            Back
+  1461→          </Button>
+  1462→
+  1463→          {step < 4 ? (
+  1464→            <Button
+  1465→              onClick={handleNext}
+  1466→              className="bg-emerald-600 hover:bg-emerald-700 shadow-sm cursor-pointer rounded-xl"
+  1467→            >
+  1468→              Continue
+  1469→              <ArrowRight className="size-4 ml-2" />
+  1470→            </Button>
+  1471→          ) : (
+  1472→            <Button
+  1473→              onClick={handleSubmit}
+  1474→              disabled={submitting}
+  1475→              className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 cursor-pointer rounded-xl"
+  1476→            >
+  1477→              {submitting ? (
+  1478→                <>
+  1479→                  <Loader2 className="size-4 mr-2 animate-spin" />
+  1480→                  Booking...
+  1481→                </>
+  1482→              ) : (
+  1483→                <>
+  1484→                  <Check className="size-4 mr-2" />
+  1485→                  Confirm Booking
+  1486→                </>
+  1487→              )}
+  1488→            </Button>
+  1489→          )}
+  1490→        </div>
+  1491→      )}
+  1492→    </div>
+  1493→  );
+  1494→}
+  1495→
+  1496→// =============================================================================
+  1497→// Helper: Review Row
+  1498→// =============================================================================
+  1499→
+  1500→function ReviewRow({
+  1501→  icon,
+  1502→  label,
+  1503→  value,
+  1504→  full = false,
+  1505→}: {
+  1506→  icon: React.ReactNode;
+  1507→  label: string;
+  1508→  value: string;
+  1509→  full?: boolean;
+  1510→}) {
+  1511→  return (
+  1512→    <div className={full ? "sm:col-span-2" : ""}>
+  1513→      <div className="flex items-start gap-2">
+  1514→        <div className="size-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 text-emerald-700">
+  1515→          {icon}
+  1516→        </div>
+  1517→        <div className="min-w-0">
+  1518→          <p className="text-xs text-muted-foreground">{label}</p>
+  1519→          <p className="text-sm font-medium text-foreground whitespace-pre-line break-words">
+  1520→            {value}
+  1521→          </p>
+  1522→        </div>
+  1523→      </div>
+  1524→    </div>
+  1525→  );
+  1526→}

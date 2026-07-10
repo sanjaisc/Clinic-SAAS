@@ -1,0 +1,1035 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useState } from "react";
+     4→import { format } from "date-fns";
+     5→import {
+     6→  AlertTriangle,
+     7→  AlertCircle,
+     8→  Info,
+     9→  CheckCircle2,
+    10→  Clock,
+    11→  Search,
+    12→  ChevronLeft,
+    13→  ChevronRight,
+    14→  ChevronsUpDown,
+    15→  Eye,
+    16→  ShieldAlert,
+    17→  ScrollText,
+    18→  FileWarning,
+    19→  RefreshCw,
+    20→} from "lucide-react";
+    21→import { toast } from "sonner";
+    22→
+    23→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    24→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+    25→import { Badge } from "@/components/ui/badge";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Input } from "@/components/ui/input";
+    28→import { Textarea } from "@/components/ui/textarea";
+    29→import { Skeleton } from "@/components/ui/skeleton";
+    30→import {
+    31→  Table,
+    32→  TableBody,
+    33→  TableCell,
+    34→  TableHead,
+    35→  TableHeader,
+    36→  TableRow,
+    37→} from "@/components/ui/table";
+    38→import {
+    39→  Select,
+    40→  SelectContent,
+    41→  SelectItem,
+    42→  SelectTrigger,
+    43→  SelectValue,
+    44→} from "@/components/ui/select";
+    45→import {
+    46→  Dialog,
+    47→  DialogContent,
+    48→  DialogDescription,
+    49→  DialogFooter,
+    50→  DialogHeader,
+    51→  DialogTitle,
+    52→} from "@/components/ui/dialog";
+    53→import { Label } from "@/components/ui/label";
+    54→
+    55→// ─── Types ───────────────────────────────────────────────────────────────────
+    56→
+    57→interface PaymentException {
+    58→  id: string;
+    59→  type: string;
+    60→  appointmentId: string;
+    61→  patientName: string;
+    62→  clinicName: string;
+    63→  amountCents: number;
+    64→  createdAt: string;
+    65→  resolved: boolean;
+    66→  resolvedNote?: string | null;
+    67→  ledgerId?: string;
+    68→  paymentStatus?: string;
+    69→  refundStatus?: string;
+    70→}
+    71→
+    72→interface AuditLogEntry {
+    73→  id: string;
+    74→  userId: string | null;
+    75→  userName: string;
+    76→  userClinic: string | null;
+    77→  action: string;
+    78→  targetType: string | null;
+    79→  targetId: string | null;
+    80→  appointmentId: string | null;
+    81→  ipAddress: string | null;
+    82→  createdAt: string;
+    83→}
+    84→
+    85→interface ErrorLogEntry {
+    86→  id: string;
+    87→  level: string;
+    88→  source: string;
+    89→  message: string;
+    90→  path: string | null;
+    91→  stack: string | null;
+    92→  resolved: boolean;
+    93→  resolvedBy: string | null;
+    94→  resolvedAt: string | null;
+    95→  createdAt: string;
+    96→}
+    97→
+    98→interface PaginationInfo {
+    99→  page: number;
+   100→  limit: number;
+   101→  total: number;
+   102→  totalPages: number;
+   103→}
+   104→
+   105→// ─── Helpers ─────────────────────────────────────────────────────────────────
+   106→
+   107→function formatCents(cents: number) {
+   108→  return `$${(cents / 100).toFixed(2)}`;
+   109→}
+   110→
+   111→function truncate(str: string, max: number) {
+   112→  if (str.length <= max) return str;
+   113→  return str.slice(0, max) + "…";
+   114→}
+   115→
+   116→// ─── Component ───────────────────────────────────────────────────────────────
+   117→
+   118→export default function FinancialAdminPage() {
+   119→  return (
+   120→    <div className="space-y-6">
+   121→      <Tabs defaultValue="exceptions" className="w-full">
+   122→        <TabsList className="grid w-full grid-cols-3">
+   123→          <TabsTrigger value="exceptions" className="gap-1.5">
+   124→            <ShieldAlert className="size-4" />
+   125→            <span className="hidden sm:inline">Payment Exceptions</span>
+   126→            <span className="sm:hidden">Exceptions</span>
+   127→          </TabsTrigger>
+   128→          <TabsTrigger value="audit" className="gap-1.5">
+   129→            <ScrollText className="size-4" />
+   130→            <span className="hidden sm:inline">Audit Logs</span>
+   131→            <span className="sm:hidden">Audit</span>
+   132→          </TabsTrigger>
+   133→          <TabsTrigger value="errors" className="gap-1.5">
+   134→            <FileWarning className="size-4" />
+   135→            <span className="hidden sm:inline">Error Logs</span>
+   136→            <span className="sm:hidden">Errors</span>
+   137→          </TabsTrigger>
+   138→        </TabsList>
+   139→
+   140→        <TabsContent value="exceptions" className="mt-4">
+   141→          <PaymentExceptionsTab />
+   142→        </TabsContent>
+   143→        <TabsContent value="audit" className="mt-4">
+   144→          <AuditLogsTab />
+   145→        </TabsContent>
+   146→        <TabsContent value="errors" className="mt-4">
+   147→          <ErrorLogsTab />
+   148→        </TabsContent>
+   149→      </Tabs>
+   150→    </div>
+   151→  );
+   152→}
+   153→
+   154→// ═══════════════════════════════════════════════════════════════════════════════
+   155→// TAB 1: Payment Exception Queue
+   156→// ═══════════════════════════════════════════════════════════════════════════════
+   157→
+   158→function PaymentExceptionsTab() {
+   159→  const [exceptions, setExceptions] = useState<PaymentException[]>([]);
+   160→  const [loading, setLoading] = useState(true);
+   161→  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+   162→  const [resolvedFilter, setResolvedFilter] = useState<string>("ALL");
+   163→  const [page, setPage] = useState(1);
+   164→  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+   165→  const [stats, setStats] = useState({ total: 0, unresolved: 0 });
+   166→  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+   167→  const [resolveTarget, setResolveTarget] = useState<PaymentException | null>(null);
+   168→  const [resolveNote, setResolveNote] = useState("");
+   169→  const [resolving, setResolving] = useState(false);
+   170→
+   171→  const fetchExceptions = useCallback(async () => {
+   172→    setLoading(true);
+   173→    try {
+   174→      const params = new URLSearchParams();
+   175→      if (typeFilter !== "ALL") params.set("type", typeFilter);
+   176→      if (resolvedFilter !== "ALL") params.set("resolved", resolvedFilter);
+   177→      params.set("page", String(page));
+   178→      params.set("limit", "20");
+   179→
+   180→      const res = await fetch(`/api/staff/admin/payments/exceptions?${params}`);
+   181→      if (!res.ok) throw new Error("Failed to fetch exceptions");
+   182→      const json = await res.json();
+   183→
+   184→      setExceptions(json.data);
+   185→      setPagination(json.pagination);
+   186→
+   187→      // Compute stats from full dataset (first page, all types, no resolved filter)
+   188→      const statsRes = await fetch("/api/staff/admin/payments/exceptions?limit=1000");
+   189→      if (statsRes.ok) {
+   190→        const statsJson = await statsRes.json();
+   191→        setStats({
+   192→          total: statsJson.pagination.total,
+   193→          unresolved: statsJson.data.filter((e: PaymentException) => !e.resolved).length,
+   194→        });
+   195→      }
+   196→    } catch (err) {
+   197→      console.error(err);
+   198→      toast.error("Failed to load payment exceptions");
+   199→    } finally {
+   200→      setLoading(false);
+   201→    }
+   202→  }, [typeFilter, resolvedFilter, page]);
+   203→
+   204→  useEffect(() => {
+   205→    fetchExceptions();
+   206→  }, [fetchExceptions]);
+   207→
+   208→  const handleResolve = async () => {
+   209→    if (!resolveTarget) return;
+   210→    setResolving(true);
+   211→    try {
+   212→      const res = await fetch(`/api/staff/admin/payments/exceptions/${resolveTarget.id}/resolve`, {
+   213→        method: "PATCH",
+   214→        headers: { "Content-Type": "application/json" },
+   215→        body: JSON.stringify({ note: resolveNote || undefined }),
+   216→      });
+   217→      if (!res.ok) throw new Error("Failed to resolve exception");
+   218→      toast.success("Exception resolved successfully");
+   219→      setResolveDialogOpen(false);
+   220→      setResolveNote("");
+   221→      fetchExceptions();
+   222→    } catch (err) {
+   223→      console.error(err);
+   224→      toast.error("Failed to resolve exception");
+   225→    } finally {
+   226→      setResolving(false);
+   227→    }
+   228→  };
+   229→
+   230→  const getTypeBadge = (type: string) => {
+   231→    switch (type) {
+   232→      case "REFUND_FAILED":
+   233→        return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200">Failed Refund</Badge>;
+   234→      case "ORPHANED":
+   235→        return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200">Orphaned</Badge>;
+   236→      case "DISPUTED":
+   237→        return <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200">Disputed</Badge>;
+   238→      default:
+   239→        return <Badge variant="secondary">{type}</Badge>;
+   240→    }
+   241→  };
+   242→
+   243→  return (
+   244→    <div className="space-y-4">
+   245→      {/* Summary Stats */}
+   246→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   247→        <Card>
+   248→          <CardContent className="p-4 flex items-center gap-4">
+   249→            <div className="flex items-center justify-center size-10 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   250→              <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />
+   251→            </div>
+   252→            <div>
+   253→              <p className="text-2xl font-bold">{stats.total}</p>
+   254→              <p className="text-sm text-muted-foreground">Total Exceptions</p>
+   255→            </div>
+   256→          </CardContent>
+   257→        </Card>
+   258→        <Card>
+   259→          <CardContent className="p-4 flex items-center gap-4">
+   260→            <div className="flex items-center justify-center size-10 rounded-lg bg-red-100 dark:bg-red-900/30">
+   261→              <AlertCircle className="size-5 text-red-600 dark:text-red-400" />
+   262→            </div>
+   263→            <div>
+   264→              <p className="text-2xl font-bold">{stats.unresolved}</p>
+   265→              <p className="text-sm text-muted-foreground">Unresolved</p>
+   266→            </div>
+   267→          </CardContent>
+   268→        </Card>
+   269→      </div>
+   270→
+   271→      {/* Filters */}
+   272→      <Card>
+   273→        <CardContent className="p-4">
+   274→          <div className="flex flex-col sm:flex-row gap-3">
+   275→            <div className="flex-1">
+   276→              <Label className="text-xs text-muted-foreground mb-1 block">Exception Type</Label>
+   277→              <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+   278→                <SelectTrigger className="w-full">
+   279→                  <SelectValue />
+   280→                </SelectTrigger>
+   281→                <SelectContent>
+   282→                  <SelectItem value="ALL">All Types</SelectItem>
+   283→                  <SelectItem value="REFUND_FAILED">Failed Refunds</SelectItem>
+   284→                  <SelectItem value="ORPHANED">Orphaned Payments</SelectItem>
+   285→                  <SelectItem value="DISPUTED">Disputed</SelectItem>
+   286→                </SelectContent>
+   287→              </Select>
+   288→            </div>
+   289→            <div className="flex-1">
+   290→              <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
+   291→              <Select value={resolvedFilter} onValueChange={(v) => { setResolvedFilter(v); setPage(1); }}>
+   292→                <SelectTrigger className="w-full">
+   293→                  <SelectValue />
+   294→                </SelectTrigger>
+   295→                <SelectContent>
+   296→                  <SelectItem value="ALL">All</SelectItem>
+   297→                  <SelectItem value="false">Unresolved</SelectItem>
+   298→                  <SelectItem value="true">Resolved</SelectItem>
+   299→                </SelectContent>
+   300→              </Select>
+   301→            </div>
+   302→          </div>
+   303→        </CardContent>
+   304→      </Card>
+   305→
+   306→      {/* Table */}
+   307→      <Card>
+   308→        <CardContent className="p-0">
+   309→          <div className="max-h-[480px] overflow-y-auto">
+   310→            {loading ? (
+   311→              <div className="p-4 space-y-3">
+   312→                {Array.from({ length: 5 }).map((_, i) => (
+   313→                  <Skeleton key={i} className="h-12 w-full" />
+   314→                ))}
+   315→              </div>
+   316→            ) : exceptions.length === 0 ? (
+   317→              <div className="p-8 text-center">
+   318→                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+   319→                <p className="text-sm text-muted-foreground">No exceptions found</p>
+   320→              </div>
+   321→            ) : (
+   322→              <Table>
+   323→                <TableHeader>
+   324→                  <TableRow>
+   325→                    <TableHead>Appointment ID</TableHead>
+   326→                    <TableHead>Patient</TableHead>
+   327→                    <TableHead className="hidden md:table-cell">Clinic</TableHead>
+   328→                    <TableHead>Type</TableHead>
+   329→                    <TableHead>Amount</TableHead>
+   330→                    <TableHead className="hidden lg:table-cell">Created</TableHead>
+   331→                    <TableHead className="text-right">Action</TableHead>
+   332→                  </TableRow>
+   333→                </TableHeader>
+   334→                <TableBody>
+   335→                  {exceptions.map((exc) => (
+   336→                    <TableRow key={exc.id} className={exc.resolved ? "opacity-60" : ""}>
+   337→                      <TableCell className="font-mono text-xs">
+   338→                        {exc.appointmentId.slice(0, 8)}…
+   339→                      </TableCell>
+   340→                      <TableCell className="font-medium">{exc.patientName}</TableCell>
+   341→                      <TableCell className="hidden md:table-cell text-muted-foreground">
+   342→                        {truncate(exc.clinicName, 20)}
+   343→                      </TableCell>
+   344→                      <TableCell>{getTypeBadge(exc.type)}</TableCell>
+   345→                      <TableCell className="font-medium">{formatCents(exc.amountCents)}</TableCell>
+   346→                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+   347→                        {format(new Date(exc.createdAt), "MMM d, yyyy HH:mm")}
+   348→                      </TableCell>
+   349→                      <TableCell className="text-right">
+   350→                        {exc.resolved ? (
+   351→                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+   352→                            <CheckCircle2 className="size-3 mr-1" />
+   353→                            Resolved
+   354→                          </Badge>
+   355→                        ) : (
+   356→                          <Button
+   357→                            size="sm"
+   358→                            variant="outline"
+   359→                            onClick={() => {
+   360→                              setResolveTarget(exc);
+   361→                              setResolveNote("");
+   362→                              setResolveDialogOpen(true);
+   363→                            }}
+   364→                          >
+   365→                            Resolve
+   366→                          </Button>
+   367→                        )}
+   368→                      </TableCell>
+   369→                    </TableRow>
+   370→                  ))}
+   371→                </TableBody>
+   372→              </Table>
+   373→            )}
+   374→          </div>
+   375→
+   376→          {/* Pagination */}
+   377→          {pagination && pagination.totalPages > 1 && (
+   378→            <div className="flex items-center justify-between border-t px-4 py-3">
+   379→              <p className="text-xs text-muted-foreground">
+   380→                Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
+   381→              </p>
+   382→              <div className="flex gap-1">
+   383→                <Button
+   384→                  size="icon"
+   385→                  variant="outline"
+   386→                  className="size-8"
+   387→                  disabled={page <= 1}
+   388→                  onClick={() => setPage((p) => p - 1)}
+   389→                >
+   390→                  <ChevronLeft className="size-4" />
+   391→                </Button>
+   392→                <Button
+   393→                  size="icon"
+   394→                  variant="outline"
+   395→                  className="size-8"
+   396→                  disabled={page >= pagination.totalPages}
+   397→                  onClick={() => setPage((p) => p + 1)}
+   398→                >
+   399→                  <ChevronRight className="size-4" />
+   400→                </Button>
+   401→              </div>
+   402→            </div>
+   403→          )}
+   404→        </CardContent>
+   405→      </Card>
+   406→
+   407→      {/* Resolve Dialog */}
+   408→      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+   409→        <DialogContent>
+   410→          <DialogHeader>
+   411→            <DialogTitle>Resolve Payment Exception</DialogTitle>
+   412→            <DialogDescription>
+   413→              {resolveTarget && (
+   414→                <>
+   415→                  {resolveTarget.type === "REFUND_FAILED"
+   416→                    ? "Mark this failed refund as resolved. The refund status will be set to REFUNDED."
+   417→                    : resolveTarget.type === "ORPHANED"
+   418→                      ? "Mark this orphaned payment as resolved. The appointment payment status will be set to FORFEITED."
+   419→                      : "Mark this disputed refund as resolved. The refund status will be set to REFUNDED."}
+   420→                  <div className="mt-2 text-xs text-muted-foreground">
+   421→                    Appointment: {resolveTarget.appointmentId.slice(0, 12)}… · Patient: {resolveTarget.patientName} · {formatCents(resolveTarget.amountCents)}
+   422→                  </div>
+   423→                </>
+   424→              )}
+   425→            </DialogDescription>
+   426→          </DialogHeader>
+   427→          <div className="space-y-3">
+   428→            <Label htmlFor="resolve-note">Resolution Note</Label>
+   429→            <Textarea
+   430→              id="resolve-note"
+   431→              placeholder="Describe the resolution action taken..."
+   432→              value={resolveNote}
+   433→              onChange={(e) => setResolveNote(e.target.value)}
+   434→              rows={3}
+   435→            />
+   436→          </div>
+   437→          <DialogFooter>
+   438→            <Button variant="outline" onClick={() => setResolveDialogOpen(false)} disabled={resolving}>
+   439→              Cancel
+   440→            </Button>
+   441→            <Button onClick={handleResolve} disabled={resolving}>
+   442→              {resolving && <RefreshCw className="size-4 mr-2 animate-spin" />}
+   443→              Mark Resolved
+   444→            </Button>
+   445→          </DialogFooter>
+   446→        </DialogContent>
+   447→      </Dialog>
+   448→    </div>
+   449→  );
+   450→}
+   451→
+   452→// ═══════════════════════════════════════════════════════════════════════════════
+   453→// TAB 2: Audit Logs
+   454→// ═══════════════════════════════════════════════════════════════════════════════
+   455→
+   456→const AUDIT_ACTION_OPTIONS = [
+   457→  "BOOKING_CREATED", "BOOKING_CANCELLED", "BOOKING_CHECKED_IN", "BOOKING_COMPLETED",
+   458→  "BOOKING_NO_SHOW", "BOOKING_RESCHEDULED",
+   459→  "SLOT_BLOCKED", "SLOT_UNBLOCKED", "SLOT_GENERATED",
+   460→  "DEPOSIT_AUTHORIZED", "DEPOSIT_CAPTURED", "REFUND_INITIATED", "REFUND_COMPLETED", "REFUND_FAILED",
+   461→  "CLINIC_CREATED", "CLINIC_UPDATED", "CLINIC_SUSPENDED", "CLINIC_PUBLISHED",
+   462→  "PROVIDER_CREATED", "PROVIDER_UPDATED", "PROVIDER_SUSPENDED",
+   463→  "STAFF_LOGIN", "STAFF_LOGOUT", "STAFF_INVITATION_CREATED", "STAFF_INVITATION_ACCEPTED", "STAFF_INVITATION_REVOKED",
+   464→  "TEMPLATE_CREATED", "TEMPLATE_UPDATED", "TEMPLATE_DEACTIVATED",
+   465→  "REVIEW_SUBMITTED", "SYSTEM_CONFIG_UPDATED", "WAITLIST_PROCESSED",
+   466→  "PAYMENT_EXCEPTION_RESOLVED", "ERROR_LOG_RESOLVED",
+   467→];
+   468→
+   469→const TARGET_TYPE_OPTIONS = [
+   470→  "APPOINTMENT", "SLOT", "CLINIC", "PROVIDER", "SERVICE", "SPECIALTY",
+   471→  "USER", "APPOINTMENT_LEDGER", "SYSTEM_ERROR_LOG", "SYSTEM_CONFIG",
+   472→  "STAFF_INVITATION", "EMAIL_TEMPLATE", "SLOT_TEMPLATE", "CLOSURE",
+   473→];
+   474→
+   475→function getActionBadgeColor(action: string) {
+   476→  if (action.includes("CANCELLED") || action.includes("FAILED") || action.includes("SUSPENDED") || action.includes("REVOKED") || action.includes("DEACTIVATED")) {
+   477→    return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200";
+   478→  }
+   479→  if (action.includes("CREATED") || action.includes("COMPLETED") || action.includes("ACCEPTED") || action.includes("PUBLISHED") || action.includes("SUBMITTED")) {
+   480→    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200";
+   481→  }
+   482→  if (action.includes("UPDATED") || action.includes("RESCHEDULED") || action.includes("RESOLVED") || action.includes("CAPTURED")) {
+   483→    return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200";
+   484→  }
+   485→  if (action.includes("LOGIN") || action.includes("LOGOUT")) {
+   486→    return "bg-muted text-foreground border-border";
+   487→  }
+   488→  return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200";
+   489→}
+   490→
+   491→function AuditLogsTab() {
+   492→  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+   493→  const [loading, setLoading] = useState(true);
+   494→  const [actionFilter, setActionFilter] = useState<string>("ALL");
+   495→  const [userFilter, setUserFilter] = useState<string>("ALL");
+   496→  const [targetTypeFilter, setTargetTypeFilter] = useState<string>("ALL");
+   497→  const [fromDate, setFromDate] = useState<string>("");
+   498→  const [toDate, setToDate] = useState<string>("");
+   499→  const [page, setPage] = useState(1);
+   500→  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+   501→  const [allUsers, setAllUsers] = useState<{ id: string; name: string }[]>([]);
+   502→
+   503→  const fetchAuditLogs = useCallback(async () => {
+   504→    setLoading(true);
+   505→    try {
+   506→      const params = new URLSearchParams();
+   507→      if (actionFilter !== "ALL") params.set("action", actionFilter);
+   508→      if (userFilter !== "ALL") params.set("userId", userFilter);
+   509→      if (targetTypeFilter !== "ALL") params.set("targetType", targetTypeFilter);
+   510→      if (fromDate) params.set("from", fromDate);
+   511→      if (toDate) params.set("to", toDate);
+   512→      params.set("page", String(page));
+   513→      params.set("limit", "50");
+   514→
+   515→      const res = await fetch(`/api/staff/admin/audit-logs?${params}`);
+   516→      if (!res.ok) throw new Error("Failed to fetch audit logs");
+   517→      const json = await res.json();
+   518→      setLogs(json.data);
+   519→      setPagination(json.pagination);
+   520→
+   521→      // Collect unique users for dropdown
+   522→      const userMap = new Map<string, string>();
+   523→      json.data.forEach((log: AuditLogEntry) => {
+   524→        if (log.userId && !userMap.has(log.userId)) {
+   525→          userMap.set(log.userId, log.userName);
+   526→        }
+   527→      });
+   528→      setAllUsers(
+   529→        Array.from(userMap.entries())
+   530→          .map(([id, name]) => ({ id, name }))
+   531→          .sort((a, b) => a.name.localeCompare(b.name))
+   532→      );
+   533→    } catch (err) {
+   534→      console.error(err);
+   535→      toast.error("Failed to load audit logs");
+   536→    } finally {
+   537→      setLoading(false);
+   538→    }
+   539→  }, [actionFilter, userFilter, targetTypeFilter, fromDate, toDate, page]);
+   540→
+   541→  useEffect(() => {
+   542→    fetchAuditLogs();
+   543→  }, [fetchAuditLogs]);
+   544→
+   545→  const resetFilters = () => {
+   546→    setActionFilter("ALL");
+   547→    setUserFilter("ALL");
+   548→    setTargetTypeFilter("ALL");
+   549→    setFromDate("");
+   550→    setToDate("");
+   551→    setPage(1);
+   552→  };
+   553→
+   554→  const hasActiveFilters = actionFilter !== "ALL" || userFilter !== "ALL" || targetTypeFilter !== "ALL" || fromDate || toDate;
+   555→
+   556→  return (
+   557→    <div className="space-y-4">
+   558→      {/* Filters */}
+   559→      <Card>
+   560→        <CardContent className="p-4">
+   561→          <div className="flex flex-col sm:flex-row gap-3">
+   562→            <div className="flex-1">
+   563→              <Label className="text-xs text-muted-foreground mb-1 block">Action</Label>
+   564→              <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }}>
+   565→                <SelectTrigger className="w-full">
+   566→                  <SelectValue placeholder="All actions" />
+   567→                </SelectTrigger>
+   568→                <SelectContent>
+   569→                  <SelectItem value="ALL">All Actions</SelectItem>
+   570→                  {AUDIT_ACTION_OPTIONS.map((a) => (
+   571→                    <SelectItem key={a} value={a}>{a.replace(/_/g, " ")}</SelectItem>
+   572→                  ))}
+   573→                </SelectContent>
+   574→              </Select>
+   575→            </div>
+   576→            <div className="flex-1">
+   577→              <Label className="text-xs text-muted-foreground mb-1 block">User</Label>
+   578→              <Select value={userFilter} onValueChange={(v) => { setUserFilter(v); setPage(1); }}>
+   579→                <SelectTrigger className="w-full">
+   580→                  <SelectValue placeholder="All users" />
+   581→                </SelectTrigger>
+   582→                <SelectContent>
+   583→                  <SelectItem value="ALL">All Users</SelectItem>
+   584→                  <SelectItem value="__system__">System</SelectItem>
+   585→                  {allUsers.map((u) => (
+   586→                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+   587→                  ))}
+   588→                </SelectContent>
+   589→              </Select>
+   590→            </div>
+   591→            <div className="flex-1">
+   592→              <Label className="text-xs text-muted-foreground mb-1 block">Target Type</Label>
+   593→              <Select value={targetTypeFilter} onValueChange={(v) => { setTargetTypeFilter(v); setPage(1); }}>
+   594→                <SelectTrigger className="w-full">
+   595→                  <SelectValue placeholder="All targets" />
+   596→                </SelectTrigger>
+   597→                <SelectContent>
+   598→                  <SelectItem value="ALL">All Target Types</SelectItem>
+   599→                  {TARGET_TYPE_OPTIONS.map((t) => (
+   600→                    <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
+   601→                  ))}
+   602→                </SelectContent>
+   603→              </Select>
+   604→            </div>
+   605→            <div className="flex-1">
+   606→              <Label className="text-xs text-muted-foreground mb-1 block">From</Label>
+   607→              <Input
+   608→                type="date"
+   609→                value={fromDate}
+   610→                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+   611→              />
+   612→            </div>
+   613→            <div className="flex-1">
+   614→              <Label className="text-xs text-muted-foreground mb-1 block">To</Label>
+   615→              <Input
+   616→                type="date"
+   617→                value={toDate}
+   618→                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+   619→              />
+   620→            </div>
+   621→          </div>
+   622→          {hasActiveFilters && (
+   623→            <div className="mt-3 flex items-center gap-2">
+   624→              <Button variant="ghost" size="sm" onClick={resetFilters}>
+   625→                <RefreshCw className="size-3 mr-1" />
+   626→                Reset Filters
+   627→              </Button>
+   628→            </div>
+   629→          )}
+   630→        </CardContent>
+   631→      </Card>
+   632→
+   633→      {/* Table */}
+   634→      <Card>
+   635→        <CardContent className="p-0">
+   636→          <div className="max-h-[520px] overflow-y-auto">
+   637→            {loading ? (
+   638→              <div className="p-4 space-y-3">
+   639→                {Array.from({ length: 8 }).map((_, i) => (
+   640→                  <Skeleton key={i} className="h-10 w-full" />
+   641→                ))}
+   642→              </div>
+   643→            ) : logs.length === 0 ? (
+   644→              <div className="p-8 text-center">
+   645→                <ScrollText className="size-8 text-muted-foreground mx-auto mb-2" />
+   646→                <p className="text-sm text-muted-foreground">No audit logs found</p>
+   647→              </div>
+   648→            ) : (
+   649→              <Table>
+   650→                <TableHeader>
+   651→                  <TableRow>
+   652→                    <TableHead>Timestamp</TableHead>
+   653→                    <TableHead>User</TableHead>
+   654→                    <TableHead>Action</TableHead>
+   655→                    <TableHead className="hidden md:table-cell">Target Type</TableHead>
+   656→                    <TableHead className="hidden lg:table-cell">Target ID</TableHead>
+   657→                    <TableHead className="hidden xl:table-cell">Clinic</TableHead>
+   658→                  </TableRow>
+   659→                </TableHeader>
+   660→                <TableBody>
+   661→                  {logs.map((log) => (
+   662→                    <TableRow key={log.id}>
+   663→                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+   664→                        {format(new Date(log.createdAt), "MMM d, HH:mm:ss")}
+   665→                      </TableCell>
+   666→                      <TableCell className="font-medium text-sm">
+   667→                        {log.userName}
+   668→                      </TableCell>
+   669→                      <TableCell>
+   670→                        <Badge className={getActionBadgeColor(log.action)}>
+   671→                          {log.action.replace(/_/g, " ")}
+   672→                        </Badge>
+   673→                      </TableCell>
+   674→                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+   675→                        {log.targetType?.replace(/_/g, " ") ?? "—"}
+   676→                      </TableCell>
+   677→                      <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
+   678→                        {log.targetId ? truncate(log.targetId, 12) : "—"}
+   679→                      </TableCell>
+   680→                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
+   681→                        {log.userClinic ?? "—"}
+   682→                      </TableCell>
+   683→                    </TableRow>
+   684→                  ))}
+   685→                </TableBody>
+   686→              </Table>
+   687→            )}
+   688→          </div>
+   689→
+   690→          {/* Pagination */}
+   691→          {pagination && pagination.totalPages > 1 && (
+   692→            <div className="flex items-center justify-between border-t px-4 py-3">
+   693→              <p className="text-xs text-muted-foreground">
+   694→                Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
+   695→              </p>
+   696→              <div className="flex gap-1">
+   697→                <Button
+   698→                  size="icon"
+   699→                  variant="outline"
+   700→                  className="size-8"
+   701→                  disabled={page <= 1}
+   702→                  onClick={() => setPage((p) => p - 1)}
+   703→                >
+   704→                  <ChevronLeft className="size-4" />
+   705→                </Button>
+   706→                <Button
+   707→                  size="icon"
+   708→                  variant="outline"
+   709→                  className="size-8"
+   710→                  disabled={page >= pagination.totalPages}
+   711→                  onClick={() => setPage((p) => p + 1)}
+   712→                >
+   713→                  <ChevronRight className="size-4" />
+   714→                </Button>
+   715→              </div>
+   716→            </div>
+   717→          )}
+   718→        </CardContent>
+   719→      </Card>
+   720→    </div>
+   721→  );
+   722→}
+   723→
+   724→// ═══════════════════════════════════════════════════════════════════════════════
+   725→// TAB 3: System Error Logs
+   726→// ═══════════════════════════════════════════════════════════════════════════════
+   727→
+   728→const ERROR_LEVEL_OPTIONS = ["ERROR", "WARN", "INFO"];
+   729→const ERROR_SOURCE_OPTIONS = ["API", "AUTH", "CRON", "SLOT_GEN", "LOCK_SWEEP", "WAITLIST"];
+   730→
+   731→function getLevelBadge(level: string) {
+   732→  switch (level) {
+   733→    case "ERROR":
+   734→      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200">ERROR</Badge>;
+   735→    case "WARN":
+   736→      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200">WARN</Badge>;
+   737→    case "INFO":
+   738→      return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200">INFO</Badge>;
+   739→    default:
+   740→      return <Badge variant="secondary">{level}</Badge>;
+   741→  }
+   742→}
+   743→
+   744→function getLevelIcon(level: string) {
+   745→  switch (level) {
+   746→    case "ERROR":
+   747→      return <AlertCircle className="size-4 text-red-500 shrink-0" />;
+   748→    case "WARN":
+   749→      return <AlertTriangle className="size-4 text-amber-500 shrink-0" />;
+   750→    case "INFO":
+   751→      return <Info className="size-4 text-blue-500 shrink-0" />;
+   752→    default:
+   753→      return <Info className="size-4 text-muted-foreground shrink-0" />;
+   754→  }
+   755→}
+   756→
+   757→function ErrorLogsTab() {
+   758→  const [logs, setLogs] = useState<ErrorLogEntry[]>([]);
+   759→  const [loading, setLoading] = useState(true);
+   760→  const [levelFilter, setLevelFilter] = useState<string>("ALL");
+   761→  const [sourceFilter, setSourceFilter] = useState<string>("ALL");
+   762→  const [resolvedFilter, setResolvedFilter] = useState<string>("ALL");
+   763→  const [page, setPage] = useState(1);
+   764→  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+   765→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   766→  const [resolvingId, setResolvingId] = useState<string | null>(null);
+   767→
+   768→  const fetchErrorLogs = useCallback(async () => {
+   769→    setLoading(true);
+   770→    try {
+   771→      const params = new URLSearchParams();
+   772→      if (levelFilter !== "ALL") params.set("level", levelFilter);
+   773→      if (sourceFilter !== "ALL") params.set("source", sourceFilter);
+   774→      if (resolvedFilter !== "ALL") params.set("resolved", resolvedFilter);
+   775→      params.set("page", String(page));
+   776→      params.set("limit", "20");
+   777→
+   778→      const res = await fetch(`/api/staff/admin/error-logs?${params}`);
+   779→      if (!res.ok) throw new Error("Failed to fetch error logs");
+   780→      const json = await res.json();
+   781→      setLogs(json.data);
+   782→      setPagination(json.pagination);
+   783→    } catch (err) {
+   784→      console.error(err);
+   785→      toast.error("Failed to load error logs");
+   786→    } finally {
+   787→      setLoading(false);
+   788→    }
+   789→  }, [levelFilter, sourceFilter, resolvedFilter, page]);
+   790→
+   791→  useEffect(() => {
+   792→    fetchErrorLogs();
+   793→  }, [fetchErrorLogs]);
+   794→
+   795→  const handleResolve = async (id: string) => {
+   796→    setResolvingId(id);
+   797→    try {
+   798→      const res = await fetch(`/api/staff/admin/error-logs/${id}/resolve`, {
+   799→        method: "PATCH",
+   800→      });
+   801→      if (!res.ok) throw new Error("Failed to resolve error log");
+   802→      toast.success("Error log marked as resolved");
+   803→      fetchErrorLogs();
+   804→    } catch (err) {
+   805→      console.error(err);
+   806→      toast.error("Failed to resolve error log");
+   807→    } finally {
+   808→      setResolvingId(null);
+   809→    }
+   810→  };
+   811→
+   812→  const toggleExpand = (id: string) => {
+   813→    setExpandedId((prev) => (prev === id ? null : id));
+   814→  };
+   815→
+   816→  return (
+   817→    <div className="space-y-4">
+   818→      {/* Filters */}
+   819→      <Card>
+   820→        <CardContent className="p-4">
+   821→          <div className="flex flex-col sm:flex-row gap-3">
+   822→            <div className="flex-1">
+   823→              <Label className="text-xs text-muted-foreground mb-1 block">Level</Label>
+   824→              <Select value={levelFilter} onValueChange={(v) => { setLevelFilter(v); setPage(1); }}>
+   825→                <SelectTrigger className="w-full">
+   826→                  <SelectValue />
+   827→                </SelectTrigger>
+   828→                <SelectContent>
+   829→                  <SelectItem value="ALL">All Levels</SelectItem>
+   830→                  {ERROR_LEVEL_OPTIONS.map((l) => (
+   831→                    <SelectItem key={l} value={l}>{l}</SelectItem>
+   832→                  ))}
+   833→                </SelectContent>
+   834→              </Select>
+   835→            </div>
+   836→            <div className="flex-1">
+   837→              <Label className="text-xs text-muted-foreground mb-1 block">Source</Label>
+   838→              <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
+   839→                <SelectTrigger className="w-full">
+   840→                  <SelectValue />
+   841→                </SelectTrigger>
+   842→                <SelectContent>
+   843→                  <SelectItem value="ALL">All Sources</SelectItem>
+   844→                  {ERROR_SOURCE_OPTIONS.map((s) => (
+   845→                    <SelectItem key={s} value={s}>{s}</SelectItem>
+   846→                  ))}
+   847→                </SelectContent>
+   848→              </Select>
+   849→            </div>
+   850→            <div className="flex-1">
+   851→              <Label className="text-xs text-muted-foreground mb-1 block">Resolved</Label>
+   852→              <Select value={resolvedFilter} onValueChange={(v) => { setResolvedFilter(v); setPage(1); }}>
+   853→                <SelectTrigger className="w-full">
+   854→                  <SelectValue />
+   855→                </SelectTrigger>
+   856→                <SelectContent>
+   857→                  <SelectItem value="ALL">All</SelectItem>
+   858→                  <SelectItem value="false">Unresolved</SelectItem>
+   859→                  <SelectItem value="true">Resolved</SelectItem>
+   860→                </SelectContent>
+   861→              </Select>
+   862→            </div>
+   863→          </div>
+   864→        </CardContent>
+   865→      </Card>
+   866→
+   867→      {/* Table */}
+   868→      <Card>
+   869→        <CardContent className="p-0">
+   870→          <div className="max-h-[520px] overflow-y-auto">
+   871→            {loading ? (
+   872→              <div className="p-4 space-y-3">
+   873→                {Array.from({ length: 6 }).map((_, i) => (
+   874→                  <Skeleton key={i} className="h-12 w-full" />
+   875→                ))}
+   876→              </div>
+   877→            ) : logs.length === 0 ? (
+   878→              <div className="p-8 text-center">
+   879→                <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
+   880→                <p className="text-sm text-muted-foreground">No error logs found</p>
+   881→              </div>
+   882→            ) : (
+   883→              <Table>
+   884→                <TableHeader>
+   885→                  <TableRow>
+   886→                    <TableHead className="w-8"></TableHead>
+   887→                    <TableHead>Timestamp</TableHead>
+   888→                    <TableHead>Level</TableHead>
+   889→                    <TableHead>Source</TableHead>
+   890→                    <TableHead>Message</TableHead>
+   891→                    <TableHead className="hidden md:table-cell">Path</TableHead>
+   892→                    <TableHead>Resolved</TableHead>
+   893→                    <TableHead className="text-right">Actions</TableHead>
+   894→                  </TableRow>
+   895→                </TableHeader>
+   896→                <TableBody>
+   897→                  {logs.map((log) => {
+   898→                    const isExpanded = expandedId === log.id;
+   899→                    return (
+   900→                      <>
+   901→                        <TableRow key={log.id} className={log.resolved ? "opacity-60" : ""}>
+   902→                          <TableCell className="p-1">
+   903→                            <Button
+   904→                              variant="ghost"
+   905→                              size="icon"
+   906→                              className="size-6"
+   907→                              onClick={() => toggleExpand(log.id)}
+   908→                            >
+   909→                              <ChevronsUpDown className="size-3.5" />
+   910→                            </Button>
+   911→                          </TableCell>
+   912→                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+   913→                            {format(new Date(log.createdAt), "MMM d, HH:mm:ss")}
+   914→                          </TableCell>
+   915→                          <TableCell>{getLevelBadge(log.level)}</TableCell>
+   916→                          <TableCell>
+   917→                            <Badge variant="outline" className="font-mono text-xs">
+   918→                              {log.source}
+   919→                            </Badge>
+   920→                          </TableCell>
+   921→                          <TableCell className="max-w-[200px] lg:max-w-[300px]">
+   922→                            <div className="flex items-center gap-1.5">
+   923→                              {getLevelIcon(log.level)}
+   924→                              <span className="text-xs truncate">{truncate(log.message, 60)}</span>
+   925→                            </div>
+   926→                          </TableCell>
+   927→                          <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
+   928→                            {log.path ? truncate(log.path, 30) : "—"}
+   929→                          </TableCell>
+   930→                          <TableCell>
+   931→                            {log.resolved ? (
+   932→                              <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 text-xs">
+   933→                                <CheckCircle2 className="size-3 mr-1" />
+   934→                                Resolved
+   935→                              </Badge>
+   936→                            ) : (
+   937→                              <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50 dark:bg-red-900/20 text-xs">
+   938→                                <Clock className="size-3 mr-1" />
+   939→                                Open
+   940→                              </Badge>
+   941→                            )}
+   942→                          </TableCell>
+   943→                          <TableCell className="text-right">
+   944→                            {!log.resolved && (
+   945→                              <Button
+   946→                                size="sm"
+   947→                                variant="outline"
+   948→                                disabled={resolvingId === log.id}
+   949→                                onClick={() => handleResolve(log.id)}
+   950→                              >
+   951→                                {resolvingId === log.id ? (
+   952→                                  <RefreshCw className="size-3.5 animate-spin" />
+   953→                                ) : (
+   954→                                  <CheckCircle2 className="size-3.5 mr-1" />
+   955→                                )}
+   956→                                Resolve
+   957→                              </Button>
+   958→                            )}
+   959→                          </TableCell>
+   960→                        </TableRow>
+   961→                        {/* Expanded row */}
+   962→                        {isExpanded && (
+   963→                          <TableRow key={`${log.id}-detail`} className="bg-muted/30">
+   964→                            <TableCell colSpan={8} className="p-4">
+   965→                              <div className="space-y-2">
+   966→                                <div>
+   967→                                  <p className="text-xs font-medium text-muted-foreground mb-1">Full Message</p>
+   968→                                  <pre className="text-xs bg-background border rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-all">
+   969→                                    {log.message}
+   970→                                  </pre>
+   971→                                </div>
+   972→                                {log.stack && (
+   973→                                  <div>
+   974→                                    <p className="text-xs font-medium text-muted-foreground mb-1">Stack Trace</p>
+   975→                                    <pre className="text-xs bg-background border rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-48 overflow-y-auto text-red-700 dark:text-red-400">
+   976→                                      {log.stack}
+   977→                                    </pre>
+   978→                                  </div>
+   979→                                )}
+   980→                                {log.path && (
+   981→                                  <p className="text-xs text-muted-foreground">
+   982→                                    <span className="font-medium">Path:</span> {log.path}
+   983→                                  </p>
+   984→                                )}
+   985→                                {log.resolved && log.resolvedAt && (
+   986→                                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+   987→                                    Resolved at: {format(new Date(log.resolvedAt), "MMM d, yyyy HH:mm")}
+   988→                                    {log.resolvedBy && ` by ${log.resolvedBy}`}
+   989→                                  </p>
+   990→                                )}
+   991→                              </div>
+   992→                            </TableCell>
+   993→                          </TableRow>
+   994→                        )}
+   995→                      </>
+   996→                    );
+   997→                  })}
+   998→                </TableBody>
+   999→              </Table>
+  1000→            )}
+  1001→          </div>
+  1002→
+  1003→          {/* Pagination */}
+  1004→          {pagination && pagination.totalPages > 1 && (
+  1005→            <div className="flex items-center justify-between border-t px-4 py-3">
+  1006→              <p className="text-xs text-muted-foreground">
+  1007→                Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
+  1008→              </p>
+  1009→              <div className="flex gap-1">
+  1010→                <Button
+  1011→                  size="icon"
+  1012→                  variant="outline"
+  1013→                  className="size-8"
+  1014→                  disabled={page <= 1}
+  1015→                  onClick={() => setPage((p) => p - 1)}
+  1016→                >
+  1017→                  <ChevronLeft className="size-4" />
+  1018→                </Button>
+  1019→                <Button
+  1020→                  size="icon"
+  1021→                  variant="outline"
+  1022→                  className="size-8"
+  1023→                  disabled={page >= pagination.totalPages}
+  1024→                  onClick={() => setPage((p) => p + 1)}
+  1025→                >
+  1026→                  <ChevronRight className="size-4" />
+  1027→                </Button>
+  1028→              </div>
+  1029→            </div>
+  1030→          )}
+  1031→        </CardContent>
+  1032→      </Card>
+  1033→    </div>
+  1034→  );
+  1035→}

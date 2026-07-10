@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cache, CacheKeys, CacheTTL } from "@/lib/cache";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit";
+import { getDefaultTemplateDataForClinic } from "@/lib/default-email-templates";
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,10 +42,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Clinic not found" }, { status: 404 });
     }
 
-    const emailTemplates = await db.emailTemplate.findMany({
+    let emailTemplates = await db.emailTemplate.findMany({
       where: { clinicId },
       orderBy: { type: "asc" },
     });
+
+    // Auto-seed default email templates if none exist for this clinic
+    if (emailTemplates.length === 0) {
+      const defaults = getDefaultTemplateDataForClinic(clinicId);
+      await db.emailTemplate.createMany({ data: defaults });
+      emailTemplates = await db.emailTemplate.findMany({
+        where: { clinicId },
+        orderBy: { type: "asc" },
+      });
+    }
 
     // Get available services for form mapping
     const availableServices = await db.service.findMany({
