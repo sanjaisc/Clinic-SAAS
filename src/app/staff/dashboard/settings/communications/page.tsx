@@ -12,6 +12,10 @@ import {
   ClipboardList,
   MessageSquare,
   Loader2,
+  Info,
+  ChevronDown,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   MDXEditor,
   headingsPlugin,
@@ -90,6 +105,394 @@ const CADENCE_OPTIONS = [
   { value: INTAKE_CADENCE.THREE_DAY, label: "3 days before" },
   { value: INTAKE_CADENCE.SEVEN_AND_ONE_DAY, label: "7 days & 1 day before" },
 ];
+
+// ---- Placeholder Tags Configuration ----
+interface PlaceholderTag {
+  tag: string;
+  label: string;
+  description: string;
+  scope: "all" | string[];
+  target: "subject" | "body" | "both";
+}
+
+interface PlaceholderCategory {
+  name: string;
+  icon: string;
+  tags: PlaceholderTag[];
+}
+
+const PLACEHOLDER_CATEGORIES: PlaceholderCategory[] = [
+  {
+    name: "Patient & Contact",
+    icon: "👤",
+    tags: [
+      {
+        tag: "{{patientName}}",
+        label: "Patient Name",
+        description: "Full name of the patient",
+        scope: "all",
+        target: "both",
+      },
+      {
+        tag: "{{patientEmail}}",
+        label: "Patient Email",
+        description: "Email address of the patient",
+        scope: "all",
+        target: "body",
+      },
+      {
+        tag: "{{patientPhone}}",
+        label: "Patient Phone",
+        description: "Phone number of the patient",
+        scope: "all",
+        target: "body",
+      },
+    ],
+  },
+  {
+    name: "Appointment Details",
+    icon: "📅",
+    tags: [
+      {
+        tag: "{{date}}",
+        label: "Appointment Date",
+        description: "Formatted date of the appointment (e.g., Monday, January 15, 2025)",
+        scope: [
+          "BOOKING_CONFIRMATION",
+          "CANCELLATION",
+          "RESCHEDULE",
+          "REMINDER",
+        ],
+        target: "both",
+      },
+      {
+        tag: "{{time}}",
+        label: "Appointment Time",
+        description: "Time of the appointment (e.g., 2:30 PM)",
+        scope: [
+          "BOOKING_CONFIRMATION",
+          "CANCELLATION",
+          "RESCHEDULE",
+          "REMINDER",
+        ],
+        target: "both",
+      },
+      {
+        tag: "{{providerName}}",
+        label: "Provider Name",
+        description: "Name of the assigned provider (e.g., Dr. Jane Smith)",
+        scope: [
+          "BOOKING_CONFIRMATION",
+          "RESCHEDULE",
+          "REMINDER",
+        ],
+        target: "both",
+      },
+      {
+        tag: "{{serviceName}}",
+        label: "Service Name",
+        description: "Name of the booked service",
+        scope: ["BOOKING_CONFIRMATION"],
+        target: "both",
+      },
+      {
+        tag: "{{appointmentId}}",
+        label: "Appointment ID",
+        description: "Unique appointment reference number",
+        scope: [
+          "BOOKING_CONFIRMATION",
+          "CANCELLATION",
+          "RESCHEDULE",
+          "REMINDER",
+        ],
+        target: "body",
+      },
+      {
+        tag: "{{modality}}",
+        label: "Appointment Modality",
+        description: "In-Person or Video",
+        scope: [
+          "BOOKING_CONFIRMATION",
+          "RESCHEDULE",
+          "REMINDER",
+        ],
+        target: "body",
+      },
+    ],
+  },
+  {
+    name: "Clinic Information",
+    icon: "🏢",
+    tags: [
+      {
+        tag: "{{clinicName}}",
+        label: "Clinic Name",
+        description: "Display name of the clinic",
+        scope: "all",
+        target: "both",
+      },
+      {
+        tag: "{{clinicPhone}}",
+        label: "Clinic Phone",
+        description: "Primary phone number of the clinic",
+        scope: "all",
+        target: "body",
+      },
+      {
+        tag: "{{clinicAddress}}",
+        label: "Clinic Address",
+        description: "Full street address of the clinic",
+        scope: "all",
+        target: "body",
+      },
+    ],
+  },
+  {
+    name: "Action Links",
+    icon: "🔗",
+    tags: [
+      {
+        tag: "{{intakeLink}}",
+        label: "Intake Form Link",
+        description: "URL to the patient intake form",
+        scope: ["INTAKE"],
+        target: "body",
+      },
+      {
+        tag: "{{reviewLink}}",
+        label: "Review Link",
+        description: "URL to leave a review",
+        scope: ["REVIEW_REQUEST"],
+        target: "body",
+      },
+      {
+        tag: "{{paymentLink}}",
+        label: "Payment Link",
+        description: "URL to complete payment",
+        scope: ["PAYMENT_REQUEST"],
+        target: "body",
+      },
+      {
+        tag: "{{cancellationLink}}",
+        label: "Cancel Appointment",
+        description: "URL for the patient to cancel the appointment",
+        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+        target: "body",
+      },
+      {
+        tag: "{{rescheduleLink}}",
+        label: "Reschedule Link",
+        description: "URL for the patient to reschedule",
+        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+        target: "body",
+      },
+      {
+        tag: "{{manageLink}}",
+        label: "Manage Appointment",
+        description: "URL to view or manage appointment details",
+        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+        target: "body",
+      },
+    ],
+  },
+  {
+    name: "Payment",
+    icon: "💳",
+    tags: [
+      {
+        tag: "{{amount}}",
+        label: "Payment Amount",
+        description: "Amount due (e.g., $50.00)",
+        scope: ["PAYMENT_REQUEST"],
+        target: "both",
+      },
+    ],
+  },
+];
+
+/** Check if a tag is relevant for a given template type */
+function isTagRelevant(tag: PlaceholderTag, templateType: string): boolean {
+  return tag.scope === "all" || tag.scope.includes(templateType);
+}
+
+// ---- Tag Chip Component ----
+function PlaceholderTagChip({
+  tag,
+  templateType,
+  onInsert,
+}: {
+  tag: PlaceholderTag;
+  templateType: string | undefined;
+  onInsert: (tagStr: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const relevant = templateType ? isTagRelevant(tag, templateType) : true;
+
+  const handleInsert = () => {
+    onInsert(tag.tag);
+  };
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(tag.tag).then(() => {
+      setCopied(true);
+      toast.success(`Copied ${tag.tag} to clipboard`);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleInsert}
+            className={`
+              group relative inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5
+              text-xs font-mono transition-all duration-150
+              ${
+                relevant
+                  ? "border-foreground/15 bg-background hover:border-brand hover:bg-brand/5 hover:shadow-sm cursor-pointer"
+                  : "border-dashed border-muted-foreground/20 bg-muted/30 text-muted-foreground cursor-default opacity-50"
+              }
+            `}
+            disabled={!relevant}
+          >
+            <span className="truncate">{tag.tag}</span>
+            <span className="text-muted-foreground font-sans hidden sm:inline">
+              {tag.label}
+            </span>
+            {/* Copy button — visible on hover */}
+            {relevant && (
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={handleCopy}
+                className="ml-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                aria-label={`Copy ${tag.tag}`}
+              >
+                {copied ? (
+                  <Check className="size-3 text-green-500" />
+                ) : (
+                  <Copy className="size-3" />
+                )}
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <p className="font-medium text-xs">{tag.description}</p>
+          {!relevant && templateType && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Not available for {TEMPLATE_LABELS[templateType] || templateType} templates
+            </p>
+          )}
+          {relevant && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Click to insert &middot; Hover + click icon to copy
+            </p>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// ---- Placeholder Reference Panel ----
+function PlaceholderReferencePanel({
+  templateType,
+  onInsertTag,
+}: {
+  templateType: string | undefined;
+  onInsertTag: (tagStr: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  // Count relevant vs total tags
+  const totalTags = PLACEHOLDER_CATEGORIES.reduce(
+    (sum, cat) => sum + cat.tags.length,
+    0
+  );
+  const relevantTags = templateType
+    ? PLACEHOLDER_CATEGORIES.reduce(
+        (sum, cat) =>
+          sum + cat.tags.filter((t) => isTagRelevant(t, templateType)).length,
+        0
+      )
+    : totalTags;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left group"
+        >
+          <div className="flex items-center justify-center size-7 rounded-md bg-amber-50 dark:bg-amber-950/40">
+            <Info className="size-3.5 text-amber-600" />
+          </div>
+          <span>Available Placeholders</span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+            {relevantTags}/{totalTags} applicable
+          </Badge>
+          <ChevronDown
+            className={`size-4 ml-auto transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+          />
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="mt-3">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Click a tag to insert it into the email body, or hover and click the copy icon
+            to place it in the subject line or elsewhere.
+            {templateType && (
+              <span className="ml-1">
+                Dimmed tags are not available for{" "}
+                <span className="font-medium text-foreground">
+                  {TEMPLATE_LABELS[templateType] || templateType}
+                </span>{" "}
+                templates.
+              </span>
+            )}
+          </p>
+
+          {PLACEHOLDER_CATEGORIES.map((category) => {
+            const hasRelevantTags = templateType
+              ? category.tags.some((t) => isTagRelevant(t, templateType))
+              : true;
+            // Skip categories with no relevant tags
+            if (!hasRelevantTags) return null;
+
+            return (
+              <div key={category.name}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm" aria-hidden="true">
+                    {category.icon}
+                  </span>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {category.name}
+                  </h4>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pl-6">
+                  {category.tags.map((tag) => (
+                    <PlaceholderTagChip
+                      key={tag.tag}
+                      tag={tag}
+                      templateType={templateType}
+                      onInsert={onInsertTag}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 // ---- MDXEditor wrapper (Safe Mode — no HTML source) ----
 function SafeMarkdownEditor({
@@ -192,6 +595,18 @@ export default function CommunicationsPage() {
   useEffect(() => {
     if (clinicId) fetchComms();
   }, [clinicId, fetchComms]);
+
+  // Insert placeholder tag into template body
+  const handleInsertTag = useCallback((tagStr: string) => {
+    setTemplateBody((prev) => {
+      const separator = prev && !prev.endsWith("\n") ? "\n" : "";
+      return `${prev}${separator}${tagStr}`;
+    });
+    toast.info(`Inserted ${tagStr}`, {
+      description: "The placeholder has been added to the email body.",
+      duration: 2000,
+    });
+  }, []);
 
   // Save common instructions
   const saveCommonInstructions = async () => {
@@ -599,6 +1014,12 @@ export default function CommunicationsPage() {
                       Reset to Default
                     </Button>
                   </div>
+
+                  {/* Placeholder Tags Reference */}
+                  <PlaceholderReferencePanel
+                    templateType={selectedTemplate.type}
+                    onInsertTag={handleInsertTag}
+                  />
 
                   <div className="space-y-2">
                     <Label htmlFor="template-subject">Subject Line</Label>

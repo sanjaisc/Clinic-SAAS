@@ -547,3 +547,29 @@ Stage Summary:
 - Future clinics will also get templates auto-created on first access
 - Files changed: `src/lib/default-email-templates.ts` (new), `src/app/api/staff/communications/route.ts` (modified), `src/app/api/staff/email-templates/reset/[id]/route.ts` (modified)
 - DB state: 42 email templates across 6 clinics, all active
+
+---
+Task ID: Feature-2
+Agent: Main Orchestrator
+Task: Display available placeholder tags in the Email Template Editor
+
+Work Log:
+- Analyzed all default email templates to compile a comprehensive list of 15 placeholder tags
+- Defined 5 categories: Patient & Contact, Appointment Details, Clinic Information, Action Links, Payment
+- Created `PlaceholderTagChip` component — clickable tag with tooltip, copy-to-clipboard on hover icon
+- Created `PlaceholderReferencePanel` component — collapsible panel with category-grouped tags
+- Implemented context-awareness: tags dim when not relevant to the selected template type (e.g., `{{intakeLink}}` hidden for Booking Confirmation)
+- Added relevance counter badge showing "X/15 applicable" for the current template
+- Tags irrelevant to the current template type are visually dimmed with dashed border and disabled click
+- Clicking a relevant tag appends it to the email body editor
+- Hovering reveals a copy icon to copy the tag for manual placement (e.g., in subject line)
+- Tooltip shows tag description and availability context
+- Organized tags by scope: "all" templates vs specific template types only
+- Added new tags beyond defaults: `{{patientEmail}}`, `{{patientPhone}}`, `{{clinicPhone}}`, `{{clinicAddress}}`, `{{appointmentId}}`, `{{modality}}`, `{{cancellationLink}}`, `{{rescheduleLink}}`, `{{manageLink}}`
+- Lint passes clean, page compiles successfully
+
+Stage Summary:
+- File modified: `src/app/staff/dashboard/settings/communications/page.tsx`
+- 15 placeholder tags across 5 categories, context-aware per template type
+- Interactive UI: click to insert, hover to copy, collapsible panel
+- No new dependencies required (uses existing Tooltip, Collapsible, Badge components)
