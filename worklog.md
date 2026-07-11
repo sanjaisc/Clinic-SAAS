@@ -601,3 +601,27 @@ Stage Summary:
 - DB verified: 2 staff members exist per clinic (admin + receptionist), 0 invitations
 - API verified: returns `{ staffMembers: [...], invitations: [] }` with all required fields
 - Lint passes clean, page compiles without errors
+
+---
+Task ID: Login Fix
+Agent: Main Orchestrator
+Task: Fix "unable to log into the system admin dashboard"
+
+Work Log:
+- Investigated the login flow: login page, NextAuth config (auth.ts), middleware, session provider
+- Verified database has valid users with correct bcrypt password hashes
+- Verified all clinics have status "PUBLISHED"
+- Found root cause: `.env` file was missing `NEXTAUTH_SECRET` environment variable
+- Without NEXTAUTH_SECRET, NextAuth's JWT strategy cannot sign/verify tokens, causing login to silently fail
+- Added `NEXTAUTH_SECRET=docta-clinicbook-dev-secret-key-2024-v1` and `NEXTAUTH_URL=http://localhost:3000` to `.env`
+- Tested login via agent-browser:
+  - Clinic Admin login (admin@downtownmedicalgroup.clinicbook.com / admin123) → successfully redirected to /staff/dashboard
+  - System Manager login (sysadmin@clinicbook.com / sysadmin123) → successfully redirected to /staff/dashboard
+  - Verified System Admin dashboard at /staff/dashboard/admin loads with taxonomy data (Specialties, Services, Insurances, Amenities, Languages)
+- Dev log confirmed: `[AUTH] Staff login: admin@downtownmedicalgroup.clinicbook.com (CLINIC_ADMIN)` and `[AUTH] Staff login: sysadmin@clinicbook.com (SYSTEM_MANAGER)` — both 200 OK
+
+Stage Summary:
+- Root cause: Missing NEXTAUTH_SECRET in .env file
+- Fix: Added NEXTAUTH_SECRET and NEXTAUTH_URL to .env
+- Verified: Both clinic admin and system manager logins work correctly
+- All API routes returning 200, no errors in dev log
