@@ -651,3 +651,25 @@ Stage Summary:
 - Files modified: `src/app/staff/dashboard/settings/profile/page.tsx`
 - Files created: `src/components/clinic-location-map.tsx`
 - Dependencies added: `leaflet`, `react-leaflet`, `@types/leaflet`
+
+---
+Task ID: Services & Insurance Redesign (Phases A, B, C)
+Agent: Main Orchestrator
+Task: Redesign Services & Insurance settings page with 3 phases: navigation, insurance mapping, clinic pricing
+
+Work Log:
+- **Schema**: Added `ClinicService` model (clinicId, serviceId, clinicPriceCents, isActive) with unique compound index. Added relation on Clinic and Service models. Ran `bun run db:push`.
+- **API - Service Insurances** (Phase B): Created `src/app/api/staff/service-insurances/route.ts` with GET (returns per-service insurance map), POST (upsert link with copay), DELETE (remove link). Validates clinic accepts the insurance.
+- **API - Clinic Service Price** (Phase C): Created `src/app/api/staff/clinic-service/route.ts` with PATCH (upsert clinic-specific price). Validates serviceId and non-negative cents.
+- **API - Updated GET /api/staff/services**: Now includes `clinicPriceCents` (from ClinicService) and `linkedInsurances` (from ServiceInsurance) per service. Renamed `selfPayPriceCents` to `globalPriceCents` in response.
+- **UI - Phase A (Navigation)**: Horizontal scrollable tab bar ("All (10)", "Family Medicine (2)", ...) with green/grey assignment indicators. Collapsible specialty groups via shadcn Collapsible. Fixed controlled open prop fighting with onOpenChange.
+- **UI - Phase B (Insurance)**: Per-service "Accepted Insurances" sub-section with count badge. Inline copay editing (click to edit, Enter/blur save, Esc cancel). Add insurance form (Select dropdown + copay input + Add button). Remove insurance button.
+- **UI - Phase C (Pricing)**: Clickable price badges. "Default: $XX.XX" for global price (click to set custom). "Your Price: $XX.XX" for clinic override (click to edit). Inline $ input with save/cancel. PATCH to `/api/staff/clinic-service`.
+
+Stage Summary:
+- Schema: 1 new model (ClinicService), 2 relation additions
+- API: 2 new route files, 1 updated route file
+- UI: Complete rewrite of services/page.tsx (544→1216 lines)
+- Verified: Tab filtering, collapsible groups, price editing (PATCH 200), insurance add form, no console errors
+- Files created: `src/app/api/staff/service-insurances/route.ts`, `src/app/api/staff/clinic-service/route.ts`
+- Files modified: `prisma/schema.prisma`, `src/app/api/staff/services/route.ts`, `src/app/staff/dashboard/settings/services/page.tsx`

@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cache } from "@/lib/cache";
-import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
 
-    // Fetch clinic's assigned insurances
+    // Fetch clinic's accepted insurances
     const clinicInsurances = await db.clinicInsurance.findMany({
       where: { clinicId },
       include: { insurance: { select: { id: true, name: true, slug: true, isActive: true } } },
@@ -67,6 +66,34 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Fetch clinic-specific pricing overrides
+    const clinicServices = await db.clinicService.findMany({
+      where: { clinicId },
+      select: { serviceId: true, clinicPriceCents: true, isActive: true },
+    });
+    const clinicPriceMap = new Map(clinicServices.map((cs) => [cs.serviceId, cs.clinicPriceCents]));
+
+    // Fetch service-insurance links for this clinic's accepted insurances
+    const acceptedInsuranceIds = clinicInsurances.map((ci) => ci.insuranceId);
+    const serviceInsurances = acceptedInsuranceIds.length > 0
+      ? await db.serviceInsurance.findMany({
+          where: { insuranceId: { in: acceptedInsuranceIds } },
+          include: { insurance: { select: { id: true, name: true, slug: true } } },
+        })
+      : [];
+    const svcInsMap = new Map<string, Array<{ id: string; insuranceId: string; insuranceName: string; copayCents: number; isActive: boolean }>>();
+    for (const si of serviceInsurances) {
+      const existing = svcInsMap.get(si.serviceId) || [];
+      existing.push({
+        id: si.id,
+        insuranceId: si.insuranceId,
+        insuranceName: si.insurance.name,
+        copayCents: si.copayCents,
+        isActive: si.isActive,
+      });
+      svcInsMap.set(si.serviceId, existing);
+    }
+
     // Build a map of serviceId -> assigned providers
     const serviceProviderMap = new Map<string, Array<{ id: string; firstName: string; lastName: string; credentials: string | null }>>();
     for (const ps of providerServices) {
@@ -86,10 +113,12 @@ export async function GET(request: NextRequest) {
           slug: svc.slug,
           description: svc.description,
           durationMinutes: svc.durationMinutes,
-          selfPayPriceCents: svc.selfPayPriceCents,
+          globalPriceCents: svc.selfPayPriceCents,
+          clinicPriceCents: clinicPriceMap.get(svc.id) ?? 0,
           selfPayPaymentType: svc.selfPayPaymentType,
           isActive: svc.isActive,
           assignedProviders: serviceProviderMap.get(svc.id) || [],
+          linkedInsurances: svcInsMap.get(svc.id) || [],
         })),
       })),
       clinicInsurances: clinicInsurances.map((ci) => ci.insurance),

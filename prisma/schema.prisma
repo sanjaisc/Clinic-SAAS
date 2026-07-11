@@ -72,6 +72,7 @@ model Service {
   specialty            Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
   providerServices     ProviderService[]
   serviceInsurances    ServiceInsurance[]
+  clinicServices       ClinicService[]
   appointments         Appointment[]
   waitlistEntries      WaitlistEntry[]
 }
@@ -175,6 +176,7 @@ model Clinic {
   // Many-to-many junctions
   insurances              ClinicInsurance[]
   amenities               ClinicAmenity[]
+  clinicServices          ClinicService[]
 
   // One-to-many
   slots                   Slot[]
@@ -275,6 +277,20 @@ model ProviderService {
   service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, serviceId])
+}
+
+/// Clinic ↔ Service (clinic-specific pricing overrides)
+model ClinicService {
+  id                String  @id @default(cuid())
+  clinicId          String
+  serviceId         String
+  clinicPriceCents  Int     @default(0)    // Clinic's custom self-pay price; 0 = use global default
+  isActive          Boolean @default(true)
+
+  clinic            Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, serviceId])
 }
 
 /// Service ↔ Insurance (with copay/pricing data)
