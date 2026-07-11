@@ -15,6 +15,7 @@ import {
   Clock,
   Mail,
   BadgeCheck,
+  LogIn,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,15 @@ import type { DoctASessionUser } from "@/lib/auth";
 import { useActiveClinicId } from "@/components/active-clinic-context";
 
 // ---- Types ----
+interface StaffMember {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
 interface StaffInvitation {
   id: string;
   email: string;
@@ -45,7 +55,8 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatDateTime(dateStr: string): string {
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -53,6 +64,22 @@ function formatDateTime(dateStr: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function getRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return "Never";
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return formatDate(dateStr);
 }
 
 function getInvitationStatus(inv: StaffInvitation): "Pending" | "Accepted" | "Expired" {
@@ -68,16 +95,31 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  CLINIC_ADMIN: "bg-brand-subtle text-brand ",
+  CLINIC_ADMIN: "bg-brand-subtle text-brand",
   CLINIC_RECEPTION: "bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300",
   SYSTEM_MANAGER: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300",
 };
 
+const ROLE_AVATAR_COLORS: Record<string, string> = {
+  CLINIC_ADMIN: "bg-brand-subtle",
+  CLINIC_RECEPTION: "bg-sky-100 dark:bg-sky-900/50",
+  SYSTEM_MANAGER: "bg-purple-100 dark:bg-purple-900/50",
+};
+
 const STATUS_COLORS: Record<string, string> = {
   Pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
-  Accepted: "bg-brand-subtle text-brand ",
+  Accepted: "bg-brand-subtle text-brand",
   Expired: "bg-muted text-muted-foreground",
 };
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 // ---- Main Component ----
 export default function StaffPage() {
@@ -86,6 +128,7 @@ export default function StaffPage() {
   const clinicId = useActiveClinicId(user?.clinicId);
 
   // Staff state
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(true);
 
@@ -104,8 +147,9 @@ export default function StaffPage() {
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setInvitations(data.invitations || []);
+      setStaffMembers(data.staffMembers || []);
     } catch {
-      toast.error("Failed to load invitations");
+      toast.error("Failed to load staff data");
     } finally {
       setInvitationsLoading(false);
     }
@@ -116,9 +160,6 @@ export default function StaffPage() {
       fetchInvitations();
     }
   }, [clinicId, fetchInvitations]);
-
-  // Derived staff list from accepted invitations
-  const acceptedStaff = invitations.filter((inv) => inv.acceptedAt);
 
   // Send invitation
   const sendInvitation = async () => {
@@ -210,16 +251,23 @@ export default function StaffPage() {
       {/* Card 1: Current Staff */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
-              <Users className="size-5 text-brand" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted">
+                <Users className="size-5 text-brand" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Current Staff</CardTitle>
+                <CardDescription>
+                  All staff members with access to this clinic
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg">Current Staff</CardTitle>
-              <CardDescription>
-                Staff members who have accepted invitations to your clinic
-              </CardDescription>
-            </div>
+            {!invitationsLoading && staffMembers.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {staffMembers.length} member{staffMembers.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -229,12 +277,12 @@ export default function StaffPage() {
                 <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
-          ) : acceptedStaff.length === 0 ? (
+          ) : staffMembers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="size-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">No staff members yet</p>
               <p className="text-xs mt-1">
-                Invite receptionists using the form below
+                Invite team members using the form below
               </p>
             </div>
           ) : (
@@ -245,34 +293,64 @@ export default function StaffPage() {
                     <th className="pb-2 font-medium text-muted-foreground">Name</th>
                     <th className="pb-2 font-medium text-muted-foreground">Email</th>
                     <th className="pb-2 font-medium text-muted-foreground">Role</th>
-                    <th className="pb-2 font-medium text-muted-foreground">Accepted</th>
+                    <th className="pb-2 font-medium text-muted-foreground">Last Login</th>
+                    <th className="pb-2 font-medium text-muted-foreground">Added</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {acceptedStaff.map((inv) => (
-                    <tr key={inv.id} className="py-3">
+                  {staffMembers.map((member) => (
+                    <tr key={member.id} className="group">
                       <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center">
-                            <Shield className="size-3.5 text-brand" />
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`size-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                              ROLE_AVATAR_COLORS[member.role] || "bg-muted"
+                            } ${
+                              member.role === "CLINIC_ADMIN"
+                                ? "text-brand"
+                                : member.role === "CLINIC_RECEPTION"
+                                  ? "text-sky-700 dark:text-sky-300"
+                                  : "text-purple-700 dark:text-purple-300"
+                            }`}
+                          >
+                            {getInitials(member.name)}
                           </div>
-                          <span className="font-medium">
-                            {inv.acceptedByName || inv.email.split("@")[0]}
+                          <div className="min-w-0">
+                            <span className="font-medium block truncate">
+                              {member.name}
+                            </span>
+                            {/* Show "You" indicator for current user */}
+                            {user?.id === member.id && (
+                              <span className="text-[10px] text-muted-foreground">
+                                (you)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-muted-foreground">{member.email}</td>
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            ROLE_COLORS[member.role] || ROLE_COLORS.CLINIC_RECEPTION
+                          }`}
+                        >
+                          {member.role === "CLINIC_ADMIN" && (
+                            <Shield className="size-3" />
+                          )}
+                          {ROLE_LABELS[member.role] || member.role}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <LogIn className="size-3 opacity-40" />
+                          <span className="text-xs" title={formatDateTime(member.lastLoginAt)}>
+                            {getRelativeTime(member.lastLoginAt)}
                           </span>
                         </div>
                       </td>
-                      <td className="py-3 pr-4 text-muted-foreground">{inv.email}</td>
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            ROLE_COLORS[inv.role] || ROLE_COLORS.CLINIC_RECEPTION
-                          }`}
-                        >
-                          {ROLE_LABELS[inv.role] || inv.role}
-                        </span>
-                      </td>
                       <td className="py-3 text-muted-foreground text-xs">
-                        {inv.acceptedAt ? formatDateTime(inv.acceptedAt) : "—"}
+                        {formatDate(member.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -388,19 +466,26 @@ export default function StaffPage() {
         </CardContent>
       </Card>
 
-      {/* Card 3: Pending Invitations */}
+      {/* Card 3: Invitations History */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-amber-50 dark:bg-amber-950/50">
-              <Mail className="size-5 text-amber-600" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-10 rounded-lg bg-amber-50 dark:bg-amber-950/50">
+                <Mail className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Invitations</CardTitle>
+                <CardDescription>
+                  Track all sent invitations — pending, accepted, and expired
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg">Invitations</CardTitle>
-              <CardDescription>
-                Track all sent invitations — pending, accepted, and expired
-              </CardDescription>
-            </div>
+            {!invitationsLoading && invitations.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {invitations.length}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -414,6 +499,9 @@ export default function StaffPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Clock className="size-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">No invitations sent yet</p>
+              <p className="text-xs mt-1">
+                Invitations will appear here after sending
+              </p>
             </div>
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">

@@ -47,7 +47,25 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ invitations: enriched });
+    // Fetch actual staff users belonging to this clinic (seeded or invited-accepted)
+    const staffMembers = await db.user.findMany({
+      where: {
+        clinicId,
+        role: { in: ["CLINIC_ADMIN", "CLINIC_RECEPTION"] },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        lastLoginAt: true,
+        createdAt: true,
+      },
+      orderBy: { role: "asc" },
+    });
+
+    return NextResponse.json({ invitations: enriched, staffMembers });
   } catch (error) {
     console.error("[STAFF_INVITATIONS_GET]", error);
     return NextResponse.json(

@@ -573,3 +573,31 @@ Stage Summary:
 - 15 placeholder tags across 5 categories, context-aware per template type
 - Interactive UI: click to insert, hover to copy, collapsible panel
 - No new dependencies required (uses existing Tooltip, Collapsible, Badge components)
+
+---
+Task ID: BugFix-2
+Agent: Main Orchestrator
+Task: Fix Staff Onboarding tab not showing current staff
+
+Work Log:
+- Investigated: the "Current Staff" section only queried `StaffInvitation` table (invitation flow) and derived staff from `inv.acceptedAt`
+- Root cause: seed-created staff (admin + receptionist) live in the `User` table, not in `StaffInvitation`. The page showed "No staff members yet" because there were 0 invitations and 0 accepted invitations
+- Modified `src/app/api/staff/invitations/route.ts` GET handler: added a `staffMembers` query to `db.user.findMany` for active CLINIC_ADMIN and CLINIC_RECEPTION users with the clinicId. Response now returns `{ invitations, staffMembers }`
+- Rewrote `src/app/staff/dashboard/settings/staff/page.tsx`:
+  - Added `StaffMember` interface matching the User select shape
+  - New state: `staffMembers` parsed from API response
+  - "Current Staff" card now uses `staffMembers` (from User table) instead of `acceptedStaff` (from invitations)
+  - Enhanced staff table: Name (with initials avatar), Email, Role (with shield icon for admins), Last Login (relative time), Added date
+  - Shows "(you)" badge next to the current logged-in user
+  - Added staff count badge in card header
+  - Added `LogIn` icon for last login column
+  - Added "Invitations will appear here after sending" hint when no invitations
+  - Added count badge to Invitations card header
+  - Added `getInitials()` helper and `getRelativeTime()` helper for richer display
+  - Invitations card (Card 3) unchanged in functionality
+
+Stage Summary:
+- Files changed: `src/app/api/staff/invitations/route.ts`, `src/app/staff/dashboard/settings/staff/page.tsx`
+- DB verified: 2 staff members exist per clinic (admin + receptionist), 0 invitations
+- API verified: returns `{ staffMembers: [...], invitations: [] }` with all required fields
+- Lint passes clean, page compiles without errors
