@@ -625,3 +625,29 @@ Stage Summary:
 - Fix: Added NEXTAUTH_SECRET and NEXTAUTH_URL to .env
 - Verified: Both clinic admin and system manager logins work correctly
 - All API routes returning 200, no errors in dev log
+
+---
+Task ID: Profile Page Enhancements
+Agent: Main Orchestrator
+Task: (1) Make About Content a rich text editor without raw code view. (2) Fix map preview to show an actual map.
+
+Work Log:
+- Enhanced the `MarkdownEditor` component in profile settings page with a full rich text toolbar
+- Created new `RichTextEditor` component with: Undo/Redo, Bold/Italic/Underline, Strikethrough/Superscript/Subscript, Lists (bulleted/numbered/check), Create Link, Insert Thematic Break
+- No `diffSourcePlugin` is used — there is no way to view or edit raw code/Markdown source
+- Kept lightweight `MarkdownEditor` (no toolbar, just markdown shortcuts) for smaller fields (parking, visit instructions)
+- Installed `leaflet` + `react-leaflet` + `@types/leaflet` for interactive maps
+- Created `/src/components/clinic-location-map.tsx` — a client-side Leaflet component with OpenStreetMap tiles
+- Used `dynamic(() => import(...), { ssr: false })` to avoid SSR issues with Leaflet
+- Custom brand-colored SVG marker pin with address popup
+- Replaced the static `MapPlaceholder` (grid pattern + text) with the real interactive map
+- Added "Map Preview" label above the map with MapPin icon
+- All lint checks pass, zero errors, zero console errors in browser
+- Verified via agent-browser: toolbar buttons render, map shows with zoom controls and OSM attribution
+
+Stage Summary:
+- About Content: Now a proper rich text editor with toolbar, no raw code view
+- Location Map: Now renders an interactive Leaflet/OpenStreetMap map with marker, zoom, and address popup
+- Files modified: `src/app/staff/dashboard/settings/profile/page.tsx`
+- Files created: `src/components/clinic-location-map.tsx`
+- Dependencies added: `leaflet`, `react-leaflet`, `@types/leaflet`

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import type { DoctASessionUser } from "@/lib/auth";
 import { useActiveClinicId } from "@/components/active-clinic-context";
@@ -43,9 +44,27 @@ import {
   quotePlugin,
   thematicBreakPlugin,
   markdownShortcutPlugin,
+  linkPlugin,
+  toolbarPlugin,
+  BoldItalicUnderlineToggles,
+  ListsToggle,
+  StrikeThroughSupSubToggles,
+  CreateLink,
+  InsertThematicBreak,
+  UndoRedo,
+  Separator as MDXSeparator,
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
+
+const ClinicLocationMap = dynamic(() => import("@/components/clinic-location-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-60 rounded-lg border border-border bg-muted/30 flex items-center justify-center">
+      <Loader2 className="size-5 text-muted-foreground animate-spin" />
+    </div>
+  ),
+});
 
 // ---- Types ----
 
@@ -316,7 +335,7 @@ function ImageCropUploader({
   );
 }
 
-// ---- MDXEditor wrapper ----
+// ---- Lightweight MDXEditor for small fields (no toolbar, markdown shortcuts only) ----
 
 function MarkdownEditor({
   value,
@@ -330,18 +349,66 @@ function MarkdownEditor({
   const editorRef = useRef<MDXEditorMethods>(null);
 
   return (
-    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[140px] [&_.mdxeditor]:!max-h-[320px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
+    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[80px] [&_.mdxeditor]:!max-h-[160px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
       <MDXEditor
         ref={editorRef}
         markdown={value || ""}
         onChange={onChange}
         placeholder={placeholder}
-        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[140px] p-3"
+        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[80px] p-3"
         plugins={[
+          listsPlugin(),
+          quotePlugin(),
+          markdownShortcutPlugin(),
+        ]}
+      />
+    </div>
+  );
+}
+
+// ---- Rich Text Editor for About Content (toolbar, no raw code view) ----
+
+function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}) {
+  const editorRef = useRef<MDXEditorMethods>(null);
+
+  return (
+    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[180px] [&_.mdxeditor]:!max-h-[400px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
+      <MDXEditor
+        ref={editorRef}
+        markdown={value || ""}
+        onChange={onChange}
+        placeholder={placeholder}
+        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3"
+        plugins={[
+          toolbarPlugin({
+            toolbarContents: () => (
+              <>
+                <UndoRedo />
+                <MDXSeparator />
+                <BoldItalicUnderlineToggles />
+                <StrikeThroughSupSubToggles />
+                <MDXSeparator />
+                <ListsToggle />
+                <MDXSeparator />
+                <CreateLink />
+                <MDXSeparator />
+                <InsertThematicBreak />
+              </>
+            ),
+          }),
           headingsPlugin(),
           listsPlugin(),
           quotePlugin(),
           thematicBreakPlugin(),
+          linkPlugin(),
           markdownShortcutPlugin(),
         ]}
       />
@@ -393,28 +460,9 @@ function FaqItem({
   );
 }
 
-// ---- Static Map Placeholder ----
-
-function MapPlaceholder({ lat, long, address }: { lat: number; long: number; address: string }) {
-  return (
-    <div className="relative w-full h-48 rounded-lg overflow-hidden border border-border bg-muted/30">
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-        <MapPin className="size-8 text-brand/60" />
-        <p className="text-sm font-medium text-foreground/70">{lat.toFixed(4)}, {long.toFixed(4)}</p>
-        <p className="text-xs text-muted-foreground text-center max-w-xs px-4">{address}</p>
-      </div>
-      {/* Grid pattern to suggest a map */}
-      <svg className="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="mapgrid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#mapgrid)" />
-      </svg>
-    </div>
-  );
-}
+// ---- Map Preview ----
+// Map is rendered by the dynamically-imported ClinicLocationMap component.
+// The old static placeholder has been replaced with an interactive Leaflet/OSM map.
 
 // ========================= MAIN PAGE =========================
 
@@ -783,7 +831,7 @@ export default function ProfileSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <MarkdownEditor
+          <RichTextEditor
             value={coreForm.about}
             onChange={(val) => setCoreForm((f) => ({ ...f, about: val }))}
             placeholder="Tell patients about your clinic's mission, values, and what makes you special..."
@@ -887,13 +935,19 @@ export default function ProfileSettingsPage() {
             </div>
           </div>
 
-          {/* Static Map Placeholder */}
+          {/* Interactive Map Preview */}
           {locationForm.latitude && locationForm.longitude && (
-            <MapPlaceholder
-              lat={parseFloat(locationForm.latitude) || 0}
-              long={parseFloat(locationForm.longitude) || 0}
-              address={`${locationForm.streetAddress}, ${locationForm.city}, ${locationForm.state} ${locationForm.zipCode}`}
-            />
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <MapPin className="size-3.5 text-brand" />
+                Map Preview
+              </p>
+              <ClinicLocationMap
+                latitude={parseFloat(locationForm.latitude) || 0}
+                longitude={parseFloat(locationForm.longitude) || 0}
+                address={`${locationForm.streetAddress}, ${locationForm.city}, ${locationForm.state} ${locationForm.zipCode}`}
+              />
+            </div>
           )}
 
           <div className="flex justify-end pt-2">
