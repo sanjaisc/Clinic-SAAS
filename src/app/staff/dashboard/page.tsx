@@ -8,7 +8,6 @@ import {
   CalendarDays,
   CalendarPlus,
   Clock,
-  Users,
   TrendingUp,
   CheckCircle2,
   XCircle,
@@ -26,6 +25,9 @@ import {
   Bell,
   UserX,
   CheckCircle,
+  ClipboardList,
+  UserPlus,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -327,6 +329,143 @@ function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
               View all
               <ArrowRight className="size-3" />
             </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Audit Log Activity ----
+
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  targetType: string | null;
+  userName: string;
+  createdAt: string;
+}
+
+const AUDIT_BADGE_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className: string }> = {
+  BOOKING_CREATED: { label: "Created", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+  BOOKING_CANCELLED: { label: "Cancelled", variant: "default", className: "bg-red-100 text-red-800 border-red-200" },
+  BOOKING_CHECKED_IN: { label: "Checked In", variant: "default", className: "bg-blue-100 text-blue-800 border-blue-200" },
+  BOOKING_COMPLETED: { label: "Completed", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+  BOOKING_NO_SHOW: { label: "No Show", variant: "default", className: "bg-amber-100 text-amber-800 border-amber-200" },
+  BOOKING_RESCHEDULED: { label: "Rescheduled", variant: "default", className: "bg-purple-100 text-purple-800 border-purple-200" },
+  SLOT_BLOCKED: { label: "Blocked", variant: "secondary", className: "" },
+  SLOT_UNBLOCKED: { label: "Unblocked", variant: "secondary", className: "" },
+  CLINIC_UPDATED: { label: "Clinic", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+  PROVIDER_CREATED: { label: "Provider", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+  PROVIDER_UPDATED: { label: "Provider", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+  STAFF_INVITATION_CREATED: { label: "Invited", variant: "default", className: "bg-sky-100 text-sky-800 border-sky-200" },
+  STAFF_INVITATION_ACCEPTED: { label: "Accepted", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+  STAFF_INVITATION_REVOKED: { label: "Revoked", variant: "default", className: "bg-red-100 text-red-800 border-red-200" },
+  TEMPLATE_CREATED: { label: "Template", variant: "secondary", className: "" },
+  TEMPLATE_UPDATED: { label: "Template", variant: "secondary", className: "" },
+};
+
+function formatAuditAction(action: string): string {
+  return action.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function AuditLogActivitySection({ clinicId }: { clinicId: string | null }) {
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    fetch(`/api/staff/audit-logs?clinicId=${clinicId}&limit=5`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json) setLogs(json.logs);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clinicId]);
+
+  return (
+    <Card className="border-border/50 shadow-sm overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-purple-100 flex items-center justify-center">
+              <ClipboardList className="size-4 text-purple-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Audit Trail</CardTitle>
+              <CardDescription className="text-xs">
+                Recent system activity for your clinic
+              </CardDescription>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-10 rounded-lg" />
+            ))}
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+              <ClipboardList className="size-4 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">No audit log entries</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {logs.map((log) => {
+              const badgeConfig = AUDIT_BADGE_CONFIG[log.action];
+              return (
+                <div
+                  key={log.id}
+                  className="flex items-center gap-3 p-2.5 rounded-lg border-l-2 border-l-purple-400 hover:bg-muted/50 transition-colors duration-150"
+                >
+                  <div className="size-7 rounded-md bg-purple-100 flex items-center justify-center shrink-0">
+                    {log.action.includes("BOOKING") ? (
+                      <CalendarDays className="size-3.5 text-purple-600" />
+                    ) : log.action.includes("SLOT") ? (
+                      <Clock className="size-3.5 text-purple-600" />
+                    ) : log.action.includes("CLINIC") || log.action.includes("PROVIDER") ? (
+                      <Building2 className="size-3.5 text-purple-600" />
+                    ) : log.action.includes("STAFF") || log.action.includes("INVITATION") ? (
+                      <UserPlus className="size-3.5 text-purple-600" />
+                    ) : log.action.includes("TEMPLATE") ? (
+                      <FileText className="size-3.5 text-purple-600" />
+                    ) : (
+                      <Activity className="size-3.5 text-purple-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-foreground truncate">
+                        {formatAuditAction(log.action)}
+                      </p>
+                      {badgeConfig && (
+                        <Badge
+                          variant={badgeConfig.variant}
+                          className={`text-[10px] px-1.5 py-0 h-4 ${badgeConfig.className}`}
+                        >
+                          {badgeConfig.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      by {log.userName}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                    {formatDistanceToNow(new Date(log.createdAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -660,6 +799,9 @@ export default function DashboardPage() {
 
       {/* Recent Activity */}
       <RecentActivitySection clinicId={user.clinicId} />
+
+      {/* Audit Trail */}
+      <AuditLogActivitySection clinicId={user.clinicId} />
     </div>
   );
 }

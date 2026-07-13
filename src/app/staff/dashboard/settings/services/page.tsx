@@ -142,6 +142,7 @@ export default function ServicesSettingsPage() {
   const [priceDraft, setPriceDraft] = useState("");
   const [priceSaving, setPriceSaving] = useState<string | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
+  const priceSavingRef = useRef(false);
 
   // Phase B: Insurance mapping
   const [insuranceAddingServiceId, setInsuranceAddingServiceId] = useState<string | null>(null);
@@ -152,6 +153,7 @@ export default function ServicesSettingsPage() {
   const [editingCopayKey, setEditingCopayKey] = useState<string | null>(null);
   const [copayDraft, setCopayDraft] = useState("");
   const [copaySaving, setCopaySaving] = useState<string | null>(null);
+  const copaySavingRef = useRef(false);
 
   const clinicId = useActiveClinicId(user?.clinicId);
 
@@ -372,6 +374,8 @@ export default function ServicesSettingsPage() {
       toast.error("Please enter a valid price");
       return;
     }
+    if (priceSavingRef.current) return;
+    priceSavingRef.current = true;
     setPriceSaving(serviceId);
     try {
       const res = await fetch("/api/staff/clinic-service", {
@@ -390,7 +394,8 @@ export default function ServicesSettingsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save price");
     } finally {
-      setPriceSaving(serviceId);
+      priceSavingRef.current = false;
+      setPriceSaving(null);
     }
   };
 
@@ -458,6 +463,8 @@ export default function ServicesSettingsPage() {
       toast.error("Please enter a valid copay amount");
       return;
     }
+    if (copaySavingRef.current) return;
+    copaySavingRef.current = true;
     setCopaySaving(`${serviceId}-${insuranceId}`);
     try {
       const res = await fetch("/api/staff/service-insurances", {
@@ -476,6 +483,7 @@ export default function ServicesSettingsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update copay");
     } finally {
+      copaySavingRef.current = false;
       setCopaySaving(null);
     }
   };
@@ -569,6 +577,7 @@ export default function ServicesSettingsPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   placeholder="Search services or specialties..."
+                  aria-label="Search services or specialties"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -901,7 +910,7 @@ function ServiceRow({
               <div className="inline-flex items-center gap-1.5">
                 <div className="relative">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                  <input
+                  <Input
                     ref={priceInputRef}
                     type="number"
                     min="0"
@@ -913,7 +922,7 @@ function ServiceRow({
                       if (e.key === "Escape") onCancelPriceEdit();
                     }}
                     onBlur={() => onSavePrice(service.id)}
-                    className="h-7 w-24 rounded-md border border-input bg-background px-2 pl-5 text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                    className="h-7 w-24 pl-5 text-xs"
                   />
                 </div>
                 <button
@@ -1047,7 +1056,7 @@ function ServiceRow({
                         <div className="inline-flex items-center gap-1">
                           <div className="relative">
                             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
-                            <input
+                            <Input
                               type="number"
                               min="0"
                               step="0.01"
@@ -1058,7 +1067,7 @@ function ServiceRow({
                                 if (e.key === "Escape") onCancelCopayEdit();
                               }}
                               onBlur={() => onSaveCopay(service.id, li.insuranceId)}
-                              className="h-6 w-20 rounded border border-input bg-background px-1.5 pl-4 text-[11px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                              className="h-6 w-20 pl-4 text-[11px]"
                             />
                           </div>
                           <button
@@ -1133,13 +1142,13 @@ function ServiceRow({
                 </Select>
                 <div className="relative">
                   <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     step="0.01"
                     value={newCopayDollars}
                     onChange={(e) => onNewCopayDollarsChange(e.target.value)}
-                    className="h-7 w-20 rounded-md border border-input bg-background px-1.5 pl-4 text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                    className="h-7 w-20 pl-4 text-xs"
                     placeholder="Copay"
                   />
                 </div>

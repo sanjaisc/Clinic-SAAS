@@ -33,6 +33,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -338,6 +348,8 @@ function PlaceholderTagChip({
       setCopied(true);
       toast.success(`Copied ${tag.tag} to clipboard`);
       setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      toast.error("Failed to copy to clipboard");
     });
   };
 
@@ -563,6 +575,12 @@ export default function CommunicationsPage() {
   const [templateBody, setTemplateBody] = useState("");
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateActive, setTemplateActive] = useState(true);
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
+  // Track original values for dirty check
+  const originalSubjectRef = useRef("");
+  const originalBodyRef = useRef("");
+  const originalActiveRef = useRef(true);
 
   const fetchComms = useCallback(async () => {
     try {
@@ -584,6 +602,9 @@ export default function CommunicationsPage() {
         setTemplateSubject(first.subject);
         setTemplateBody(first.bodyHtml);
         setTemplateActive(first.isActive);
+        originalSubjectRef.current = first.subject;
+        originalBodyRef.current = first.bodyHtml;
+        originalActiveRef.current = first.isActive;
       }
     } catch {
       toast.error("Failed to load communication settings");
@@ -662,14 +683,45 @@ export default function CommunicationsPage() {
     }
   };
 
-  // Template selection
+  // Check if template has unsaved changes
+  const isTemplateDirty = () => {
+    if (!selectedTemplateId) return false;
+    return (
+      templateSubject !== originalSubjectRef.current ||
+      templateBody !== originalBodyRef.current ||
+      templateActive !== originalActiveRef.current
+    );
+  };
+
+  // Template selection with dirty check
   const handleTemplateSelect = (templateId: string) => {
+    if (templateId === selectedTemplateId) return;
+    if (isTemplateDirty()) {
+      setPendingTemplateId(templateId);
+      setUnsavedDialogOpen(true);
+      return;
+    }
+    applyTemplateSelection(templateId);
+  };
+
+  const applyTemplateSelection = (templateId: string) => {
     setSelectedTemplateId(templateId);
     const template = data?.emailTemplates.find((t) => t.id === templateId);
     if (template) {
       setTemplateSubject(template.subject);
       setTemplateBody(template.bodyHtml);
       setTemplateActive(template.isActive);
+      originalSubjectRef.current = template.subject;
+      originalBodyRef.current = template.bodyHtml;
+      originalActiveRef.current = template.isActive;
+    }
+  };
+
+  const confirmDiscardAndSwitch = () => {
+    setUnsavedDialogOpen(false);
+    if (pendingTemplateId) {
+      applyTemplateSelection(pendingTemplateId);
+      setPendingTemplateId(null);
     }
   };
 
@@ -688,6 +740,10 @@ export default function CommunicationsPage() {
       );
       if (!res.ok) throw new Error("Failed to save");
       toast.success("Template saved");
+      // Reset dirty tracking after successful save
+      originalSubjectRef.current = templateSubject;
+      originalBodyRef.current = templateBody;
+      originalActiveRef.current = templateActive;
       fetchComms();
     } catch {
       toast.error("Failed to save template");
@@ -1068,6 +1124,26 @@ export default function CommunicationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to the current email template. Switching templates will discard these changes. Do you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingTemplateId(null)}>
+              Stay on this template
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDiscardAndSwitch}>
+              Discard and switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

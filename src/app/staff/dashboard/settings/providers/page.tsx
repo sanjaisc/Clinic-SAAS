@@ -1298,7 +1298,7 @@ function ProviderDetail({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle "
+                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle"
                       onClick={() => onToggleService(ps.serviceId, false)}
                     >
                       <X className="size-3" />

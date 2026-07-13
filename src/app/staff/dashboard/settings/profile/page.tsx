@@ -35,6 +35,8 @@ import {
   Star,
   Loader2,
   Upload,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 import {
@@ -236,18 +238,22 @@ function ImageCropUploader({
     try {
       const urlToRemove = currentUrl || preview;
       const clinicParam = getClinicParam(clinicId);
-      await fetch(`/api/staff/clinic-profile/media${clinicParam}`, {
+      const res = await fetch(`/api/staff/clinic-profile/media${clinicParam}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: urlToRemove, type }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to remove image");
+      }
       setPreview(null);
       setRawFile(null);
       setCrop(null);
       onRemoved?.();
       toast.success("Image removed");
-    } catch {
-      toast.error("Failed to remove image");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove image");
     }
   };
 
@@ -476,6 +482,7 @@ export default function ProfileSettingsPage() {
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [experience, setExperience] = useState<ExperienceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ---- Form States ----
   const [coreForm, setCoreForm] = useState({
@@ -545,7 +552,9 @@ export default function ProfileSettingsPage() {
       setVisitMd(expData.visitInstructions || "");
       setSelectedAmenityIds(expData.selectedAmenityIds || []);
     } catch (err) {
-      toast.error("Failed to load clinic profile");
+      const msg = err instanceof Error ? err.message : "Failed to load clinic profile";
+      setLoadError(msg);
+      toast.error(msg);
       console.error(err);
     } finally {
       setLoading(false);
@@ -723,6 +732,27 @@ export default function ProfileSettingsPage() {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  // ---- Error State ----
+  if (loadError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="size-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Failed to load profile</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={fetchData} className="gap-2">
+            <RefreshCw className="size-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

@@ -35,6 +35,7 @@ import { DoctALogo } from "@/components/docta-logo";
 import type { DoctASessionUser } from "@/lib/auth";
 import { hasMinimumRole, STAFF_ROLE } from "@/lib/enums";
 import { NotificationBell } from "@/components/notification-bell";
+import { KeyboardShortcutsOverlay } from "@/components/keyboard-shortcuts";
 
 const NAV_ITEMS = [
   {
@@ -364,6 +365,7 @@ export default function StaffDashboardLayout({
         {/* Page content */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">{children}</main>
       </div>
+      <KeyboardShortcutsOverlay />
     </div>
   );
 }

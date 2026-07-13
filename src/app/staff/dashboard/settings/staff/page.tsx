@@ -23,6 +23,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { DoctASessionUser } from "@/lib/auth";
 import { useActiveClinicId } from "@/components/active-clinic-context";
 
@@ -140,6 +150,11 @@ export default function StaffPage() {
   } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Revoke confirmation state
+  const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
+  const [revokingInvitation, setRevokingInvitation] = useState<StaffInvitation | null>(null);
+  const [revokeLoading, setRevokeLoading] = useState(false);
+
   const fetchInvitations = useCallback(async () => {
     try {
       setInvitationsLoading(true);
@@ -213,17 +228,28 @@ export default function StaffPage() {
   };
 
   // Revoke invitation
-  const revokeInvitation = async (id: string) => {
+  const confirmRevokeInvitation = (inv: StaffInvitation) => {
+    setRevokingInvitation(inv);
+    setRevokeConfirmOpen(true);
+  };
+
+  const revokeInvitation = async () => {
+    if (!revokingInvitation) return;
     try {
+      setRevokeLoading(true);
       const res = await fetch(
-        `/api/staff/invitations/${id}?clinicId=${clinicId}`,
+        `/api/staff/invitations/${revokingInvitation.id}?clinicId=${clinicId}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed");
       toast.success("Invitation revoked");
+      setRevokeConfirmOpen(false);
+      setRevokingInvitation(null);
       fetchInvitations();
     } catch {
       toast.error("Failed to revoke invitation");
+    } finally {
+      setRevokeLoading(false);
     }
   };
 
@@ -568,7 +594,7 @@ export default function StaffPage() {
                           variant="ghost"
                           size="sm"
                           className="text-xs h-8 text-destructive hover:text-destructive"
-                          onClick={() => revokeInvitation(inv.id)}
+                          onClick={() => confirmRevokeInvitation(inv)}
                         >
                           <Trash2 className="size-3 mr-1" />
                           Revoke
@@ -582,6 +608,31 @@ export default function StaffPage() {
           )}
         </CardContent>
       </Card>
+      {/* Revoke Confirmation Dialog */}
+      <AlertDialog open={revokeConfirmOpen} onOpenChange={setRevokeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke the invitation for{" "}
+              <span className="font-semibold text-foreground">
+                {revokingInvitation?.email}
+              </span>
+              ? This action cannot be undone and the invitation link will no longer work.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revokeLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={revokeInvitation}
+              disabled={revokeLoading}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {revokeLoading ? "Revoking..." : "Revoke"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

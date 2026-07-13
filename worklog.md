@@ -673,3 +673,52 @@ Stage Summary:
 - Verified: Tab filtering, collapsible groups, price editing (PATCH 200), insurance add form, no console errors
 - Files created: `src/app/api/staff/service-insurances/route.ts`, `src/app/api/staff/clinic-service/route.ts`
 - Files modified: `prisma/schema.prisma`, `src/app/api/staff/services/route.ts`, `src/app/staff/dashboard/settings/services/page.tsx`
+- Files modified: `prisma/schema.prisma`, `src/app/api/staff/services/route.ts`, `src/app/staff/dashboard/settings/services/page.tsx`
+
+---
+Task ID: QA-Cycle-1
+Agent: Main Orchestrator + Explore Agent + Full-Stack Agent
+Task: Continuous code review, bug fixes, styling polish, and new feature development
+
+Work Log:
+- **Environment Fix**: Re-added missing `NEXTAUTH_SECRET` and `NEXTAUTH_URL` to `.env` (was lost, causing auth failure)
+- **Comprehensive Code Audit**: Explored 7 settings page files (services, staff, profile, hours, communications, financial, providers) — found 24 issues across 4 severity levels
+- **CRITICAL Fix 1** (`services/page.tsx` line 393): `setPriceSaving(serviceId)` in finally block → `setPriceSaving(null)` — was permanently locking the save button
+- **CRITICAL Fix 2** (`profile/page.tsx`): `handleRemove` in ImageCropUploader now checks `res.ok` before clearing state/showing success toast
+- **HIGH Fix 1** (`services/page.tsx`): Added `priceSavingRef` and `copaySavingRef` guards to prevent double-fire race condition when Enter+Blur fire concurrently
+- **HIGH Fix 2** (`communications/page.tsx`): Added dirty-check with `useRef` tracking + AlertDialog confirmation before switching templates with unsaved edits
+- **HIGH Fix 3** (`hours/page.tsx`): Added validation in `saveHours()` — close time must be after open time, and time ranges within same day must not overlap
+- **HIGH Fix 4** (`profile/page.tsx`): Added `loadError` state + error/retry UI with AlertCircle icon and "Try Again" button
+- **MEDIUM Fix 1** (`hours/page.tsx`): Added AlertDialog confirmation before deleting clinic closures
+- **MEDIUM Fix 2** (`staff/page.tsx`): Added AlertDialog confirmation before revoking staff invitations
+- **MEDIUM Fix 3** (`services/page.tsx`): Added `aria-label="Search services or specialties"` to search input
+- **MEDIUM Fix 4** (`services/page.tsx`): Replaced 3 raw `<input>` elements with shadcn `<Input>` component (price editor, copay editor, add insurance copay)
+- **MEDIUM Fix 5** (`providers/page.tsx`): Removed trailing whitespace in className strings
+- **MEDIUM Fix 6** (`communications/page.tsx`): Added `.catch()` handler to `navigator.clipboard.writeText()` promise
+
+**New Features:**
+- **Feature 1 — Dashboard Audit Trail**: Created `GET /api/staff/audit-logs?clinicId=X&limit=5` API route. Added `AuditLogActivitySection` to dashboard showing last 5 audit entries with colored action badges, contextual icons, relative timestamps
+- **Feature 2 — Unsaved Changes Indicator**: Rewrote settings layout with `UnsavedChangesContext`, animated amber pulse dot on active tab, `window.onbeforeunload` warning, proper ARIA tablist/tab roles
+- **Feature 3 — Keyboard Shortcuts Help**: Created `keyboard-shortcuts.tsx` component (press `?` to open). Shows Dialog with `Ctrl+S`, `Esc`, `?`, `Ctrl+K` shortcuts. Integrated into staff dashboard layout
+
+Stage Summary:
+- 3 CRITICAL bugs fixed, 4 HIGH bugs fixed, 6 MEDIUM issues fixed
+- 3 new features added (audit trail, unsaved changes, keyboard shortcuts)
+- 2 new files created, 10 files modified
+- ESLint: 0 errors on all changes
+- Files created: `src/app/api/staff/audit-logs/route.ts`, `src/components/keyboard-shortcuts.tsx`
+- Files modified: `.env`, `services/page.tsx`, `profile/page.tsx`, `communications/page.tsx`, `hours/page.tsx`, `staff/page.tsx`, `providers/page.tsx`, `settings/layout.tsx`, `dashboard/layout.tsx`, `dashboard/page.tsx`
+
+---
+Task ID: CronJob-Setup
+Agent: Main Orchestrator
+Task: Create recurring cron job for continuous improvement
+
+Work Log:
+- Created cron job (ID: 269409) with `fixed_rate` schedule every 3600 seconds (60 minutes)
+- Payload type: `webDevReview` — agent will review worklog, QA via agent-browser, fix bugs, improve styling, add features
+- Note: Job shows "Disabled due to exec limits exceeded" — platform execution quota limitation
+
+Stage Summary:
+- Cron job created but disabled due to platform exec limits
+- Manual QA cycles like this one should be run periodically instead

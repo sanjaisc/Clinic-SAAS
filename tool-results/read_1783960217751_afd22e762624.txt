@@ -1,0 +1,1073 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Mail,
+     8→  Save,
+     9→  RotateCcw,
+    10→  FileText,
+    11→  Settings2,
+    12→  ClipboardList,
+    13→  MessageSquare,
+    14→  Loader2,
+    15→  Info,
+    16→  ChevronDown,
+    17→  Copy,
+    18→  Check,
+    19→} from "lucide-react";
+    20→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Input } from "@/components/ui/input";
+    23→import { Label } from "@/components/ui/label";
+    24→import { Badge } from "@/components/ui/badge";
+    25→import { Skeleton } from "@/components/ui/skeleton";
+    26→import { Switch } from "@/components/ui/switch";
+    27→import { Separator } from "@/components/ui/separator";
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from "@/components/ui/select";
+    35→import {
+    36→  Collapsible,
+    37→  CollapsibleContent,
+    38→  CollapsibleTrigger,
+    39→} from "@/components/ui/collapsible";
+    40→import {
+    41→  Tooltip,
+    42→  TooltipContent,
+    43→  TooltipProvider,
+    44→  TooltipTrigger,
+    45→} from "@/components/ui/tooltip";
+    46→import {
+    47→  MDXEditor,
+    48→  headingsPlugin,
+    49→  listsPlugin,
+    50→  quotePlugin,
+    51→  thematicBreakPlugin,
+    52→  markdownShortcutPlugin,
+    53→  linkPlugin,
+    54→  BoldItalicUnderlineToggles,
+    55→  ListsToggle,
+    56→  toolbarPlugin,
+    57→  type MDXEditorMethods,
+    58→} from "@mdxeditor/editor";
+    59→import "@mdxeditor/editor/style.css";
+    60→import type { DoctASessionUser } from "@/lib/auth";
+    61→import { useActiveClinicId } from "@/components/active-clinic-context";
+    62→import { EMAIL_TEMPLATE_TYPE, INTAKE_CADENCE } from "@/lib/enums";
+    63→
+    64→// ---- Types ----
+    65→interface EmailTemplate {
+    66→  id: string;
+    67→  type: string;
+    68→  subject: string;
+    69→  bodyHtml: string;
+    70→  isActive: boolean;
+    71→  createdAt: string;
+    72→  updatedAt: string;
+    73→}
+    74→
+    75→interface Service {
+    76→  id: string;
+    77→  name: string;
+    78→  slug: string;
+    79→}
+    80→
+    81→interface CommsData {
+    82→  emailFromName: string;
+    83→  customEmailHeader: string;
+    84→  commonInstructions: string;
+    85→  intakeReminderDays: string;
+    86→  intakeFormIds: Record<string, string>;
+    87→  emailTemplates: EmailTemplate[];
+    88→  availableServices: Service[];
+    89→}
+    90→
+    91→const TEMPLATE_LABELS: Record<string, string> = {
+    92→  BOOKING_CONFIRMATION: "Booking Confirmation",
+    93→  CANCELLATION: "Cancellation",
+    94→  RESCHEDULE: "Reschedule",
+    95→  REMINDER: "Appointment Reminder",
+    96→  INTAKE: "Intake Form",
+    97→  REVIEW_REQUEST: "Review Request",
+    98→  PAYMENT_REQUEST: "Payment Request",
+    99→};
+   100→
+   101→const CADENCE_OPTIONS = [
+   102→  { value: INTAKE_CADENCE.DO_NOT_SEND, label: "Do Not Send" },
+   103→  { value: INTAKE_CADENCE.THREE_AND_ONE_DAY, label: "3 days & 1 day before" },
+   104→  { value: INTAKE_CADENCE.ONE_DAY, label: "1 day before" },
+   105→  { value: INTAKE_CADENCE.THREE_DAY, label: "3 days before" },
+   106→  { value: INTAKE_CADENCE.SEVEN_AND_ONE_DAY, label: "7 days & 1 day before" },
+   107→];
+   108→
+   109→// ---- Placeholder Tags Configuration ----
+   110→interface PlaceholderTag {
+   111→  tag: string;
+   112→  label: string;
+   113→  description: string;
+   114→  scope: "all" | string[];
+   115→  target: "subject" | "body" | "both";
+   116→}
+   117→
+   118→interface PlaceholderCategory {
+   119→  name: string;
+   120→  icon: string;
+   121→  tags: PlaceholderTag[];
+   122→}
+   123→
+   124→const PLACEHOLDER_CATEGORIES: PlaceholderCategory[] = [
+   125→  {
+   126→    name: "Patient & Contact",
+   127→    icon: "👤",
+   128→    tags: [
+   129→      {
+   130→        tag: "{{patientName}}",
+   131→        label: "Patient Name",
+   132→        description: "Full name of the patient",
+   133→        scope: "all",
+   134→        target: "both",
+   135→      },
+   136→      {
+   137→        tag: "{{patientEmail}}",
+   138→        label: "Patient Email",
+   139→        description: "Email address of the patient",
+   140→        scope: "all",
+   141→        target: "body",
+   142→      },
+   143→      {
+   144→        tag: "{{patientPhone}}",
+   145→        label: "Patient Phone",
+   146→        description: "Phone number of the patient",
+   147→        scope: "all",
+   148→        target: "body",
+   149→      },
+   150→    ],
+   151→  },
+   152→  {
+   153→    name: "Appointment Details",
+   154→    icon: "📅",
+   155→    tags: [
+   156→      {
+   157→        tag: "{{date}}",
+   158→        label: "Appointment Date",
+   159→        description: "Formatted date of the appointment (e.g., Monday, January 15, 2025)",
+   160→        scope: [
+   161→          "BOOKING_CONFIRMATION",
+   162→          "CANCELLATION",
+   163→          "RESCHEDULE",
+   164→          "REMINDER",
+   165→        ],
+   166→        target: "both",
+   167→      },
+   168→      {
+   169→        tag: "{{time}}",
+   170→        label: "Appointment Time",
+   171→        description: "Time of the appointment (e.g., 2:30 PM)",
+   172→        scope: [
+   173→          "BOOKING_CONFIRMATION",
+   174→          "CANCELLATION",
+   175→          "RESCHEDULE",
+   176→          "REMINDER",
+   177→        ],
+   178→        target: "both",
+   179→      },
+   180→      {
+   181→        tag: "{{providerName}}",
+   182→        label: "Provider Name",
+   183→        description: "Name of the assigned provider (e.g., Dr. Jane Smith)",
+   184→        scope: [
+   185→          "BOOKING_CONFIRMATION",
+   186→          "RESCHEDULE",
+   187→          "REMINDER",
+   188→        ],
+   189→        target: "both",
+   190→      },
+   191→      {
+   192→        tag: "{{serviceName}}",
+   193→        label: "Service Name",
+   194→        description: "Name of the booked service",
+   195→        scope: ["BOOKING_CONFIRMATION"],
+   196→        target: "both",
+   197→      },
+   198→      {
+   199→        tag: "{{appointmentId}}",
+   200→        label: "Appointment ID",
+   201→        description: "Unique appointment reference number",
+   202→        scope: [
+   203→          "BOOKING_CONFIRMATION",
+   204→          "CANCELLATION",
+   205→          "RESCHEDULE",
+   206→          "REMINDER",
+   207→        ],
+   208→        target: "body",
+   209→      },
+   210→      {
+   211→        tag: "{{modality}}",
+   212→        label: "Appointment Modality",
+   213→        description: "In-Person or Video",
+   214→        scope: [
+   215→          "BOOKING_CONFIRMATION",
+   216→          "RESCHEDULE",
+   217→          "REMINDER",
+   218→        ],
+   219→        target: "body",
+   220→      },
+   221→    ],
+   222→  },
+   223→  {
+   224→    name: "Clinic Information",
+   225→    icon: "🏢",
+   226→    tags: [
+   227→      {
+   228→        tag: "{{clinicName}}",
+   229→        label: "Clinic Name",
+   230→        description: "Display name of the clinic",
+   231→        scope: "all",
+   232→        target: "both",
+   233→      },
+   234→      {
+   235→        tag: "{{clinicPhone}}",
+   236→        label: "Clinic Phone",
+   237→        description: "Primary phone number of the clinic",
+   238→        scope: "all",
+   239→        target: "body",
+   240→      },
+   241→      {
+   242→        tag: "{{clinicAddress}}",
+   243→        label: "Clinic Address",
+   244→        description: "Full street address of the clinic",
+   245→        scope: "all",
+   246→        target: "body",
+   247→      },
+   248→    ],
+   249→  },
+   250→  {
+   251→    name: "Action Links",
+   252→    icon: "🔗",
+   253→    tags: [
+   254→      {
+   255→        tag: "{{intakeLink}}",
+   256→        label: "Intake Form Link",
+   257→        description: "URL to the patient intake form",
+   258→        scope: ["INTAKE"],
+   259→        target: "body",
+   260→      },
+   261→      {
+   262→        tag: "{{reviewLink}}",
+   263→        label: "Review Link",
+   264→        description: "URL to leave a review",
+   265→        scope: ["REVIEW_REQUEST"],
+   266→        target: "body",
+   267→      },
+   268→      {
+   269→        tag: "{{paymentLink}}",
+   270→        label: "Payment Link",
+   271→        description: "URL to complete payment",
+   272→        scope: ["PAYMENT_REQUEST"],
+   273→        target: "body",
+   274→      },
+   275→      {
+   276→        tag: "{{cancellationLink}}",
+   277→        label: "Cancel Appointment",
+   278→        description: "URL for the patient to cancel the appointment",
+   279→        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+   280→        target: "body",
+   281→      },
+   282→      {
+   283→        tag: "{{rescheduleLink}}",
+   284→        label: "Reschedule Link",
+   285→        description: "URL for the patient to reschedule",
+   286→        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+   287→        target: "body",
+   288→      },
+   289→      {
+   290→        tag: "{{manageLink}}",
+   291→        label: "Manage Appointment",
+   292→        description: "URL to view or manage appointment details",
+   293→        scope: ["BOOKING_CONFIRMATION", "REMINDER"],
+   294→        target: "body",
+   295→      },
+   296→    ],
+   297→  },
+   298→  {
+   299→    name: "Payment",
+   300→    icon: "💳",
+   301→    tags: [
+   302→      {
+   303→        tag: "{{amount}}",
+   304→        label: "Payment Amount",
+   305→        description: "Amount due (e.g., $50.00)",
+   306→        scope: ["PAYMENT_REQUEST"],
+   307→        target: "both",
+   308→      },
+   309→    ],
+   310→  },
+   311→];
+   312→
+   313→/** Check if a tag is relevant for a given template type */
+   314→function isTagRelevant(tag: PlaceholderTag, templateType: string): boolean {
+   315→  return tag.scope === "all" || tag.scope.includes(templateType);
+   316→}
+   317→
+   318→// ---- Tag Chip Component ----
+   319→function PlaceholderTagChip({
+   320→  tag,
+   321→  templateType,
+   322→  onInsert,
+   323→}: {
+   324→  tag: PlaceholderTag;
+   325→  templateType: string | undefined;
+   326→  onInsert: (tagStr: string) => void;
+   327→}) {
+   328→  const [copied, setCopied] = useState(false);
+   329→  const relevant = templateType ? isTagRelevant(tag, templateType) : true;
+   330→
+   331→  const handleInsert = () => {
+   332→    onInsert(tag.tag);
+   333→  };
+   334→
+   335→  const handleCopy = (e: React.MouseEvent) => {
+   336→    e.stopPropagation();
+   337→    navigator.clipboard.writeText(tag.tag).then(() => {
+   338→      setCopied(true);
+   339→      toast.success(`Copied ${tag.tag} to clipboard`);
+   340→      setTimeout(() => setCopied(false), 1500);
+   341→    });
+   342→  };
+   343→
+   344→  return (
+   345→    <TooltipProvider delayDuration={300}>
+   346→      <Tooltip>
+   347→        <TooltipTrigger asChild>
+   348→          <button
+   349→            type="button"
+   350→            onClick={handleInsert}
+   351→            className={`
+   352→              group relative inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5
+   353→              text-xs font-mono transition-all duration-150
+   354→              ${
+   355→                relevant
+   356→                  ? "border-foreground/15 bg-background hover:border-brand hover:bg-brand/5 hover:shadow-sm cursor-pointer"
+   357→                  : "border-dashed border-muted-foreground/20 bg-muted/30 text-muted-foreground cursor-default opacity-50"
+   358→              }
+   359→            `}
+   360→            disabled={!relevant}
+   361→          >
+   362→            <span className="truncate">{tag.tag}</span>
+   363→            <span className="text-muted-foreground font-sans hidden sm:inline">
+   364→              {tag.label}
+   365→            </span>
+   366→            {/* Copy button — visible on hover */}
+   367→            {relevant && (
+   368→              <span
+   369→                role="button"
+   370→                tabIndex={-1}
+   371→                onClick={handleCopy}
+   372→                className="ml-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+   373→                aria-label={`Copy ${tag.tag}`}
+   374→              >
+   375→                {copied ? (
+   376→                  <Check className="size-3 text-green-500" />
+   377→                ) : (
+   378→                  <Copy className="size-3" />
+   379→                )}
+   380→              </span>
+   381→            )}
+   382→          </button>
+   383→        </TooltipTrigger>
+   384→        <TooltipContent side="bottom" className="max-w-xs">
+   385→          <p className="font-medium text-xs">{tag.description}</p>
+   386→          {!relevant && templateType && (
+   387→            <p className="text-xs text-muted-foreground mt-1">
+   388→              Not available for {TEMPLATE_LABELS[templateType] || templateType} templates
+   389→            </p>
+   390→          )}
+   391→          {relevant && (
+   392→            <p className="text-xs text-muted-foreground mt-1">
+   393→              Click to insert &middot; Hover + click icon to copy
+   394→            </p>
+   395→          )}
+   396→        </TooltipContent>
+   397→      </Tooltip>
+   398→    </TooltipProvider>
+   399→  );
+   400→}
+   401→
+   402→// ---- Placeholder Reference Panel ----
+   403→function PlaceholderReferencePanel({
+   404→  templateType,
+   405→  onInsertTag,
+   406→}: {
+   407→  templateType: string | undefined;
+   408→  onInsertTag: (tagStr: string) => void;
+   409→}) {
+   410→  const [open, setOpen] = useState(true);
+   411→
+   412→  // Count relevant vs total tags
+   413→  const totalTags = PLACEHOLDER_CATEGORIES.reduce(
+   414→    (sum, cat) => sum + cat.tags.length,
+   415→    0
+   416→  );
+   417→  const relevantTags = templateType
+   418→    ? PLACEHOLDER_CATEGORIES.reduce(
+   419→        (sum, cat) =>
+   420→          sum + cat.tags.filter((t) => isTagRelevant(t, templateType)).length,
+   421→        0
+   422→      )
+   423→    : totalTags;
+   424→
+   425→  return (
+   426→    <Collapsible open={open} onOpenChange={setOpen}>
+   427→      <CollapsibleTrigger asChild>
+   428→        <button
+   429→          type="button"
+   430→          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left group"
+   431→        >
+   432→          <div className="flex items-center justify-center size-7 rounded-md bg-amber-50 dark:bg-amber-950/40">
+   433→            <Info className="size-3.5 text-amber-600" />
+   434→          </div>
+   435→          <span>Available Placeholders</span>
+   436→          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+   437→            {relevantTags}/{totalTags} applicable
+   438→          </Badge>
+   439→          <ChevronDown
+   440→            className={`size-4 ml-auto transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
+   441→          />
+   442→        </button>
+   443→      </CollapsibleTrigger>
+   444→
+   445→      <CollapsibleContent className="mt-3">
+   446→        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+   447→          <p className="text-xs text-muted-foreground">
+   448→            Click a tag to insert it into the email body, or hover and click the copy icon
+   449→            to place it in the subject line or elsewhere.
+   450→            {templateType && (
+   451→              <span className="ml-1">
+   452→                Dimmed tags are not available for{" "}
+   453→                <span className="font-medium text-foreground">
+   454→                  {TEMPLATE_LABELS[templateType] || templateType}
+   455→                </span>{" "}
+   456→                templates.
+   457→              </span>
+   458→            )}
+   459→          </p>
+   460→
+   461→          {PLACEHOLDER_CATEGORIES.map((category) => {
+   462→            const hasRelevantTags = templateType
+   463→              ? category.tags.some((t) => isTagRelevant(t, templateType))
+   464→              : true;
+   465→            // Skip categories with no relevant tags
+   466→            if (!hasRelevantTags) return null;
+   467→
+   468→            return (
+   469→              <div key={category.name}>
+   470→                <div className="flex items-center gap-2 mb-2">
+   471→                  <span className="text-sm" aria-hidden="true">
+   472→                    {category.icon}
+   473→                  </span>
+   474→                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   475→                    {category.name}
+   476→                  </h4>
+   477→                </div>
+   478→                <div className="flex flex-wrap gap-1.5 pl-6">
+   479→                  {category.tags.map((tag) => (
+   480→                    <PlaceholderTagChip
+   481→                      key={tag.tag}
+   482→                      tag={tag}
+   483→                      templateType={templateType}
+   484→                      onInsert={onInsertTag}
+   485→                    />
+   486→                  ))}
+   487→                </div>
+   488→              </div>
+   489→            );
+   490→          })}
+   491→        </div>
+   492→      </CollapsibleContent>
+   493→    </Collapsible>
+   494→  );
+   495→}
+   496→
+   497→// ---- MDXEditor wrapper (Safe Mode — no HTML source) ----
+   498→function SafeMarkdownEditor({
+   499→  value,
+   500→  onChange,
+   501→  placeholder,
+   502→}: {
+   503→  value: string;
+   504→  onChange: (val: string) => void;
+   505→  placeholder?: string;
+   506→}) {
+   507→  const editorRef = useRef<MDXEditorMethods>(null);
+   508→
+   509→  return (
+   510→    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[160px] [&_.mdxeditor]:!max-h-[300px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
+   511→      <MDXEditor
+   512→        ref={editorRef}
+   513→        markdown={value || ""}
+   514→        onChange={onChange}
+   515→        placeholder={placeholder}
+   516→        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[160px] p-3"
+   517→        plugins={[
+   518→          headingsPlugin(),
+   519→          listsPlugin(),
+   520→          quotePlugin(),
+   521→          thematicBreakPlugin(),
+   522→          markdownShortcutPlugin(),
+   523→          linkPlugin(),
+   524→          toolbarPlugin({
+   525→            toolbarContents: () => (
+   526→              <>
+   527→                <BoldItalicUnderlineToggles />
+   528→                <ListsToggle />
+   529→              </>
+   530→            ),
+   531→          }),
+   532→        ]}
+   533→      />
+   534→    </div>
+   535→  );
+   536→}
+   537→
+   538→// ---- Main Component ----
+   539→export default function CommunicationsPage() {
+   540→  const { data: session } = useSession();
+   541→  const user = session?.user as DoctASessionUser | undefined;
+   542→  const clinicId = useActiveClinicId(user?.clinicId);
+   543→
+   544→  // Data state
+   545→  const [data, setData] = useState<CommsData | null>(null);
+   546→  const [loading, setLoading] = useState(true);
+   547→
+   548→  // Editor states
+   549→  const [emailFromName, setEmailFromName] = useState("");
+   550→  const [customEmailHeader, setCustomEmailHeader] = useState("");
+   551→  const [commonInstructions, setCommonInstructions] = useState("");
+   552→  const [intakeReminderDays, setIntakeReminderDays] = useState(INTAKE_CADENCE.THREE_AND_ONE_DAY);
+   553→  const [intakeFormIds, setIntakeFormIds] = useState<Record<string, string>>({});
+   554→
+   555→  // Saving states
+   556→  const [savingInstructions, setSavingInstructions] = useState(false);
+   557→  const [savingSender, setSavingSender] = useState(false);
+   558→  const [savingIntake, setSavingIntake] = useState(false);
+   559→
+   560→  // Template state
+   561→  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+   562→  const [templateSubject, setTemplateSubject] = useState("");
+   563→  const [templateBody, setTemplateBody] = useState("");
+   564→  const [templateSaving, setTemplateSaving] = useState(false);
+   565→  const [templateActive, setTemplateActive] = useState(true);
+   566→
+   567→  const fetchComms = useCallback(async () => {
+   568→    try {
+   569→      setLoading(true);
+   570→      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`);
+   571→      if (!res.ok) throw new Error("Failed to load");
+   572→      const result: CommsData = await res.json();
+   573→      setData(result);
+   574→      setEmailFromName(result.emailFromName);
+   575→      setCustomEmailHeader(result.customEmailHeader);
+   576→      setCommonInstructions(result.commonInstructions);
+   577→      setIntakeReminderDays(result.intakeReminderDays);
+   578→      setIntakeFormIds(result.intakeFormIds || {});
+   579→
+   580→      // Select first template
+   581→      if (result.emailTemplates.length > 0) {
+   582→        const first = result.emailTemplates[0];
+   583→        setSelectedTemplateId(first.id);
+   584→        setTemplateSubject(first.subject);
+   585→        setTemplateBody(first.bodyHtml);
+   586→        setTemplateActive(first.isActive);
+   587→      }
+   588→    } catch {
+   589→      toast.error("Failed to load communication settings");
+   590→    } finally {
+   591→      setLoading(false);
+   592→    }
+   593→  }, [clinicId]);
+   594→
+   595→  useEffect(() => {
+   596→    if (clinicId) fetchComms();
+   597→  }, [clinicId, fetchComms]);
+   598→
+   599→  // Insert placeholder tag into template body
+   600→  const handleInsertTag = useCallback((tagStr: string) => {
+   601→    setTemplateBody((prev) => {
+   602→      const separator = prev && !prev.endsWith("\n") ? "\n" : "";
+   603→      return `${prev}${separator}${tagStr}`;
+   604→    });
+   605→    toast.info(`Inserted ${tagStr}`, {
+   606→      description: "The placeholder has been added to the email body.",
+   607→      duration: 2000,
+   608→    });
+   609→  }, []);
+   610→
+   611→  // Save common instructions
+   612→  const saveCommonInstructions = async () => {
+   613→    try {
+   614→      setSavingInstructions(true);
+   615→      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
+   616→        method: "PATCH",
+   617→        headers: { "Content-Type": "application/json" },
+   618→        body: JSON.stringify({ commonInstructions }),
+   619→      });
+   620→      if (!res.ok) throw new Error("Failed to save");
+   621→      toast.success("Common instructions saved");
+   622→    } catch {
+   623→      toast.error("Failed to save common instructions");
+   624→    } finally {
+   625→      setSavingInstructions(false);
+   626→    }
+   627→  };
+   628→
+   629→  // Save sender settings
+   630→  const saveSenderSettings = async () => {
+   631→    try {
+   632→      setSavingSender(true);
+   633→      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
+   634→        method: "PATCH",
+   635→        headers: { "Content-Type": "application/json" },
+   636→        body: JSON.stringify({ emailFromName, customEmailHeader }),
+   637→      });
+   638→      if (!res.ok) throw new Error("Failed to save");
+   639→      toast.success("Email sender settings saved");
+   640→    } catch {
+   641→      toast.error("Failed to save email settings");
+   642→    } finally {
+   643→      setSavingSender(false);
+   644→    }
+   645→  };
+   646→
+   647→  // Save intake config
+   648→  const saveIntakeConfig = async () => {
+   649→    try {
+   650→      setSavingIntake(true);
+   651→      const res = await fetch(`/api/staff/communications?clinicId=${clinicId}`, {
+   652→        method: "PATCH",
+   653→        headers: { "Content-Type": "application/json" },
+   654→        body: JSON.stringify({ intakeReminderDays, intakeFormIds }),
+   655→      });
+   656→      if (!res.ok) throw new Error("Failed to save");
+   657→      toast.success("Intake configuration saved");
+   658→    } catch {
+   659→      toast.error("Failed to save intake configuration");
+   660→    } finally {
+   661→      setSavingIntake(false);
+   662→    }
+   663→  };
+   664→
+   665→  // Template selection
+   666→  const handleTemplateSelect = (templateId: string) => {
+   667→    setSelectedTemplateId(templateId);
+   668→    const template = data?.emailTemplates.find((t) => t.id === templateId);
+   669→    if (template) {
+   670→      setTemplateSubject(template.subject);
+   671→      setTemplateBody(template.bodyHtml);
+   672→      setTemplateActive(template.isActive);
+   673→    }
+   674→  };
+   675→
+   676→  // Save template
+   677→  const saveTemplate = async () => {
+   678→    if (!selectedTemplateId) return;
+   679→    try {
+   680→      setTemplateSaving(true);
+   681→      const res = await fetch(
+   682→        `/api/staff/email-templates/${selectedTemplateId}?clinicId=${clinicId}`,
+   683→        {
+   684→          method: "PUT",
+   685→          headers: { "Content-Type": "application/json" },
+   686→          body: JSON.stringify({ subject: templateSubject, bodyHtml: templateBody, isActive: templateActive }),
+   687→        }
+   688→      );
+   689→      if (!res.ok) throw new Error("Failed to save");
+   690→      toast.success("Template saved");
+   691→      fetchComms();
+   692→    } catch {
+   693→      toast.error("Failed to save template");
+   694→    } finally {
+   695→      setTemplateSaving(false);
+   696→    }
+   697→  };
+   698→
+   699→  // Reset template
+   700→  const resetTemplate = async () => {
+   701→    if (!selectedTemplateId) return;
+   702→    try {
+   703→      const res = await fetch(
+   704→        `/api/staff/email-templates/reset/${selectedTemplateId}?clinicId=${clinicId}`,
+   705→        { method: "POST" }
+   706→      );
+   707→      if (!res.ok) throw new Error("Failed to reset");
+   708→      toast.success("Template reset to default");
+   709→      fetchComms();
+   710→    } catch {
+   711→      toast.error("Failed to reset template");
+   712→    }
+   713→  };
+   714→
+   715→  // Toggle template active
+   716→  const toggleTemplateActive = async (templateId: string, isActive: boolean) => {
+   717→    try {
+   718→      const res = await fetch(
+   719→        `/api/staff/email-templates/${templateId}?clinicId=${clinicId}`,
+   720→        {
+   721→          method: "PUT",
+   722→          headers: { "Content-Type": "application/json" },
+   723→          body: JSON.stringify({ isActive }),
+   724→        }
+   725→      );
+   726→      if (!res.ok) throw new Error("Failed to update");
+   727→      toast.success(`Template ${isActive ? "activated" : "deactivated"}`);
+   728→      fetchComms();
+   729→    } catch {
+   730→      toast.error("Failed to update template");
+   731→    }
+   732→  };
+   733→
+   734→  // Update form mapping
+   735→  const updateFormMapping = (serviceId: string, formId: string) => {
+   736→    setIntakeFormIds((prev) => {
+   737→      const updated = { ...prev };
+   738→      if (formId.trim()) {
+   739→        updated[serviceId] = formId.trim();
+   740→      } else {
+   741→        delete updated[serviceId];
+   742→      }
+   743→      return updated;
+   744→    });
+   745→  };
+   746→
+   747→  const selectedTemplate = data?.emailTemplates.find(
+   748→    (t) => t.id === selectedTemplateId
+   749→  );
+   750→
+   751→  if (loading) {
+   752→    return (
+   753→      <div className="space-y-6">
+   754→        {[...Array(4)].map((_, i) => (
+   755→          <Card key={i}>
+   756→            <CardHeader>
+   757→              <Skeleton className="h-6 w-48" />
+   758→              <Skeleton className="h-4 w-72" />
+   759→            </CardHeader>
+   760→            <CardContent>
+   761→              <div className="space-y-3">
+   762→                <Skeleton className="h-10 w-full" />
+   763→                <Skeleton className="h-32 w-full" />
+   764→              </div>
+   765→            </CardContent>
+   766→          </Card>
+   767→        ))}
+   768→      </div>
+   769→    );
+   770→  }
+   771→
+   772→  return (
+   773→    <div className="space-y-6">
+   774→      {/* Card 1: Common Instructions Block */}
+   775→      <Card>
+   776→        <CardHeader>
+   777→          <div className="flex items-center justify-between">
+   778→            <div className="flex items-center gap-3">
+   779→              <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
+   780→                <MessageSquare className="size-5 text-brand" />
+   781→              </div>
+   782→              <div>
+   783→                <CardTitle className="text-lg">Common Instructions Block</CardTitle>
+   784→                <CardDescription>
+   785→                  This content is automatically appended to all automated emails
+   786→                </CardDescription>
+   787→              </div>
+   788→            </div>
+   789→            <Button
+   790→              onClick={saveCommonInstructions}
+   791→              disabled={savingInstructions}
+   792→              size="sm"
+   793→            >
+   794→              <Save className="size-4 mr-1.5" />
+   795→              {savingInstructions ? "Saving..." : "Save"}
+   796→            </Button>
+   797→          </div>
+   798→        </CardHeader>
+   799→        <CardContent>
+   800→          <SafeMarkdownEditor
+   801→            value={commonInstructions}
+   802→            onChange={setCommonInstructions}
+   803→            placeholder="Add common instructions that will appear at the bottom of every email... e.g., parking info, arrival instructions, what to bring."
+   804→          />
+   805→          <p className="text-xs text-muted-foreground mt-2">
+   806→            Supports markdown formatting. This block is appended to all automated emails.
+   807→          </p>
+   808→        </CardContent>
+   809→      </Card>
+   810→
+   811→      {/* Card 2: Email Sender Settings */}
+   812→      <Card>
+   813→        <CardHeader>
+   814→          <div className="flex items-center justify-between">
+   815→            <div className="flex items-center gap-3">
+   816→              <div className="flex items-center justify-center size-10 rounded-lg bg-blue-50 dark:bg-blue-950/50">
+   817→                <Settings2 className="size-5 text-blue-600" />
+   818→              </div>
+   819→              <div>
+   820→                <CardTitle className="text-lg">Email Sender Settings</CardTitle>
+   821→                <CardDescription>
+   822→                  Configure how outgoing emails appear to recipients
+   823→                </CardDescription>
+   824→              </div>
+   825→            </div>
+   826→            <Button
+   827→              onClick={saveSenderSettings}
+   828→              disabled={savingSender}
+   829→              size="sm"
+   830→            >
+   831→              <Save className="size-4 mr-1.5" />
+   832→              {savingSender ? "Saving..." : "Save"}
+   833→            </Button>
+   834→          </div>
+   835→        </CardHeader>
+   836→        <CardContent className="space-y-4">
+   837→          <div className="space-y-2">
+   838→            <Label htmlFor="email-from-name">From Name</Label>
+   839→            <Input
+   840→              id="email-from-name"
+   841→              placeholder="e.g., Front Desk Team"
+   842→              value={emailFromName}
+   843→              onChange={(e) => setEmailFromName(e.target.value)}
+   844→              className="max-w-md"
+   845→            />
+   846→            <p className="text-xs text-muted-foreground">
+   847→              The display name shown as the sender in outgoing emails
+   848→            </p>
+   849→          </div>
+   850→          <div className="space-y-2">
+   851→            <Label htmlFor="custom-email-header">Custom Email Header</Label>
+   852→            <Input
+   853→              id="custom-email-header"
+   854→              placeholder="e.g., Important: Your Appointment Details"
+   855→              value={customEmailHeader}
+   856→              onChange={(e) => setCustomEmailHeader(e.target.value)}
+   857→              className="max-w-md"
+   858→            />
+   859→            <p className="text-xs text-muted-foreground">
+   860→              Prepend a custom header to all automated email subjects
+   861→            </p>
+   862→          </div>
+   863→        </CardContent>
+   864→      </Card>
+   865→
+   866→      {/* Card 3: Intake Form Configuration */}
+   867→      <Card>
+   868→        <CardHeader>
+   869→          <div className="flex items-center justify-between">
+   870→            <div className="flex items-center gap-3">
+   871→              <div className="flex items-center justify-center size-10 rounded-lg bg-violet-50 dark:bg-violet-950/50">
+   872→                <ClipboardList className="size-5 text-violet-600" />
+   873→              </div>
+   874→              <div>
+   875→                <CardTitle className="text-lg">Intake Form Configuration</CardTitle>
+   876→                <CardDescription>
+   877→                  Configure intake reminder timing and form-to-service mapping
+   878→                </CardDescription>
+   879→              </div>
+   880→            </div>
+   881→            <Button
+   882→              onClick={saveIntakeConfig}
+   883→              disabled={savingIntake}
+   884→              size="sm"
+   885→            >
+   886→              <Save className="size-4 mr-1.5" />
+   887→              {savingIntake ? "Saving..." : "Save"}
+   888→            </Button>
+   889→          </div>
+   890→        </CardHeader>
+   891→        <CardContent className="space-y-6">
+   892→          {/* Intake Reminder Cadence */}
+   893→          <div className="space-y-2">
+   894→            <Label>Intake Reminder Cadence</Label>
+   895→            <Select value={intakeReminderDays} onValueChange={setIntakeReminderDays}>
+   896→              <SelectTrigger className="w-full max-w-sm">
+   897→                <SelectValue />
+   898→              </SelectTrigger>
+   899→              <SelectContent>
+   900→                {CADENCE_OPTIONS.map((opt) => (
+   901→                  <SelectItem key={opt.value} value={opt.value}>
+   902→                    {opt.label}
+   903→                  </SelectItem>
+   904→                ))}
+   905→              </SelectContent>
+   906→            </Select>
+   907→            <p className="text-xs text-muted-foreground">
+   908→              Choose when to send intake form reminders before appointments
+   909→            </p>
+   910→          </div>
+   911→
+   912→          <Separator />
+   913→
+   914→          {/* Form Mapping */}
+   915→          <div className="space-y-3">
+   916→            <Label>Form ID Mapping by Service</Label>
+   917→            <p className="text-xs text-muted-foreground">
+   918→              Map Gravity Form IDs to your services. The intake email will include the correct form link.
+   919→            </p>
+   920→            {data?.availableServices && data.availableServices.length > 0 ? (
+   921→              <div className="space-y-2 max-h-64 overflow-y-auto">
+   922→                {data.availableServices.map((service) => (
+   923→                  <div
+   924→                    key={service.id}
+   925→                    className="flex items-center gap-3 py-2 px-3 rounded-lg border bg-background"
+   926→                  >
+   927→                    <div className="min-w-0 flex-1">
+   928→                      <p className="text-sm font-medium truncate">{service.name}</p>
+   929→                    </div>
+   930→                    <Input
+   931→                      placeholder="Form ID"
+   932→                      value={intakeFormIds[service.id] || ""}
+   933→                      onChange={(e) =>
+   934→                        updateFormMapping(service.id, e.target.value)
+   935→                      }
+   936→                      className="w-40 h-8 text-sm"
+   937→                    />
+   938→                  </div>
+   939→                ))}
+   940→              </div>
+   941→            ) : (
+   942→              <p className="text-sm text-muted-foreground py-4 text-center">
+   943→                No services available. Add services in the Services &amp; Insurance tab first.
+   944→              </p>
+   945→            )}
+   946→          </div>
+   947→        </CardContent>
+   948→      </Card>
+   949→
+   950→      {/* Card 4: Email Template Editor */}
+   951→      <Card>
+   952→        <CardHeader>
+   953→          <div className="flex items-center gap-3">
+   954→            <div className="flex items-center justify-center size-10 rounded-lg bg-rose-50 dark:bg-rose-950/50">
+   955→              <FileText className="size-5 text-rose-600" />
+   956→            </div>
+   957→            <div>
+   958→              <CardTitle className="text-lg">Email Template Editor</CardTitle>
+   959→              <CardDescription>
+   960→                Customize automated email templates for each communication type
+   961→              </CardDescription>
+   962→            </div>
+   963→          </div>
+   964→        </CardHeader>
+   965→        <CardContent className="space-y-4">
+   966→          {/* Template selector */}
+   967→          {data?.emailTemplates && data.emailTemplates.length > 0 ? (
+   968→            <>
+   969→              <div className="flex flex-wrap gap-2">
+   970→                {data.emailTemplates.map((t) => (
+   971→                  <Button
+   972→                    key={t.id}
+   973→                    variant={selectedTemplateId === t.id ? "default" : "outline"}
+   974→                    size="sm"
+   975→                    className={
+   976→                      selectedTemplateId === t.id
+   977→                        ? "bg-brand hover:bg-brand-hover text-white"
+   978→                        : ""
+   979→                    }
+   980→                    onClick={() => handleTemplateSelect(t.id)}
+   981→                  >
+   982→                    {TEMPLATE_LABELS[t.type] || t.type}
+   983→                    {!t.isActive && (
+   984→                      <Badge
+   985→                        variant="secondary"
+   986→                        className="ml-1.5 text-xs bg-muted-foreground/20"
+   987→                      >
+   988→                        Off
+   989→                      </Badge>
+   990→                    )}
+   991→                  </Button>
+   992→                ))}
+   993→              </div>
+   994→
+   995→              {selectedTemplate && (
+   996→                <>
+   997→                  <div className="flex items-center justify-between">
+   998→                    <div className="flex items-center gap-2">
+   999→                      <Label className="text-sm font-medium">Active</Label>
+  1000→                      <Switch
+  1001→                        checked={templateActive}
+  1002→                        onCheckedChange={(val) => {
+  1003→                          setTemplateActive(val);
+  1004→                          toggleTemplateActive(selectedTemplate.id, val);
+  1005→                        }}
+  1006→                      />
+  1007→                    </div>
+  1008→                    <Button
+  1009→                      variant="outline"
+  1010→                      size="sm"
+  1011→                      onClick={resetTemplate}
+  1012→                    >
+  1013→                      <RotateCcw className="size-3.5 mr-1.5" />
+  1014→                      Reset to Default
+  1015→                    </Button>
+  1016→                  </div>
+  1017→
+  1018→                  {/* Placeholder Tags Reference */}
+  1019→                  <PlaceholderReferencePanel
+  1020→                    templateType={selectedTemplate.type}
+  1021→                    onInsertTag={handleInsertTag}
+  1022→                  />
+  1023→
+  1024→                  <div className="space-y-2">
+  1025→                    <Label htmlFor="template-subject">Subject Line</Label>
+  1026→                    <Input
+  1027→                      id="template-subject"
+  1028→                      value={templateSubject}
+  1029→                      onChange={(e) => setTemplateSubject(e.target.value)}
+  1030→                      placeholder="Email subject line..."
+  1031→                    />
+  1032→                  </div>
+  1033→
+  1034→                  <div className="space-y-2">
+  1035→                    <Label>Email Body</Label>
+  1036→                    <SafeMarkdownEditor
+  1037→                      value={templateBody}
+  1038→                      onChange={setTemplateBody}
+  1039→                      placeholder="Compose your email template..."
+  1040→                    />
+  1041→                  </div>
+  1042→
+  1043→                  <div className="flex justify-end">
+  1044→                    <Button
+  1045→                      onClick={saveTemplate}
+  1046→                      disabled={templateSaving}
+  1047→                      size="sm"
+  1048→                    >
+  1049→                      {templateSaving ? (
+  1050→                        <Loader2 className="size-4 mr-1.5 animate-spin" />
+  1051→                      ) : (
+  1052→                        <Save className="size-4 mr-1.5" />
+  1053→                      )}
+  1054→                      Save Template
+  1055→                    </Button>
+  1056→                  </div>
+  1057→                </>
+  1058→              )}
+  1059→            </>
+  1060→          ) : (
+  1061→            <div className="text-center py-8 text-muted-foreground">
+  1062→              <Mail className="size-8 mx-auto mb-2 opacity-40" />
+  1063→              <p className="text-sm">No email templates configured</p>
+  1064→              <p className="text-xs mt-1">
+  1065→                Templates are created automatically when you set up the clinic.
+  1066→              </p>
+  1067→            </div>
+  1068→          )}
+  1069→        </CardContent>
+  1070→      </Card>
+  1071→    </div>
+  1072→  );
+  1073→}

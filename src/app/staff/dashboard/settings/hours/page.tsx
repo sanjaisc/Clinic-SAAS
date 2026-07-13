@@ -30,6 +30,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -109,6 +119,11 @@ export default function HoursPage() {
   // Closures state
   const [closures, setClosures] = useState<Closure[]>([]);
   const [closuresLoading, setClosuresLoading] = useState(true);
+
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingClosureId, setDeletingClosureId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Dialog state
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
@@ -212,6 +227,28 @@ export default function HoursPage() {
   };
 
   const saveHours = async () => {
+    // Validate: no open time before close time within any range
+    for (const [day, data] of Object.entries(weeklyHours)) {
+      if (!data.isOpen) continue;
+      for (let i = 0; i < data.ranges.length; i++) {
+        const range = data.ranges[i];
+        if (range.open >= range.close) {
+          toast.error(`${day}: Close time must be after open time in range ${i + 1}`);
+          return;
+        }
+      }
+      // Check for overlapping ranges
+      for (let i = 0; i < data.ranges.length; i++) {
+        for (let j = i + 1; j < data.ranges.length; j++) {
+          const a = data.ranges[i];
+          const b = data.ranges[j];
+          if (a.open < b.close && b.open < a.close) {
+            toast.error(`${day}: Time ranges ${i + 1} and ${j + 1} overlap`);
+            return;
+          }
+        }
+      }
+    }
     try {
       setHoursSaving(true);
       const res = await fetch(`/api/staff/hours?clinicId=${clinicId}`, {
@@ -295,17 +332,28 @@ export default function HoursPage() {
     }
   };
 
-  const deleteClosure = async (id: string) => {
+  const confirmDeleteClosure = (id: string) => {
+    setDeletingClosureId(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const deleteClosure = async () => {
+    if (!deletingClosureId) return;
     try {
+      setDeleteLoading(true);
       const res = await fetch(
-        `/api/staff/closures/${id}?clinicId=${clinicId}`,
+        `/api/staff/closures/${deletingClosureId}?clinicId=${clinicId}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed to delete");
       toast.success("Closure deleted");
+      setDeleteConfirmOpen(false);
+      setDeletingClosureId(null);
       fetchClosures();
     } catch {
       toast.error("Failed to delete closure");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -529,7 +577,7 @@ export default function HoursPage() {
                         variant="ghost"
                         size="icon"
                         className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteClosure(closure.id)}
+                        onClick={() => confirmDeleteClosure(closure.id)}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -541,6 +589,29 @@ export default function HoursPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Closure</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this clinic closure? This action cannot
+              be undone and will re-open those dates for booking.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteClosure}
+              disabled={deleteLoading}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Closure Dialog */}
       <Dialog open={closureDialogOpen} onOpenChange={setClosureDialogOpen}>
