@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ export default function StaffLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
   const [error, setError] = useState<string | null>(
     errorParam === "CredentialsSignin"
@@ -150,7 +152,7 @@ export default function StaffLoginPage() {
                     autoComplete="email"
                     autoFocus
                     disabled={isLoading}
-                    className="pl-10 h-11 bg-muted/30 border-border/50 focus:bg-background transition-colors"
+                    className="pl-10 h-11 bg-muted/30 border-border/50 focus:bg-background transition-all duration-200 focus:ring-2 focus:ring-brand/20 focus:border-brand/40"
                   />
                 </div>
               </div>
@@ -174,7 +176,7 @@ export default function StaffLoginPage() {
                     required
                     autoComplete="current-password"
                     disabled={isLoading}
-                    className="pl-10 pr-10 h-11 bg-muted/30 border-border/50 focus:bg-white transition-colors"
+                    className="pl-10 pr-10 h-11 bg-muted/30 border-border/50 focus:bg-white transition-all duration-200 focus:ring-2 focus:ring-brand/20 focus:border-brand/40"
                   />
                   <button
                     type="button"
@@ -190,12 +192,20 @@ export default function StaffLoginPage() {
                     )}
                   </button>
                 </div>
-                {/* Forgot password link */}
-                <div className="text-right">
+                {/* Remember me + Forgot password row */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      className="size-4 border-border/60"
+                    />
+                    <span className="text-xs text-muted-foreground">Remember me</span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => toast({ title: "Not available", description: "Password reset is not available in the demo" })}
-                    className="text-xs text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+                    className="text-xs text-muted-foreground hover:text-brand-hover underline-animated cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -259,7 +269,10 @@ export default function StaffLoginPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground/60 mt-6">
+          <p className="text-center text-xs text-muted-foreground/60 mt-4">
+            Secure clinic management platform
+          </p>
+          <p className="text-center text-xs text-muted-foreground/40 mt-2">
             © 2026 DoctA. Staff access only. Unauthorized access is
             prohibited.
           </p>

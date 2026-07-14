@@ -1050,14 +1050,14 @@ export default function ProfileSettingsPage() {
 
             {profile && profile.galleryUrls && profile.galleryUrls.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {profile.galleryUrls.map((url, idx) => (
+                {profile.galleryUrls.map((url) => (
                   <div
-                    key={idx}
+                    key={url}
                     className="group relative aspect-video rounded-lg overflow-hidden border border-border"
                   >
                     <img
                       src={url}
-                      alt={`Gallery ${idx + 1}`}
+                      alt="Gallery image"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">

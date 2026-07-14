@@ -239,12 +239,27 @@ export default function FinancialSettingsPage() {
                 const err = await ptRes.json();
                 throw new Error(err.error || `Failed to update payment type for service ${serviceId}`);
               }
+              return { serviceId, success: true };
             }
-            return Promise.resolve();
+            return { serviceId, success: true };
           }
         );
 
-        await Promise.all(paymentTypePromises);
+        const results = await Promise.allSettled(paymentTypePromises);
+        const failures = results
+          .map((r, i) => {
+            if (r.status === "rejected") {
+              const svcName = data.services.find((s) => s.id === Object.keys(paymentTypes)[i])?.name;
+              return `• ${svcName ?? Object.keys(paymentTypes)[i]}: ${(r as PromiseRejectedResult).reason.message}`;
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        if (failures.length > 0) {
+          toast.error(`Some payment type updates failed:\n${failures.join("\n")}`);
+          return;
+        }
       }
 
       toast.success("Financial settings saved successfully");

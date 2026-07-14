@@ -1,0 +1,1270 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from "react";
+     4→import dynamic from "next/dynamic";
+     5→import { useSession } from "next-auth/react";
+     6→import type { DoctASessionUser } from "@/lib/auth";
+     7→import { useActiveClinicId } from "@/components/active-clinic-context";
+     8→import { toast } from "sonner";
+     9→
+    10→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    11→import { Button } from "@/components/ui/button";
+    12→import { Input } from "@/components/ui/input";
+    13→import { Label } from "@/components/ui/label";
+    14→import { Separator } from "@/components/ui/separator";
+    15→import { Skeleton } from "@/components/ui/skeleton";
+    16→import { Checkbox } from "@/components/ui/checkbox";
+    17→import { Badge } from "@/components/ui/badge";
+    18→import { ScrollArea } from "@/components/ui/scroll-area";
+    19→import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
+    20→import {
+    21→  Building2,
+    22→  Phone,
+    23→  Mail,
+    24→  Globe,
+    25→  MapPin,
+    26→  Image as ImageIcon,
+    27→  Camera,
+    28→  Trash2,
+    29→  Plus,
+    30→  X,
+    31→  Save,
+    32→  Car,
+    33→  Footprints,
+    34→  HelpCircle,
+    35→  Languages,
+    36→  Star,
+    37→  Loader2,
+    38→  Upload,
+    39→  AlertCircle,
+    40→  RefreshCw,
+    41→} from "lucide-react";
+    42→
+    43→import {
+    44→  MDXEditor,
+    45→  headingsPlugin,
+    46→  listsPlugin,
+    47→  quotePlugin,
+    48→  thematicBreakPlugin,
+    49→  markdownShortcutPlugin,
+    50→  linkPlugin,
+    51→  toolbarPlugin,
+    52→  BoldItalicUnderlineToggles,
+    53→  ListsToggle,
+    54→  StrikeThroughSupSubToggles,
+    55→  CreateLink,
+    56→  InsertThematicBreak,
+    57→  UndoRedo,
+    58→  Separator as MDXSeparator,
+    59→  type MDXEditorMethods,
+    60→} from "@mdxeditor/editor";
+    61→import "@mdxeditor/editor/style.css";
+    62→
+    63→const ClinicLocationMap = dynamic(() => import("@/components/clinic-location-map"), {
+    64→  ssr: false,
+    65→  loading: () => (
+    66→    <div className="w-full h-60 rounded-lg border border-border bg-muted/30 flex items-center justify-center">
+    67→      <Loader2 className="size-5 text-muted-foreground animate-spin" />
+    68→    </div>
+    69→  ),
+    70→});
+    71→
+    72→// ---- Types ----
+    73→
+    74→interface ClinicProfile {
+    75→  id: string;
+    76→  slug: string;
+    77→  name: string;
+    78→  tagline: string | null;
+    79→  about: string | null;
+    80→  description: string | null;
+    81→  streetAddress: string;
+    82→  city: string;
+    83→  state: string;
+    84→  zipCode: string;
+    85→  latitude: number;
+    86→  longitude: number;
+    87→  phoneNumber: string;
+    88→  email: string | null;
+    89→  website: string | null;
+    90→  logoUrl: string | null;
+    91→  coverImageUrl: string | null;
+    92→  galleryUrls: string[];
+    93→  faq: { q: string; a: string }[];
+    94→  parkingInstructions: string | null;
+    95→  visitInstructions: string | null;
+    96→  status: string;
+    97→  amenityIds: string[];
+    98→  amenities: { id: string; name: string; slug: string; icon: string | null }[];
+    99→  providerLanguages: {
+   100→    providerId: string;
+   101→    providerName: string;
+   102→    languages: string[];
+   103→  }[];
+   104→  allLanguages: { id: string; name: string; code: string }[];
+   105→}
+   106→
+   107→interface ExperienceData {
+   108→  parkingInstructions: string;
+   109→  visitInstructions: string;
+   110→  faq: { q: string; a: string }[];
+   111→  allAmenities: { id: string; name: string; slug: string; icon: string | null }[];
+   112→  selectedAmenityIds: string[];
+   113→  allLanguages: { id: string; name: string; code: string }[];
+   114→  providerLanguageMap: {
+   115→    providerId: string;
+   116→    providerName: string;
+   117→    languageIds: string[];
+   118→  }[];
+   119→}
+   120→
+   121→interface CropData {
+   122→  x: number;
+   123→  y: number;
+   124→  width: number;
+   125→  height: number;
+   126→}
+   127→
+   128→// ---- Helper: build query string for SYSTEM_MANAGER ----
+   129→
+   130→function getClinicParam(clinicId: string | null | undefined): string {
+   131→  return clinicId ? `?clinicId=${clinicId}` : "";
+   132→}
+   133→
+   134→// ---- Image Cropper Component ----
+   135→
+   136→function ImageCropUploader({
+   137→  type,
+   138→  aspectRatio,
+   139→  currentUrl,
+   140→  onUploaded,
+   141→  onRemoved,
+   142→  label,
+   143→}: {
+   144→  type: "logo" | "cover" | "gallery" | "provider-photo";
+   145→  aspectRatio: number;
+   146→  currentUrl: string | null;
+   147→  onUploaded: (url: string) => void;
+   148→  onRemoved?: () => void;
+   149→  label: string;
+   150→}) {
+   151→  const { data: session } = useSession();
+   152→  const user = session?.user as DoctASessionUser | undefined;
+   153→  const clinicId = useActiveClinicId(user?.clinicId);
+   154→  const [preview, setPreview] = useState<string | null>(currentUrl);
+   155→  const [rawFile, setRawFile] = useState<File | null>(null);
+   156→  const [crop, setCrop] = useState<CropData | null>(null);
+   157→  const [uploading, setUploading] = useState(false);
+   158→  const fileInputRef = useRef<HTMLInputElement>(null);
+   159→  const canvasRef = useRef<HTMLCanvasElement>(null);
+   160→  const imgRef = useRef<HTMLImageElement | null>(null);
+   161→  const [imageDimensions, setImageDimensions] = useState({ w: 0, h: 0 });
+   162→
+   163→  useEffect(() => {
+   164→    setPreview(currentUrl);
+   165→  }, [currentUrl]);
+   166→
+   167→  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   168→    const file = e.target.files?.[0];
+   169→    if (!file) return;
+   170→
+   171→    if (file.size > 5 * 1024 * 1024) {
+   172→      toast.error("File too large. Max 5MB.");
+   173→      return;
+   174→    }
+   175→
+   176→    setRawFile(file);
+   177→    const reader = new FileReader();
+   178→    reader.onload = (ev) => {
+   179→      const src = ev.target?.result as string;
+   180→      setPreview(src);
+   181→      const img = new Image();
+   182→      img.onload = () => {
+   183→        imgRef.current = img;
+   184→        setImageDimensions({ w: img.naturalWidth, h: img.naturalHeight });
+   185→        // Auto-crop to center with the correct aspect ratio
+   186→        const srcAspect = img.naturalWidth / img.naturalHeight;
+   187→        let cx: number, cy: number, cw: number, ch: number;
+   188→        if (srcAspect > aspectRatio) {
+   189→          ch = img.naturalHeight;
+   190→          cw = ch * aspectRatio;
+   191→        } else {
+   192→          cw = img.naturalWidth;
+   193→          ch = cw / aspectRatio;
+   194→        }
+   195→        cx = (img.naturalWidth - cw) / 2;
+   196→        cy = (img.naturalHeight - ch) / 2;
+   197→        const newCrop = { x: cx, y: cy, width: cw, height: ch };
+   198→        setCrop(newCrop);
+   199→      };
+   200→      img.src = src;
+   201→    };
+   202→    reader.readAsDataURL(file);
+   203→  };
+   204→
+   205→  const handleUpload = async () => {
+   206→    if (!rawFile || !crop) return;
+   207→    setUploading(true);
+   208→    try {
+   209→      const formData = new FormData();
+   210→      formData.append("file", rawFile);
+   211→      formData.append("type", type);
+   212→      formData.append("crop", JSON.stringify(crop));
+   213→
+   214→      const clinicParam = getClinicParam(clinicId);
+   215→      const res = await fetch(`/api/staff/clinic-profile/upload${clinicParam}`, {
+   216→        method: "POST",
+   217→        body: formData,
+   218→      });
+   219→
+   220→      if (!res.ok) {
+   221→        const data = await res.json();
+   222→        throw new Error(data.error || "Upload failed");
+   223→      }
+   224→
+   225→      const data = await res.json();
+   226→      onUploaded(data.url);
+   227→      setRawFile(null);
+   228→      setCrop(null);
+   229→      toast.success("Image uploaded successfully");
+   230→    } catch (err) {
+   231→      toast.error(err instanceof Error ? err.message : "Upload failed");
+   232→    } finally {
+   233→      setUploading(false);
+   234→    }
+   235→  };
+   236→
+   237→  const handleRemove = async () => {
+   238→    if (!preview && !currentUrl) return;
+   239→    try {
+   240→      const urlToRemove = currentUrl || preview;
+   241→      const clinicParam = getClinicParam(clinicId);
+   242→      const res = await fetch(`/api/staff/clinic-profile/media${clinicParam}`, {
+   243→        method: "DELETE",
+   244→        headers: { "Content-Type": "application/json" },
+   245→        body: JSON.stringify({ url: urlToRemove, type }),
+   246→      });
+   247→      if (!res.ok) {
+   248→        const err = await res.json().catch(() => ({}));
+   249→        throw new Error(err.error || "Failed to remove image");
+   250→      }
+   251→      setPreview(null);
+   252→      setRawFile(null);
+   253→      setCrop(null);
+   254→      onRemoved?.();
+   255→      toast.success("Image removed");
+   256→    } catch (err) {
+   257→      toast.error(err instanceof Error ? err.message : "Failed to remove image");
+   258→    }
+   259→  };
+   260→
+   261→  const isSquare = aspectRatio === 1;
+   262→  const previewW = isSquare ? 160 : 320;
+   263→  const previewH = isSquare ? 160 : 180;
+   264→
+   265→  return (
+   266→    <div className="space-y-3">
+   267→      <Label className="text-sm font-medium">{label}</Label>
+   268→
+   269→      {/* Preview / Upload Area */}
+   270→      <div className="flex items-start gap-4">
+   271→        <div
+   272→          className="relative flex-shrink-0 rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden flex items-center justify-center bg-muted/30 cursor-pointer hover:border-brand/50 transition-colors"
+   273→          style={{ width: previewW, height: previewH }}
+   274→          onClick={() => fileInputRef.current?.click()}
+   275→        >
+   276→          {preview ? (
+   277→            <img
+   278→              src={preview}
+   279→              alt={label}
+   280→              className="w-full h-full object-cover"
+   281→            />
+   282→          ) : (
+   283→            <div className="flex flex-col items-center gap-1 text-muted-foreground">
+   284→              <Camera className="size-5" />
+   285→              <span className="text-xs">Upload</span>
+   286→            </div>
+   287→          )}
+   288→        </div>
+   289→
+   290→        <div className="flex flex-col gap-2 pt-1">
+   291→          <input
+   292→            ref={fileInputRef}
+   293→            type="file"
+   294→            accept="image/jpeg,image/png,image/webp,image/gif"
+   295→            className="hidden"
+   296→            onChange={handleFileChange}
+   297→          />
+   298→          <Button
+   299→            variant="outline"
+   300→            size="sm"
+   301→            onClick={() => fileInputRef.current?.click()}
+   302→            disabled={uploading}
+   303→          >
+   304→            <Upload className="size-3.5 mr-1.5" />
+   305→            Choose File
+   306→          </Button>
+   307→          {rawFile && crop && (
+   308→            <Button
+   309→              size="sm"
+   310→              onClick={handleUpload}
+   311→              disabled={uploading}
+   312→              className="bg-brand hover:bg-brand-hover text-white"
+   313→            >
+   314→              {uploading ? (
+   315→                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+   316→              ) : (
+   317→                <Save className="size-3.5 mr-1.5" />
+   318→              )}
+   319→              Save Image
+   320→            </Button>
+   321→          )}
+   322→          {preview && (
+   323→            <Button
+   324→              variant="ghost"
+   325→              size="sm"
+   326→              onClick={handleRemove}
+   327→              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+   328→            >
+   329→              <Trash2 className="size-3.5 mr-1.5" />
+   330→              Remove
+   331→            </Button>
+   332→          )}
+   333→          <p className="text-xs text-muted-foreground">
+   334→            {isSquare ? "1:1 ratio" : "16:9 ratio"} &bull; Max 5MB &bull; JPEG/PNG/WebP
+   335→          </p>
+   336→        </div>
+   337→      </div>
+   338→
+   339→      {/* Hidden canvas for crop preview (not rendered visually) */}
+   340→      <canvas ref={canvasRef} className="hidden" />
+   341→    </div>
+   342→  );
+   343→}
+   344→
+   345→// ---- Lightweight MDXEditor for small fields (no toolbar, markdown shortcuts only) ----
+   346→
+   347→function MarkdownEditor({
+   348→  value,
+   349→  onChange,
+   350→  placeholder,
+   351→}: {
+   352→  value: string;
+   353→  onChange: (val: string) => void;
+   354→  placeholder?: string;
+   355→}) {
+   356→  const editorRef = useRef<MDXEditorMethods>(null);
+   357→
+   358→  return (
+   359→    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[80px] [&_.mdxeditor]:!max-h-[160px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
+   360→      <MDXEditor
+   361→        ref={editorRef}
+   362→        markdown={value || ""}
+   363→        onChange={onChange}
+   364→        placeholder={placeholder}
+   365→        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[80px] p-3"
+   366→        plugins={[
+   367→          listsPlugin(),
+   368→          quotePlugin(),
+   369→          markdownShortcutPlugin(),
+   370→        ]}
+   371→      />
+   372→    </div>
+   373→  );
+   374→}
+   375→
+   376→// ---- Rich Text Editor for About Content (toolbar, no raw code view) ----
+   377→
+   378→function RichTextEditor({
+   379→  value,
+   380→  onChange,
+   381→  placeholder,
+   382→}: {
+   383→  value: string;
+   384→  onChange: (val: string) => void;
+   385→  placeholder?: string;
+   386→}) {
+   387→  const editorRef = useRef<MDXEditorMethods>(null);
+   388→
+   389→  return (
+   390→    <div className="rounded-md border border-input overflow-hidden [&_.mdxeditor]:!bg-background [&_.mdxeditor]:!min-h-[180px] [&_.mdxeditor]:!max-h-[400px] [&_.mdxeditor_editor-content]:!prose-sm [&_.mdxeditor]:!text-sm">
+   391→      <MDXEditor
+   392→        ref={editorRef}
+   393→        markdown={value || ""}
+   394→        onChange={onChange}
+   395→        placeholder={placeholder}
+   396→        contentEditableClassName="prose prose-sm max-w-none focus:outline-none min-h-[180px] p-3"
+   397→        plugins={[
+   398→          toolbarPlugin({
+   399→            toolbarContents: () => (
+   400→              <>
+   401→                <UndoRedo />
+   402→                <MDXSeparator />
+   403→                <BoldItalicUnderlineToggles />
+   404→                <StrikeThroughSupSubToggles />
+   405→                <MDXSeparator />
+   406→                <ListsToggle />
+   407→                <MDXSeparator />
+   408→                <CreateLink />
+   409→                <MDXSeparator />
+   410→                <InsertThematicBreak />
+   411→              </>
+   412→            ),
+   413→          }),
+   414→          headingsPlugin(),
+   415→          listsPlugin(),
+   416→          quotePlugin(),
+   417→          thematicBreakPlugin(),
+   418→          linkPlugin(),
+   419→          markdownShortcutPlugin(),
+   420→        ]}
+   421→      />
+   422→    </div>
+   423→  );
+   424→}
+   425→
+   426→// ---- FAQ Item Component ----
+   427→
+   428→function FaqItem({
+   429→  item,
+   430→  index,
+   431→  onUpdate,
+   432→  onRemove,
+   433→}: {
+   434→  item: { q: string; a: string };
+   435→  index: number;
+   436→  onUpdate: (index: number, field: "q" | "a", value: string) => void;
+   437→  onRemove: () => void;
+   438→}) {
+   439→  return (
+   440→    <div className="p-4 rounded-lg border border-border bg-muted/20 space-y-3">
+   441→      <div className="flex items-start gap-2">
+   442→        <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded mt-1.5 flex-shrink-0">
+   443→          Q{index + 1}
+   444→        </span>
+   445→        <div className="flex-1 space-y-2">
+   446→          <Input
+   447→            placeholder="Question"
+   448→            value={item.q}
+   449→            onChange={(e) => onUpdate(index, "q", e.target.value)}
+   450→          />
+   451→          <Input
+   452→            placeholder="Answer"
+   453→            value={item.a}
+   454→            onChange={(e) => onUpdate(index, "a", e.target.value)}
+   455→          />
+   456→        </div>
+   457→        <Button
+   458→          variant="ghost"
+   459→          size="icon"
+   460→          className="text-muted-foreground hover:text-destructive flex-shrink-0 mt-1"
+   461→          onClick={onRemove}
+   462→        >
+   463→          <X className="size-4" />
+   464→        </Button>
+   465→      </div>
+   466→    </div>
+   467→  );
+   468→}
+   469→
+   470→// ---- Map Preview ----
+   471→// Map is rendered by the dynamically-imported ClinicLocationMap component.
+   472→// The old static placeholder has been replaced with an interactive Leaflet/OSM map.
+   473→
+   474→// ========================= MAIN PAGE =========================
+   475→
+   476→export default function ProfileSettingsPage() {
+   477→  const { data: session } = useSession();
+   478→  const user = session?.user as DoctASessionUser | undefined;
+   479→  const clinicId = useActiveClinicId(user?.clinicId);
+   480→  const clinicParam = getClinicParam(clinicId);
+   481→
+   482→  // ---- Data States ----
+   483→  const [profile, setProfile] = useState<ClinicProfile | null>(null);
+   484→  const [experience, setExperience] = useState<ExperienceData | null>(null);
+   485→  const [loading, setLoading] = useState(true);
+   486→  const [loadError, setLoadError] = useState<string | null>(null);
+   487→
+   488→  // ---- Form States ----
+   489→  const [coreForm, setCoreForm] = useState({
+   490→    name: "",
+   491→    tagline: "",
+   492→    about: "",
+   493→    phoneNumber: "",
+   494→    email: "",
+   495→    website: "",
+   496→  });
+   497→  const [locationForm, setLocationForm] = useState({
+   498→    streetAddress: "",
+   499→    city: "",
+   500→    state: "",
+   501→    zipCode: "",
+   502→    latitude: "",
+   503→    longitude: "",
+   504→  });
+   505→  const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
+   506→  const [parkingMd, setParkingMd] = useState("");
+   507→  const [visitMd, setVisitMd] = useState("");
+   508→  const [selectedAmenityIds, setSelectedAmenityIds] = useState<string[]>([]);
+   509→
+   510→  // ---- Saving States ----
+   511→  const [savingCore, setSavingCore] = useState(false);
+   512→  const [savingAbout, setSavingAbout] = useState(false);
+   513→  const [savingLocation, setSavingLocation] = useState(false);
+   514→  const [savingExperience, setSavingExperience] = useState(false);
+   515→  const [savingAmenities, setSavingAmenities] = useState(false);
+   516→
+   517→  // ---- Fetch Data ----
+   518→  const fetchData = useCallback(async () => {
+   519→    try {
+   520→      const [profileRes, expRes] = await Promise.all([
+   521→        fetch(`/api/staff/clinic-profile${clinicParam}`),
+   522→        fetch(`/api/staff/clinic-profile/experience${clinicParam}`),
+   523→      ]);
+   524→
+   525→      if (!profileRes.ok || !expRes.ok) throw new Error("Failed to fetch");
+   526→
+   527→      const profileData: ClinicProfile = await profileRes.json();
+   528→      const expData: ExperienceData = await expRes.json();
+   529→
+   530→      setProfile(profileData);
+   531→      setExperience(expData);
+   532→
+   533→      setCoreForm({
+   534→        name: profileData.name || "",
+   535→        tagline: profileData.tagline || "",
+   536→        about: profileData.about || "",
+   537→        phoneNumber: profileData.phoneNumber || "",
+   538→        email: profileData.email || "",
+   539→        website: profileData.website || "",
+   540→      });
+   541→
+   542→      setLocationForm({
+   543→        streetAddress: profileData.streetAddress || "",
+   544→        city: profileData.city || "",
+   545→        state: profileData.state || "",
+   546→        zipCode: profileData.zipCode || "",
+   547→        latitude: String(profileData.latitude || ""),
+   548→        longitude: String(profileData.longitude || ""),
+   549→      });
+   550→
+   551→      setFaqItems(expData.faq || []);
+   552→      setParkingMd(expData.parkingInstructions || "");
+   553→      setVisitMd(expData.visitInstructions || "");
+   554→      setSelectedAmenityIds(expData.selectedAmenityIds || []);
+   555→    } catch (err) {
+   556→      const msg = err instanceof Error ? err.message : "Failed to load clinic profile";
+   557→      setLoadError(msg);
+   558→      toast.error(msg);
+   559→      console.error(err);
+   560→    } finally {
+   561→      setLoading(false);
+   562→    }
+   563→  }, [clinicParam]);
+   564→
+   565→  useEffect(() => {
+   566→    fetchData();
+   567→  }, [fetchData]);
+   568→
+   569→  // ---- Handlers ----
+   570→
+   571→  const handleSaveCore = async () => {
+   572→    setSavingCore(true);
+   573→    try {
+   574→      const res = await fetch(`/api/staff/clinic-profile${clinicParam}`, {
+   575→        method: "PATCH",
+   576→        headers: { "Content-Type": "application/json" },
+   577→        body: JSON.stringify(coreForm),
+   578→      });
+   579→      if (!res.ok) throw new Error("Failed to save");
+   580→      toast.success("Core details updated");
+   581→      await fetchData();
+   582→    } catch {
+   583→      toast.error("Failed to save core details");
+   584→    } finally {
+   585→      setSavingCore(false);
+   586→    }
+   587→  };
+   588→
+   589→  const handleSaveAbout = async () => {
+   590→    setSavingAbout(true);
+   591→    try {
+   592→      const res = await fetch(`/api/staff/clinic-profile${clinicParam}`, {
+   593→        method: "PATCH",
+   594→        headers: { "Content-Type": "application/json" },
+   595→        body: JSON.stringify({ about: coreForm.about }),
+   596→      });
+   597→      if (!res.ok) throw new Error("Failed to save");
+   598→      toast.success("About content updated");
+   599→    } catch {
+   600→      toast.error("Failed to save about content");
+   601→    } finally {
+   602→      setSavingAbout(false);
+   603→    }
+   604→  };
+   605→
+   606→  const handleSaveLocation = async () => {
+   607→    setSavingLocation(true);
+   608→    try {
+   609→      const body = {
+   610→        ...locationForm,
+   611→        latitude: parseFloat(locationForm.latitude) || 0,
+   612→        longitude: parseFloat(locationForm.longitude) || 0,
+   613→      };
+   614→      const res = await fetch(`/api/staff/clinic-profile${clinicParam}`, {
+   615→        method: "PATCH",
+   616→        headers: { "Content-Type": "application/json" },
+   617→        body: JSON.stringify(body),
+   618→      });
+   619→      if (!res.ok) throw new Error("Failed to save");
+   620→      toast.success("Location updated");
+   621→      await fetchData();
+   622→    } catch {
+   623→      toast.error("Failed to save location");
+   624→    } finally {
+   625→      setSavingLocation(false);
+   626→    }
+   627→  };
+   628→
+   629→  const handleSaveExperience = async () => {
+   630→    setSavingExperience(true);
+   631→    try {
+   632→      const res = await fetch(`/api/staff/clinic-profile/experience${clinicParam}`, {
+   633→        method: "PATCH",
+   634→        headers: { "Content-Type": "application/json" },
+   635→        body: JSON.stringify({
+   636→          parkingInstructions: parkingMd,
+   637→          visitInstructions: visitMd,
+   638→          faq: faqItems.filter((f) => f.q.trim() || f.a.trim()),
+   639→        }),
+   640→      });
+   641→      if (!res.ok) throw new Error("Failed to save");
+   642→      toast.success("Patient experience updated");
+   643→    } catch {
+   644→      toast.error("Failed to save patient experience");
+   645→    } finally {
+   646→      setSavingExperience(false);
+   647→    }
+   648→  };
+   649→
+   650→  const handleSaveAmenities = async () => {
+   651→    setSavingAmenities(true);
+   652→    try {
+   653→      const res = await fetch(`/api/staff/clinic-profile/amenities${clinicParam}`, {
+   654→        method: "PATCH",
+   655→        headers: { "Content-Type": "application/json" },
+   656→        body: JSON.stringify({ amenityIds: selectedAmenityIds }),
+   657→      });
+   658→      if (!res.ok) throw new Error("Failed to save");
+   659→      toast.success("Amenities updated");
+   660→    } catch {
+   661→      toast.error("Failed to save amenities");
+   662→    } finally {
+   663→      setSavingAmenities(false);
+   664→    }
+   665→  };
+   666→
+   667→  const handleFaqUpdate = (index: number, field: "q" | "a", value: string) => {
+   668→    setFaqItems((prev) => {
+   669→      const next = [...prev];
+   670→      next[index] = { ...next[index], [field]: value };
+   671→      return next;
+   672→    });
+   673→  };
+   674→
+   675→  const handleFaqAdd = () => {
+   676→    setFaqItems((prev) => [...prev, { q: "", a: "" }]);
+   677→  };
+   678→
+   679→  const handleFaqRemove = (index: number) => {
+   680→    setFaqItems((prev) => prev.filter((_, i) => i !== index));
+   681→  };
+   682→
+   683→  const handleAmenityToggle = (amenityId: string) => {
+   684→    setSelectedAmenityIds((prev) =>
+   685→      prev.includes(amenityId)
+   686→        ? prev.filter((id) => id !== amenityId)
+   687→        : [...prev, amenityId]
+   688→    );
+   689→  };
+   690→
+   691→  const handleGalleryUpload = () => {
+   692→    fetchData(); // Refresh to get new gallery URLs
+   693→  };
+   694→
+   695→  const handleGalleryRemove = (url: string) => {
+   696→    if (!user) return;
+   697→    const clinicParamStr = getClinicParam(clinicId);
+   698→    fetch(`/api/staff/clinic-profile/media${clinicParamStr}`, {
+   699→      method: "DELETE",
+   700→      headers: { "Content-Type": "application/json" },
+   701→      body: JSON.stringify({ url, type: "gallery" }),
+   702→    })
+   703→      .then((res) => {
+   704→        if (res.ok) {
+   705→          toast.success("Gallery image removed");
+   706→          fetchData();
+   707→        } else {
+   708→          toast.error("Failed to remove image");
+   709→        }
+   710→      })
+   711→      .catch(() => toast.error("Failed to remove image"));
+   712→  };
+   713→
+   714→  const handleMediaUpdate = () => {
+   715→    fetchData();
+   716→  };
+   717→
+   718→  // ---- Loading State ----
+   719→  if (loading) {
+   720→    return (
+   721→      <div className="space-y-6">
+   722→        {[1, 2, 3, 4, 5].map((i) => (
+   723→          <Card key={i}>
+   724→            <CardHeader>
+   725→              <Skeleton className="h-6 w-48" />
+   726→              <Skeleton className="h-4 w-72 mt-2" />
+   727→            </CardHeader>
+   728→            <CardContent className="space-y-4">
+   729→              <Skeleton className="h-10 w-full" />
+   730→              <Skeleton className="h-10 w-full" />
+   731→              <Skeleton className="h-10 w-3/4" />
+   732→            </CardContent>
+   733→          </Card>
+   734→        ))}
+   735→      </div>
+   736→    );
+   737→  }
+   738→
+   739→  // ---- Error State ----
+   740→  if (loadError) {
+   741→    return (
+   742→      <Card className="border-destructive/50">
+   743→        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+   744→          <div className="rounded-full bg-destructive/10 p-4">
+   745→            <AlertCircle className="size-8 text-destructive" />
+   746→          </div>
+   747→          <div className="text-center">
+   748→            <h3 className="font-semibold text-lg">Failed to load profile</h3>
+   749→            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+   750→          </div>
+   751→          <Button variant="outline" onClick={fetchData} className="gap-2">
+   752→            <RefreshCw className="size-4" />
+   753→            Try Again
+   754→          </Button>
+   755→        </CardContent>
+   756→      </Card>
+   757→    );
+   758→  }
+   759→
+   760→  return (
+   761→    <div className="space-y-6 max-w-4xl">
+   762→      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Clinic Profile" }]} />
+   763→      {/* ---- Card 1: Core Details ---- */}
+   764→      <Card>
+   765→        <CardHeader>
+   766→          <CardTitle className="flex items-center gap-2 text-lg">
+   767→            <Building2 className="size-5 text-brand" />
+   768→            Core Details
+   769→          </CardTitle>
+   770→          <CardDescription>
+   771→            Basic information about your clinic that appears in search results and your public profile.
+   772→          </CardDescription>
+   773→        </CardHeader>
+   774→        <CardContent className="space-y-4">
+   775→          <div className="grid gap-4 sm:grid-cols-2">
+   776→            <div className="sm:col-span-2">
+   777→              <Label htmlFor="clinic-name">Clinic Name</Label>
+   778→              <Input
+   779→                id="clinic-name"
+   780→                value={coreForm.name}
+   781→                onChange={(e) => setCoreForm((f) => ({ ...f, name: e.target.value }))}
+   782→                placeholder="My Family Clinic"
+   783→                className="mt-1.5"
+   784→              />
+   785→            </div>
+   786→            <div className="sm:col-span-2">
+   787→              <Label htmlFor="clinic-tagline">Tagline / Short Summary</Label>
+   788→              <Input
+   789→                id="clinic-tagline"
+   790→                value={coreForm.tagline}
+   791→                onChange={(e) => setCoreForm((f) => ({ ...f, tagline: e.target.value }))}
+   792→                placeholder="Compassionate care for the whole family"
+   793→                className="mt-1.5"
+   794→              />
+   795→            </div>
+   796→            <div>
+   797→              <Label htmlFor="clinic-phone">
+   798→                <Phone className="size-3.5 inline mr-1.5 -mt-0.5" />
+   799→                Phone
+   800→              </Label>
+   801→              <Input
+   802→                id="clinic-phone"
+   803→                value={coreForm.phoneNumber}
+   804→                onChange={(e) => setCoreForm((f) => ({ ...f, phoneNumber: e.target.value }))}
+   805→                placeholder="(555) 123-4567"
+   806→                className="mt-1.5"
+   807→              />
+   808→            </div>
+   809→            <div>
+   810→              <Label htmlFor="clinic-email">
+   811→                <Mail className="size-3.5 inline mr-1.5 -mt-0.5" />
+   812→                Email
+   813→              </Label>
+   814→              <Input
+   815→                id="clinic-email"
+   816→                type="email"
+   817→                value={coreForm.email}
+   818→                onChange={(e) => setCoreForm((f) => ({ ...f, email: e.target.value }))}
+   819→                placeholder="contact@clinic.com"
+   820→                className="mt-1.5"
+   821→              />
+   822→            </div>
+   823→            <div className="sm:col-span-2">
+   824→              <Label htmlFor="clinic-website">
+   825→                <Globe className="size-3.5 inline mr-1.5 -mt-0.5" />
+   826→                Website
+   827→              </Label>
+   828→              <Input
+   829→                id="clinic-website"
+   830→                value={coreForm.website}
+   831→                onChange={(e) => setCoreForm((f) => ({ ...f, website: e.target.value }))}
+   832→                placeholder="https://www.myclinic.com"
+   833→                className="mt-1.5"
+   834→              />
+   835→            </div>
+   836→          </div>
+   837→          <div className="flex justify-end pt-2">
+   838→            <Button
+   839→              onClick={handleSaveCore}
+   840→              disabled={savingCore}
+   841→              className="bg-brand hover:bg-brand-hover text-white"
+   842→            >
+   843→              {savingCore ? (
+   844→                <Loader2 className="size-4 mr-2 animate-spin" />
+   845→              ) : (
+   846→                <Save className="size-4 mr-2" />
+   847→              )}
+   848→              Save Details
+   849→            </Button>
+   850→          </div>
+   851→        </CardContent>
+   852→      </Card>
+   853→
+   854→      {/* ---- Card 2: About Content ---- */}
+   855→      <Card>
+   856→        <CardHeader>
+   857→          <CardTitle className="flex items-center gap-2 text-lg">
+   858→            <Building2 className="size-5 text-brand" />
+   859→            About Content
+   860→          </CardTitle>
+   861→          <CardDescription>
+   862→            A detailed description of your clinic. Use rich formatting to make it informative and engaging.
+   863→          </CardDescription>
+   864→        </CardHeader>
+   865→        <CardContent className="space-y-4">
+   866→          <RichTextEditor
+   867→            value={coreForm.about}
+   868→            onChange={(val) => setCoreForm((f) => ({ ...f, about: val }))}
+   869→            placeholder="Tell patients about your clinic's mission, values, and what makes you special..."
+   870→          />
+   871→          <div className="flex justify-end pt-2">
+   872→            <Button
+   873→              onClick={handleSaveAbout}
+   874→              disabled={savingAbout}
+   875→              className="bg-brand hover:bg-brand-hover text-white"
+   876→            >
+   877→              {savingAbout ? (
+   878→                <Loader2 className="size-4 mr-2 animate-spin" />
+   879→              ) : (
+   880→                <Save className="size-4 mr-2" />
+   881→              )}
+   882→              Save About
+   883→            </Button>
+   884→          </div>
+   885→        </CardContent>
+   886→      </Card>
+   887→
+   888→      {/* ---- Card 3: Location ---- */}
+   889→      <Card>
+   890→        <CardHeader>
+   891→          <CardTitle className="flex items-center gap-2 text-lg">
+   892→            <MapPin className="size-5 text-brand" />
+   893→            Location
+   894→          </CardTitle>
+   895→          <CardDescription>
+   896→            Your clinic&apos;s physical address and coordinates for mapping.
+   897→          </CardDescription>
+   898→        </CardHeader>
+   899→        <CardContent className="space-y-4">
+   900→          <div className="grid gap-4 sm:grid-cols-2">
+   901→            <div className="sm:col-span-2">
+   902→              <Label htmlFor="street-address">Street Address</Label>
+   903→              <Input
+   904→                id="street-address"
+   905→                value={locationForm.streetAddress}
+   906→                onChange={(e) => setLocationForm((f) => ({ ...f, streetAddress: e.target.value }))}
+   907→                placeholder="123 Main Street, Suite 100"
+   908→                className="mt-1.5"
+   909→              />
+   910→            </div>
+   911→            <div>
+   912→              <Label htmlFor="city">City</Label>
+   913→              <Input
+   914→                id="city"
+   915→                value={locationForm.city}
+   916→                onChange={(e) => setLocationForm((f) => ({ ...f, city: e.target.value }))}
+   917→                placeholder="Springfield"
+   918→                className="mt-1.5"
+   919→              />
+   920→            </div>
+   921→            <div className="grid grid-cols-2 gap-3">
+   922→              <div>
+   923→                <Label htmlFor="state">State</Label>
+   924→                <Input
+   925→                  id="state"
+   926→                  value={locationForm.state}
+   927→                  onChange={(e) => setLocationForm((f) => ({ ...f, state: e.target.value }))}
+   928→                  placeholder="IL"
+   929→                  maxLength={2}
+   930→                  className="mt-1.5"
+   931→                />
+   932→              </div>
+   933→              <div>
+   934→                <Label htmlFor="zip">ZIP</Label>
+   935→                <Input
+   936→                  id="zip"
+   937→                  value={locationForm.zipCode}
+   938→                  onChange={(e) => setLocationForm((f) => ({ ...f, zipCode: e.target.value }))}
+   939→                  placeholder="62701"
+   940→                  className="mt-1.5"
+   941→                />
+   942→              </div>
+   943→            </div>
+   944→            <div>
+   945→              <Label htmlFor="latitude">Latitude</Label>
+   946→              <Input
+   947→                id="latitude"
+   948→                type="number"
+   949→                step="any"
+   950→                value={locationForm.latitude}
+   951→                onChange={(e) => setLocationForm((f) => ({ ...f, latitude: e.target.value }))}
+   952→                placeholder="39.7817"
+   953→                className="mt-1.5"
+   954→              />
+   955→            </div>
+   956→            <div>
+   957→              <Label htmlFor="longitude">Longitude</Label>
+   958→              <Input
+   959→                id="longitude"
+   960→                type="number"
+   961→                step="any"
+   962→                value={locationForm.longitude}
+   963→                onChange={(e) => setLocationForm((f) => ({ ...f, longitude: e.target.value }))}
+   964→                placeholder="-89.6501"
+   965→                className="mt-1.5"
+   966→              />
+   967→            </div>
+   968→          </div>
+   969→
+   970→          {/* Interactive Map Preview */}
+   971→          {locationForm.latitude && locationForm.longitude && (
+   972→            <div className="space-y-1.5">
+   973→              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   974→                <MapPin className="size-3.5 text-brand" />
+   975→                Map Preview
+   976→              </p>
+   977→              <ClinicLocationMap
+   978→                latitude={parseFloat(locationForm.latitude) || 0}
+   979→                longitude={parseFloat(locationForm.longitude) || 0}
+   980→                address={`${locationForm.streetAddress}, ${locationForm.city}, ${locationForm.state} ${locationForm.zipCode}`}
+   981→              />
+   982→            </div>
+   983→          )}
+   984→
+   985→          <div className="flex justify-end pt-2">
+   986→            <Button
+   987→              onClick={handleSaveLocation}
+   988→              disabled={savingLocation}
+   989→              className="bg-brand hover:bg-brand-hover text-white"
+   990→            >
+   991→              {savingLocation ? (
+   992→                <Loader2 className="size-4 mr-2 animate-spin" />
+   993→              ) : (
+   994→                <Save className="size-4 mr-2" />
+   995→              )}
+   996→              Save Location
+   997→            </Button>
+   998→          </div>
+   999→        </CardContent>
+  1000→      </Card>
+  1001→
+  1002→      {/* ---- Card 4: Media ---- */}
+  1003→      <Card>
+  1004→        <CardHeader>
+  1005→          <CardTitle className="flex items-center gap-2 text-lg">
+  1006→            <ImageIcon className="size-5 text-brand" />
+  1007→            Media & Branding
+  1008→          </CardTitle>
+  1009→          <CardDescription>
+  1010→            Upload your clinic logo, cover image, and gallery photos. Images are automatically cropped and optimized.
+  1011→          </CardDescription>
+  1012→        </CardHeader>
+  1013→        <CardContent className="space-y-8">
+  1014→          {/* Logo */}
+  1015→          <ImageCropUploader
+  1016→            type="logo"
+  1017→            aspectRatio={1}
+  1018→            currentUrl={profile?.logoUrl || null}
+  1019→            onUploaded={handleMediaUpdate}
+  1020→            onRemoved={handleMediaUpdate}
+  1021→            label="Clinic Logo"
+  1022→          />
+  1023→
+  1024→          <Separator />
+  1025→
+  1026→          {/* Cover Image */}
+  1027→          <ImageCropUploader
+  1028→            type="cover"
+  1029→            aspectRatio={16 / 9}
+  1030→            currentUrl={profile?.coverImageUrl || null}
+  1031→            onUploaded={handleMediaUpdate}
+  1032→            onRemoved={handleMediaUpdate}
+  1033→            label="Cover Image"
+  1034→          />
+  1035→
+  1036→          <Separator />
+  1037→
+  1038→          {/* Gallery */}
+  1039→          <div className="space-y-3">
+  1040→            <div className="flex items-center justify-between">
+  1041→              <Label className="text-sm font-medium">Gallery Images</Label>
+  1042→              <ImageCropUploader
+  1043→                type="gallery"
+  1044→                aspectRatio={16 / 9}
+  1045→                currentUrl={null}
+  1046→                onUploaded={handleGalleryUpload}
+  1047→                label=""
+  1048→              />
+  1049→            </div>
+  1050→
+  1051→            {profile && profile.galleryUrls && profile.galleryUrls.length > 0 ? (
+  1052→              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+  1053→                {profile.galleryUrls.map((url, idx) => (
+  1054→                  <div
+  1055→                    key={idx}
+  1056→                    className="group relative aspect-video rounded-lg overflow-hidden border border-border"
+  1057→                  >
+  1058→                    <img
+  1059→                      src={url}
+  1060→                      alt={`Gallery ${idx + 1}`}
+  1061→                      className="w-full h-full object-cover"
+  1062→                    />
+  1063→                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+  1064→                      <Button
+  1065→                        variant="destructive"
+  1066→                        size="icon"
+  1067→                        className="opacity-0 group-hover:opacity-100 transition-opacity size-8"
+  1068→                        onClick={() => handleGalleryRemove(url)}
+  1069→                      >
+  1070→                        <Trash2 className="size-4" />
+  1071→                      </Button>
+  1072→                    </div>
+  1073→                  </div>
+  1074→                ))}
+  1075→              </div>
+  1076→            ) : (
+  1077→              <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+  1078→                No gallery images yet. Upload your first one above.
+  1079→              </p>
+  1080→            )}
+  1081→          </div>
+  1082→        </CardContent>
+  1083→      </Card>
+  1084→
+  1085→      {/* ---- Card 5: Patient Experience ---- */}
+  1086→      <Card>
+  1087→        <CardHeader>
+  1088→          <CardTitle className="flex items-center gap-2 text-lg">
+  1089→            <Star className="size-5 text-brand" />
+  1090→            Patient Experience
+  1091→          </CardTitle>
+  1092→          <CardDescription>
+  1093→            Help patients know what to expect before they arrive — parking, arrival, FAQs, and amenities.
+  1094→          </CardDescription>
+  1095→        </CardHeader>
+  1096→        <CardContent className="space-y-8">
+  1097→          {/* Parking Instructions */}
+  1098→          <div className="space-y-2">
+  1099→            <Label className="flex items-center gap-1.5 text-sm font-medium">
+  1100→              <Car className="size-4 text-brand" />
+  1101→              Parking Instructions
+  1102→            </Label>
+  1103→            <MarkdownEditor
+  1104→              value={parkingMd}
+  1105→              onChange={setParkingMd}
+  1106→              placeholder="Describe parking options, validation, garage info..."
+  1107→            />
+  1108→          </div>
+  1109→
+  1110→          <Separator />
+  1111→
+  1112→          {/* Visit / Arrival Instructions */}
+  1113→          <div className="space-y-2">
+  1114→            <Label className="flex items-center gap-1.5 text-sm font-medium">
+  1115→              <Footprints className="size-4 text-brand" />
+  1116→              Visit / Arrival Instructions
+  1117→            </Label>
+  1118→            <MarkdownEditor
+  1119→              value={visitMd}
+  1120→              onChange={setVisitMd}
+  1121→              placeholder="Check-in process, what to bring, where to go..."
+  1122→            />
+  1123→          </div>
+  1124→
+  1125→          <Separator />
+  1126→
+  1127→          {/* FAQ */}
+  1128→          <div className="space-y-3">
+  1129→            <Label className="flex items-center gap-1.5 text-sm font-medium">
+  1130→              <HelpCircle className="size-4 text-brand" />
+  1131→              Frequently Asked Questions
+  1132→            </Label>
+  1133→            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1134→              {faqItems.map((item, idx) => (
+  1135→                <FaqItem
+  1136→                  key={idx}
+  1137→                  item={item}
+  1138→                  index={idx}
+  1139→                  onUpdate={handleFaqUpdate}
+  1140→                  onRemove={() => handleFaqRemove(idx)}
+  1141→                />
+  1142→              ))}
+  1143→            </div>
+  1144→            <Button
+  1145→              variant="outline"
+  1146→              size="sm"
+  1147→              onClick={handleFaqAdd}
+  1148→              className="w-full border-dashed"
+  1149→            >
+  1150→              <Plus className="size-4 mr-2" />
+  1151→              Add FAQ
+  1152→            </Button>
+  1153→          </div>
+  1154→
+  1155→          <Separator />
+  1156→
+  1157→          {/* Amenities */}
+  1158→          <div className="space-y-3">
+  1159→            <Label className="flex items-center gap-1.5 text-sm font-medium">
+  1160→              <Star className="size-4 text-brand" />
+  1161→              Amenities
+  1162→            </Label>
+  1163→            {experience && experience.allAmenities.length > 0 ? (
+  1164→              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
+  1165→                {experience.allAmenities.map((amenity) => (
+  1166→                  <label
+  1167→                    key={amenity.id}
+  1168→                    className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+  1169→                      selectedAmenityIds.includes(amenity.id)
+  1170→                        ? "border-brand bg-brand-muted "
+  1171→                        : "border-border hover:border-brand-border"
+  1172→                    }`}
+  1173→                  >
+  1174→                    <Checkbox
+  1175→                      checked={selectedAmenityIds.includes(amenity.id)}
+  1176→                      onCheckedChange={() => handleAmenityToggle(amenity.id)}
+  1177→                    />
+  1178→                    <span className="text-sm">{amenity.name}</span>
+  1179→                  </label>
+  1180→                ))}
+  1181→              </div>
+  1182→            ) : (
+  1183→              <p className="text-sm text-muted-foreground">
+  1184→                No amenities configured in the system yet.
+  1185→              </p>
+  1186→            )}
+  1187→          </div>
+  1188→
+  1189→          {/* Languages (read-only display) */}
+  1190→          {experience && experience.allLanguages.length > 0 && (
+  1191→            <>
+  1192→              <Separator />
+  1193→              <div className="space-y-3">
+  1194→                <Label className="flex items-center gap-1.5 text-sm font-medium">
+  1195→                  <Languages className="size-4 text-brand" />
+  1196→                  Languages Spoken by Providers
+  1197→                </Label>
+  1198→                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+  1199→                  {experience.providerLanguageMap.map((pl) => (
+  1200→                    <div
+  1201→                      key={pl.providerId}
+  1202→                      className="flex items-start gap-3 p-3 rounded-lg border border-border"
+  1203→                    >
+  1204→                      <span className="text-sm font-medium min-w-[120px] pt-0.5">
+  1205→                        {pl.providerName}
+  1206→                      </span>
+  1207→                      <div className="flex flex-wrap gap-1.5">
+  1208→                        {pl.languageIds.length > 0 ? (
+  1209→                          pl.languageIds.map((langId) => {
+  1210→                            const lang = experience.allLanguages.find(
+  1211→                              (l) => l.id === langId
+  1212→                            );
+  1213→                            return lang ? (
+  1214→                              <Badge
+  1215→                                key={langId}
+  1216→                                variant="secondary"
+  1217→                                className="text-xs"
+  1218→                              >
+  1219→                                {lang.name}
+  1220→                              </Badge>
+  1221→                            ) : null;
+  1222→                          })
+  1223→                        ) : (
+  1224→                          <span className="text-xs text-muted-foreground">
+  1225→                            No languages assigned
+  1226→                          </span>
+  1227→                        )}
+  1228→                      </div>
+  1229→                    </div>
+  1230→                  ))}
+  1231→                </div>
+  1232→                <p className="text-xs text-muted-foreground">
+  1233→                  Provider languages can be managed from the Providers settings tab.
+  1234→                </p>
+  1235→              </div>
+  1236→            </>
+  1237→          )}
+  1238→
+  1239→          {/* Save Buttons */}
+  1240→          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+  1241→            <Button
+  1242→              onClick={handleSaveExperience}
+  1243→              disabled={savingExperience}
+  1244→              className="bg-brand hover:bg-brand-hover text-white"
+  1245→            >
+  1246→              {savingExperience ? (
+  1247→                <Loader2 className="size-4 mr-2 animate-spin" />
+  1248→              ) : (
+  1249→                <Save className="size-4 mr-2" />
+  1250→              )}
+  1251→              Save Experience
+  1252→            </Button>
+  1253→            <Button
+  1254→              onClick={handleSaveAmenities}
+  1255→              disabled={savingAmenities}
+  1256→              variant="outline"
+  1257→            >
+  1258→              {savingAmenities ? (
+  1259→                <Loader2 className="size-4 mr-2 animate-spin" />
+  1260→              ) : (
+  1261→                <Star className="size-4 mr-2" />
+  1262→              )}
+  1263→              Save Amenities
+  1264→            </Button>
+  1265→          </div>
+  1266→        </CardContent>
+  1267→      </Card>
+  1268→    </div>
+  1269→  );
+  1270→}

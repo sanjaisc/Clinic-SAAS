@@ -219,7 +219,7 @@ export default function StaffDashboardLayout({
                     `}
                   >
                     {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-brand-muted" />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-brand" />
                     )}
                     <Icon
                       className={`size-4.5 shrink-0 ${
@@ -240,8 +240,8 @@ export default function StaffDashboardLayout({
         })}
       </nav>
 
-      {/* User section */}
-      <div className="shrink-0 p-3 space-y-2">
+      {/* User section with gradient bottom */}
+      <div className="shrink-0 rounded-b-xl bg-gradient-to-t from-brand-subtle/40 to-transparent p-3 space-y-2">
         <Separator className="mb-3 w-auto" />
         {!collapsed ? (
           <div className="flex items-center gap-3 px-2 py-1">
@@ -362,8 +362,14 @@ export default function StaffDashboardLayout({
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">{children}</main>
+        {/* Page content with fade-in transition */}
+        <main
+          key={pathname}
+          className="flex-1 p-4 md:p-6 overflow-y-auto"
+          style={{ animation: 'pageIn 200ms ease-out' }}
+        >
+          {children}
+        </main>
       </div>
       <KeyboardShortcutsOverlay />
     </div>

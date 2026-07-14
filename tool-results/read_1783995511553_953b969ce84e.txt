@@ -1,0 +1,734 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
+     7→import {
+     8→  Clock,
+     9→  Plus,
+    10→  Trash2,
+    11→  Save,
+    12→  CalendarOff,
+    13→  Edit3,
+    14→  X,
+    15→  CalendarDays,
+    16→  Copy,
+    17→  AlertCircle,
+    18→  RefreshCw,
+    19→} from "lucide-react";
+    20→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    21→import { Button } from "@/components/ui/button";
+    22→import { Input } from "@/components/ui/input";
+    23→import { Label } from "@/components/ui/label";
+    24→import { Switch } from "@/components/ui/switch";
+    25→import { Badge } from "@/components/ui/badge";
+    26→import { Skeleton } from "@/components/ui/skeleton";
+    27→import {
+    28→  Dialog,
+    29→  DialogContent,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→  DialogFooter,
+    33→  DialogDescription,
+    34→} from "@/components/ui/dialog";
+    35→import {
+    36→  AlertDialog,
+    37→  AlertDialogAction,
+    38→  AlertDialogCancel,
+    39→  AlertDialogContent,
+    40→  AlertDialogDescription,
+    41→  AlertDialogFooter,
+    42→  AlertDialogHeader,
+    43→  AlertDialogTitle,
+    44→} from "@/components/ui/alert-dialog";
+    45→import {
+    46→  Select,
+    47→  SelectContent,
+    48→  SelectItem,
+    49→  SelectTrigger,
+    50→  SelectValue,
+    51→} from "@/components/ui/select";
+    52→import type { DoctASessionUser } from "@/lib/auth";
+    53→import { useActiveClinicId } from "@/components/active-clinic-context";
+    54→import { DAYS_OF_WEEK } from "@/lib/enums";
+    55→
+    56→// ---- Types ----
+    57→interface TimeRange {
+    58→  open: string;
+    59→  close: string;
+    60→}
+    61→
+    62→interface DayHours {
+    63→  isOpen: boolean;
+    64→  ranges: TimeRange[];
+    65→}
+    66→
+    67→type WeeklyHours = Record<string, DayHours>;
+    68→
+    69→interface Closure {
+    70→  id: string;
+    71→  title: string;
+    72→  startDate: string;
+    73→  endDate: string;
+    74→  isRecurring: boolean;
+    75→  recurrenceRule: string | null;
+    76→  createdAt: string;
+    77→}
+    78→
+    79→const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    80→const DAY_LABELS: Record<string, string> = {
+    81→  mon: "Monday",
+    82→  tue: "Tuesday",
+    83→  wed: "Wednesday",
+    84→  thu: "Thursday",
+    85→  fri: "Friday",
+    86→  sat: "Saturday",
+    87→  sun: "Sunday",
+    88→};
+    89→
+    90→function getDefaultWeeklyHours(): WeeklyHours {
+    91→  const hours: WeeklyHours = {};
+    92→  for (const day of DAY_KEYS) {
+    93→    hours[day] = { isOpen: day !== "sun", ranges: [{ open: "09:00", close: "17:00" }] };
+    94→  }
+    95→  return hours;
+    96→}
+    97→
+    98→function formatDate(dateStr: string): string {
+    99→  return new Date(dateStr).toLocaleDateString("en-US", {
+   100→    month: "short",
+   101→    day: "numeric",
+   102→    year: "numeric",
+   103→  });
+   104→}
+   105→
+   106→function isUpcoming(dateStr: string): boolean {
+   107→  return new Date(dateStr) >= new Date(new Date().toDateString());
+   108→}
+   109→
+   110→// ---- Main Component ----
+   111→export default function HoursPage() {
+   112→  const { data: session } = useSession();
+   113→  const user = session?.user as DoctASessionUser | undefined;
+   114→  const clinicId = useActiveClinicId(user?.clinicId);
+   115→
+   116→  // Hours state
+   117→  const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(getDefaultWeeklyHours());
+   118→  const [originalHours, setOriginalHours] = useState<WeeklyHours>({});
+   119→  const [hoursLoading, setHoursLoading] = useState(true);
+   120→  const [hoursSaving, setHoursSaving] = useState(false);
+   121→
+   122→  // Closures state
+   123→  const [closures, setClosures] = useState<Closure[]>([]);
+   124→  const [closuresLoading, setClosuresLoading] = useState(true);
+   125→
+   126→  // Error state
+   127→  const [loadError, setLoadError] = useState<string | null>(null);
+   128→
+   129→  // Delete confirmation state
+   130→  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+   131→  const [deletingClosureId, setDeletingClosureId] = useState<string | null>(null);
+   132→  const [deleteLoading, setDeleteLoading] = useState(false);
+   133→
+   134→  // Dialog state
+   135→  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+   136→  const [editingClosure, setEditingClosure] = useState<Closure | null>(null);
+   137→  const [closureTitle, setClosureTitle] = useState("");
+   138→  const [closureStart, setClosureStart] = useState("");
+   139→  const [closureEnd, setClosureEnd] = useState("");
+   140→  const [closureIsRecurring, setClosureIsRecurring] = useState(false);
+   141→  const [closureRecurrence, setClosureRecurrence] = useState("YEARLY");
+   142→  const [closureSaving, setClosureSaving] = useState(false);
+   143→
+   144→  const fetchHours = useCallback(async () => {
+   145→    try {
+   146→      setHoursLoading(true);
+   147→      const res = await fetch(`/api/staff/hours?clinicId=${clinicId}`);
+   148→      if (!res.ok) throw new Error("Failed to load hours");
+   149→      const data = await res.json();
+   150→      const parsed: WeeklyHours = data.hoursOfOperation || {};
+   151→      // Normalize to our format
+   152→      const normalized = getDefaultWeeklyHours();
+   153→      for (const day of DAY_KEYS) {
+   154→        if (parsed[day]) {
+   155→          if (typeof parsed[day] === "object" && !Array.isArray(parsed[day])) {
+   156→            const d = parsed[day] as { isOpen?: boolean; ranges?: TimeRange[]; open?: string; close?: string };
+   157→            normalized[day].isOpen = d.isOpen !== false;
+   158→            if (d.ranges && Array.isArray(d.ranges)) {
+   159→              normalized[day].ranges = d.ranges;
+   160→            } else if (d.open && d.close) {
+   161→              normalized[day].ranges = [{ open: d.open, close: d.close }];
+   162→            }
+   163→          }
+   164→        }
+   165→      }
+   166→      setWeeklyHours(normalized);
+   167→      setOriginalHours(JSON.parse(JSON.stringify(normalized)));
+   168→    } catch (err) {
+   169→      console.error(err);
+   170→      const msg = err instanceof Error ? err.message : "Failed to load operating hours";
+   171→      setLoadError(msg);
+   172→      toast.error(msg);
+   173→    } finally {
+   174→      setHoursLoading(false);
+   175→    }
+   176→  }, [clinicId]);
+   177→
+   178→  const fetchClosures = useCallback(async () => {
+   179→    try {
+   180→      setClosuresLoading(true);
+   181→      const res = await fetch(`/api/staff/closures?clinicId=${clinicId}`);
+   182→      if (!res.ok) throw new Error("Failed to load closures");
+   183→      const data = await res.json();
+   184→      setClosures(data.closures || []);
+   185→    } catch (err) {
+   186→      console.error(err);
+   187→      toast.error("Failed to load closures");
+   188→    } finally {
+   189→      setClosuresLoading(false);
+   190→    }
+   191→  }, [clinicId]);
+   192→
+   193→  useEffect(() => {
+   194→    if (clinicId) {
+   195→      fetchHours();
+   196→      fetchClosures();
+   197→    }
+   198→  }, [clinicId, fetchHours, fetchClosures]);
+   199→
+   200→  // Hours handlers
+   201→  const toggleDay = (day: string) => {
+   202→    setWeeklyHours((prev) => ({
+   203→      ...prev,
+   204→      [day]: { ...prev[day], isOpen: !prev[day].isOpen },
+   205→    }));
+   206→  };
+   207→
+   208→  const updateRange = (day: string, rangeIdx: number, field: "open" | "close", value: string) => {
+   209→    setWeeklyHours((prev) => {
+   210→      const newRanges = [...prev[day].ranges];
+   211→      newRanges[rangeIdx] = { ...newRanges[rangeIdx], [field]: value };
+   212→      return { ...prev, [day]: { ...prev[day], ranges: newRanges } };
+   213→    });
+   214→  };
+   215→
+   216→  const addRange = (day: string) => {
+   217→    setWeeklyHours((prev) => ({
+   218→      ...prev,
+   219→      [day]: {
+   220→        ...prev[day],
+   221→        ranges: [...prev[day].ranges, { open: "09:00", close: "12:00" }],
+   222→      },
+   223→    }));
+   224→  };
+   225→
+   226→  const removeRange = (day: string, rangeIdx: number) => {
+   227→    setWeeklyHours((prev) => {
+   228→      const newRanges = prev[day].ranges.filter((_, i) => i !== rangeIdx);
+   229→      return { ...prev, [day]: { ...prev[day], ranges: newRanges } };
+   230→    });
+   231→  };
+   232→
+   233→  const hasHoursChanged = () => {
+   234→    return JSON.stringify(weeklyHours) !== JSON.stringify(originalHours);
+   235→  };
+   236→
+   237→  const saveHours = async () => {
+   238→    // Validate: no open time before close time within any range
+   239→    for (const [day, data] of Object.entries(weeklyHours)) {
+   240→      if (!data.isOpen) continue;
+   241→      for (let i = 0; i < data.ranges.length; i++) {
+   242→        const range = data.ranges[i];
+   243→        if (range.open >= range.close) {
+   244→          toast.error(`${day}: Close time must be after open time in range ${i + 1}`);
+   245→          return;
+   246→        }
+   247→      }
+   248→      // Check for overlapping ranges
+   249→      for (let i = 0; i < data.ranges.length; i++) {
+   250→        for (let j = i + 1; j < data.ranges.length; j++) {
+   251→          const a = data.ranges[i];
+   252→          const b = data.ranges[j];
+   253→          if (a.open < b.close && b.open < a.close) {
+   254→            toast.error(`${day}: Time ranges ${i + 1} and ${j + 1} overlap`);
+   255→            return;
+   256→          }
+   257→        }
+   258→      }
+   259→    }
+   260→    try {
+   261→      setHoursSaving(true);
+   262→      const res = await fetch(`/api/staff/hours?clinicId=${clinicId}`, {
+   263→        method: "PATCH",
+   264→        headers: { "Content-Type": "application/json" },
+   265→        body: JSON.stringify({ hoursOfOperation: weeklyHours }),
+   266→      });
+   267→      if (!res.ok) throw new Error("Failed to save");
+   268→      toast.success("Operating hours saved");
+   269→      setOriginalHours(JSON.parse(JSON.stringify(weeklyHours)));
+   270→    } catch {
+   271→      toast.error("Failed to save operating hours");
+   272→    } finally {
+   273→      setHoursSaving(false);
+   274→    }
+   275→  };
+   276→
+   277→  // Closure handlers
+   278→  const openAddClosure = () => {
+   279→    setEditingClosure(null);
+   280→    setClosureTitle("");
+   281→    setClosureStart("");
+   282→    setClosureEnd("");
+   283→    setClosureIsRecurring(false);
+   284→    setClosureRecurrence("YEARLY");
+   285→    setClosureDialogOpen(true);
+   286→  };
+   287→
+   288→  const openEditClosure = (closure: Closure) => {
+   289→    setEditingClosure(closure);
+   290→    setClosureTitle(closure.title);
+   291→    setClosureStart(closure.startDate.split("T")[0]);
+   292→    setClosureEnd(closure.endDate.split("T")[0]);
+   293→    setClosureIsRecurring(closure.isRecurring);
+   294→    setClosureRecurrence(closure.recurrenceRule || "YEARLY");
+   295→    setClosureDialogOpen(true);
+   296→  };
+   297→
+   298→  const saveClosure = async () => {
+   299→    if (!closureTitle || !closureStart || !closureEnd) {
+   300→      toast.error("Please fill in all required fields");
+   301→      return;
+   302→    }
+   303→    try {
+   304→      setClosureSaving(true);
+   305→      const body = {
+   306→        title: closureTitle,
+   307→        startDate: closureStart,
+   308→        endDate: closureEnd,
+   309→        isRecurring: closureIsRecurring,
+   310→        recurrenceRule: closureIsRecurring ? closureRecurrence : null,
+   311→      };
+   312→
+   313→      if (editingClosure) {
+   314→        const res = await fetch(
+   315→          `/api/staff/closures/${editingClosure.id}?clinicId=${clinicId}`,
+   316→          {
+   317→            method: "PATCH",
+   318→            headers: { "Content-Type": "application/json" },
+   319→            body: JSON.stringify(body),
+   320→          }
+   321→        );
+   322→        if (!res.ok) throw new Error("Failed to update");
+   323→        toast.success("Closure updated");
+   324→      } else {
+   325→        const res = await fetch(`/api/staff/closures?clinicId=${clinicId}`, {
+   326→          method: "POST",
+   327→          headers: { "Content-Type": "application/json" },
+   328→          body: JSON.stringify(body),
+   329→        });
+   330→        if (!res.ok) throw new Error("Failed to create");
+   331→        toast.success("Closure created");
+   332→      }
+   333→
+   334→      setClosureDialogOpen(false);
+   335→      fetchClosures();
+   336→    } catch {
+   337→      toast.error("Failed to save closure");
+   338→    } finally {
+   339→      setClosureSaving(false);
+   340→    }
+   341→  };
+   342→
+   343→  const confirmDeleteClosure = (id: string) => {
+   344→    setDeletingClosureId(id);
+   345→    setDeleteConfirmOpen(true);
+   346→  };
+   347→
+   348→  const deleteClosure = async () => {
+   349→    if (!deletingClosureId) return;
+   350→    try {
+   351→      setDeleteLoading(true);
+   352→      const res = await fetch(
+   353→        `/api/staff/closures/${deletingClosureId}?clinicId=${clinicId}`,
+   354→        { method: "DELETE" }
+   355→      );
+   356→      if (!res.ok) throw new Error("Failed to delete");
+   357→      toast.success("Closure deleted");
+   358→      setDeleteConfirmOpen(false);
+   359→      setDeletingClosureId(null);
+   360→      fetchClosures();
+   361→    } catch {
+   362→      toast.error("Failed to delete closure");
+   363→    } finally {
+   364→      setDeleteLoading(false);
+   365→    }
+   366→  };
+   367→
+   368→  // ---- Error State ----
+   369→  if (loadError) {
+   370→    return (
+   371→      <Card className="border-destructive/50">
+   372→        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+   373→          <div className="rounded-full bg-destructive/10 p-4">
+   374→            <AlertCircle className="size-8 text-destructive" />
+   375→          </div>
+   376→          <div className="text-center">
+   377→            <h3 className="font-semibold text-lg">Failed to load hours</h3>
+   378→            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+   379→          </div>
+   380→          <Button variant="outline" onClick={() => { setLoadError(null); fetchHours(); fetchClosures(); }} className="gap-2">
+   381→            <RefreshCw className="size-4" />
+   382→            Try Again
+   383→          </Button>
+   384→        </CardContent>
+   385→      </Card>
+   386→    );
+   387→  }
+   388→
+   389→  return (
+   390→    <div className="space-y-6">
+   391→      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Hours & Closures" }]} />
+   392→      {/* Card 1: Weekly Operating Hours */}
+   393→      <Card>
+   394→        <CardHeader>
+   395→          <div className="flex items-center justify-between">
+   396→            <div className="flex items-center gap-3">
+   397→              <div className="flex items-center justify-center size-10 rounded-lg bg-brand-muted ">
+   398→                <Clock className="size-5 text-brand" />
+   399→              </div>
+   400→              <div>
+   401→                <CardTitle className="text-lg">Weekly Operating Hours</CardTitle>
+   402→                <CardDescription>
+   403→                  Define regular hours for each day of the week
+   404→                </CardDescription>
+   405→              </div>
+   406→            </div>
+   407→            <Button
+   408→              onClick={saveHours}
+   409→              disabled={hoursSaving || !hasHoursChanged()}
+   410→              size="sm"
+   411→            >
+   412→              <Save className="size-4 mr-1.5" />
+   413→              {hoursSaving ? "Saving..." : "Save Hours"}
+   414→            </Button>
+   415→          </div>
+   416→        </CardHeader>
+   417→        <CardContent>
+   418→          {hoursLoading ? (
+   419→            <div className="space-y-3">
+   420→              {[...Array(7)].map((_, i) => (
+   421→                <Skeleton key={i} className="h-14 w-full" />
+   422→              ))}
+   423→            </div>
+   424→          ) : (
+   425→            <div className="space-y-1">
+   426→              {DAY_KEYS.map((day) => {
+   427→                const dayData = weeklyHours[day];
+   428→                return (
+   429→                  <div
+   430→                    key={day}
+   431→                    className={`flex flex-col sm:flex-row sm:items-center gap-3 py-3 px-3 rounded-lg border ${
+   432→                      dayData.isOpen
+   433→                        ? "border-border bg-background"
+   434→                        : "border-border/50 bg-muted/30"
+   435→                    }`}
+   436→                  >
+   437→                    {/* Day label + toggle */}
+   438→                    <div className="flex items-center gap-3 min-w-[140px]">
+   439→                      <Switch
+   440→                        checked={dayData.isOpen}
+   441→                        onCheckedChange={() => toggleDay(day)}
+   442→                      />
+   443→                      <span
+   444→                        className={`text-sm font-medium w-10 ${
+   445→                          dayData.isOpen ? "text-foreground" : "text-muted-foreground"
+   446→                        }`}
+   447→                      >
+   448→                        {DAY_LABELS[day]}
+   449→                      </span>
+   450→                      {!dayData.isOpen && (
+   451→                        <Badge variant="secondary" className="text-xs">
+   452→                          Closed
+   453→                        </Badge>
+   454→                      )}
+   455→                    </div>
+   456→
+   457→                    {/* Time ranges */}
+   458→                    {dayData.isOpen && (
+   459→                      <div className="flex-1 flex flex-col gap-2 ml-0 sm:ml-4">
+   460→                        {dayData.ranges.map((range, idx) => (
+   461→                          <div key={idx} className="flex items-center gap-2">
+   462→                            <Input
+   463→                              type="time"
+   464→                              value={range.open}
+   465→                              onChange={(e) =>
+   466→                                updateRange(day, idx, "open", e.target.value)
+   467→                              }
+   468→                              className="w-32 h-9 text-sm"
+   469→                            />
+   470→                            <span className="text-muted-foreground text-sm">to</span>
+   471→                            <Input
+   472→                              type="time"
+   473→                              value={range.close}
+   474→                              onChange={(e) =>
+   475→                                updateRange(day, idx, "close", e.target.value)
+   476→                              }
+   477→                              className="w-32 h-9 text-sm"
+   478→                            />
+   479→                            {dayData.ranges.length > 1 && (
+   480→                              <Button
+   481→                                variant="ghost"
+   482→                                size="icon"
+   483→                                className="size-8 text-destructive hover:text-destructive"
+   484→                                onClick={() => removeRange(day, idx)}
+   485→                              >
+   486→                                <X className="size-4" />
+   487→                              </Button>
+   488→                            )}
+   489→                          </div>
+   490→                        ))}
+   491→                        <Button
+   492→                          variant="outline"
+   493→                          size="sm"
+   494→                          className="w-fit text-xs h-7"
+   495→                          onClick={() => addRange(day)}
+   496→                        >
+   497→                          <Plus className="size-3 mr-1" />
+   498→                          Add Range
+   499→                        </Button>
+   500→                      </div>
+   501→                    )}
+   502→                  </div>
+   503→                );
+   504→              })}
+   505→            </div>
+   506→          )}
+   507→        </CardContent>
+   508→      </Card>
+   509→
+   510→      {/* Card 2: Clinic Closures */}
+   511→      <Card>
+   512→        <CardHeader>
+   513→          <div className="flex items-center justify-between">
+   514→            <div className="flex items-center gap-3">
+   515→              <div className="flex items-center justify-center size-10 rounded-lg bg-amber-50 dark:bg-amber-950/50">
+   516→                <CalendarOff className="size-5 text-amber-600" />
+   517→              </div>
+   518→              <div>
+   519→                <CardTitle className="text-lg">Clinic Closures</CardTitle>
+   520→                <CardDescription>
+   521→                  Manage holidays and one-off closures
+   522→                </CardDescription>
+   523→              </div>
+   524→            </div>
+   525→            <Button onClick={openAddClosure} size="sm">
+   526→              <Plus className="size-4 mr-1.5" />
+   527→              Add Closure
+   528→            </Button>
+   529→          </div>
+   530→        </CardHeader>
+   531→        <CardContent>
+   532→          {closuresLoading ? (
+   533→            <div className="space-y-3">
+   534→              {[...Array(3)].map((_, i) => (
+   535→                <Skeleton key={i} className="h-16 w-full" />
+   536→              ))}
+   537→            </div>
+   538→          ) : closures.length === 0 ? (
+   539→            <div className="text-center py-8 text-muted-foreground">
+   540→              <CalendarDays className="size-8 mx-auto mb-2 opacity-40" />
+   541→              <p className="text-sm">No closures configured</p>
+   542→              <p className="text-xs mt-1">
+   543→                Add holidays or one-off closures to block booking
+   544→              </p>
+   545→            </div>
+   546→          ) : (
+   547→            <div className="space-y-2 max-h-96 overflow-y-auto">
+   548→              {closures.map((closure) => {
+   549→                const upcoming = isUpcoming(closure.startDate);
+   550→                return (
+   551→                  <div
+   552→                    key={closure.id}
+   553→                    className={`flex items-center justify-between p-3 rounded-lg border ${
+   554→                      upcoming
+   555→                        ? "border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"
+   556→                        : "border-border bg-muted/30"
+   557→                    }`}
+   558→                  >
+   559→                    <div className="flex items-center gap-3 min-w-0">
+   560→                      <div
+   561→                        className={`size-2 rounded-full flex-shrink-0 ${
+   562→                          upcoming ? "bg-amber-500" : "bg-muted-foreground/30"
+   563→                        }`}
+   564→                      />
+   565→                      <div className="min-w-0">
+   566→                        <div className="flex items-center gap-2">
+   567→                          <p
+   568→                            className={`text-sm font-medium truncate ${
+   569→                              upcoming
+   570→                                ? "text-foreground"
+   571→                                : "text-muted-foreground"
+   572→                            }`}
+   573→                          >
+   574→                            {closure.title}
+   575→                          </p>
+   576→                          {closure.isRecurring && (
+   577→                            <Badge
+   578→                              variant="outline"
+   579→                              className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:bg-amber-950/50"
+   580→                            >
+   581→                              {closure.recurrenceRule || "Recurring"}
+   582→                            </Badge>
+   583→                          )}
+   584→                          {!upcoming && (
+   585→                            <Badge variant="secondary" className="text-xs">
+   586→                              Past
+   587→                            </Badge>
+   588→                          )}
+   589→                        </div>
+   590→                        <p className="text-xs text-muted-foreground mt-0.5">
+   591→                          {formatDate(closure.startDate)}
+   592→                          {closure.startDate !== closure.endDate &&
+   593→                            ` — ${formatDate(closure.endDate)}`}
+   594→                        </p>
+   595→                      </div>
+   596→                    </div>
+   597→                    <div className="flex items-center gap-1 flex-shrink-0">
+   598→                      <Button
+   599→                        variant="ghost"
+   600→                        size="icon"
+   601→                        className="size-8"
+   602→                        onClick={() => openEditClosure(closure)}
+   603→                      >
+   604→                        <Edit3 className="size-3.5" />
+   605→                      </Button>
+   606→                      <Button
+   607→                        variant="ghost"
+   608→                        size="icon"
+   609→                        className="size-8 text-destructive hover:text-destructive"
+   610→                        onClick={() => confirmDeleteClosure(closure.id)}
+   611→                      >
+   612→                        <Trash2 className="size-3.5" />
+   613→                      </Button>
+   614→                    </div>
+   615→                  </div>
+   616→                );
+   617→              })}
+   618→            </div>
+   619→          )}
+   620→        </CardContent>
+   621→      </Card>
+   622→
+   623→      {/* Delete Confirmation Dialog */}
+   624→      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+   625→        <AlertDialogContent>
+   626→          <AlertDialogHeader>
+   627→            <AlertDialogTitle>Delete Closure</AlertDialogTitle>
+   628→            <AlertDialogDescription>
+   629→              Are you sure you want to delete this clinic closure? This action cannot
+   630→              be undone and will re-open those dates for booking.
+   631→            </AlertDialogDescription>
+   632→          </AlertDialogHeader>
+   633→          <AlertDialogFooter>
+   634→            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+   635→            <AlertDialogAction
+   636→              onClick={deleteClosure}
+   637→              disabled={deleteLoading}
+   638→              className="bg-destructive text-white hover:bg-destructive/90"
+   639→            >
+   640→              {deleteLoading ? "Deleting..." : "Delete"}
+   641→            </AlertDialogAction>
+   642→          </AlertDialogFooter>
+   643→        </AlertDialogContent>
+   644→      </AlertDialog>
+   645→
+   646→      {/* Closure Dialog */}
+   647→      <Dialog open={closureDialogOpen} onOpenChange={setClosureDialogOpen}>
+   648→        <DialogContent className="sm:max-w-md">
+   649→          <DialogHeader>
+   650→            <DialogTitle>
+   651→              {editingClosure ? "Edit Closure" : "Add Closure"}
+   652→            </DialogTitle>
+   653→            <DialogDescription>
+   654→              {editingClosure
+   655→                ? "Update the closure details below."
+   656→                : "Create a new closure to block bookings."}
+   657→            </DialogDescription>
+   658→          </DialogHeader>
+   659→          <div className="space-y-4 py-2">
+   660→            <div className="space-y-2">
+   661→              <Label htmlFor="closure-title">Title *</Label>
+   662→              <Input
+   663→                id="closure-title"
+   664→                placeholder="e.g., Christmas Holiday"
+   665→                value={closureTitle}
+   666→                onChange={(e) => setClosureTitle(e.target.value)}
+   667→              />
+   668→            </div>
+   669→            <div className="grid grid-cols-2 gap-3">
+   670→              <div className="space-y-2">
+   671→                <Label htmlFor="closure-start">Start Date *</Label>
+   672→                <Input
+   673→                  id="closure-start"
+   674→                  type="date"
+   675→                  value={closureStart}
+   676→                  onChange={(e) => setClosureStart(e.target.value)}
+   677→                />
+   678→              </div>
+   679→              <div className="space-y-2">
+   680→                <Label htmlFor="closure-end">End Date *</Label>
+   681→                <Input
+   682→                  id="closure-end"
+   683→                  type="date"
+   684→                  value={closureEnd}
+   685→                  onChange={(e) => setClosureEnd(e.target.value)}
+   686→                />
+   687→              </div>
+   688→            </div>
+   689→            <div className="flex items-center justify-between">
+   690→              <div>
+   691→                <Label>Recurring</Label>
+   692→                <p className="text-xs text-muted-foreground">
+   693→                  Repeats annually on these dates
+   694→                </p>
+   695→              </div>
+   696→              <Switch
+   697→                checked={closureIsRecurring}
+   698→                onCheckedChange={setClosureIsRecurring}
+   699→              />
+   700→            </div>
+   701→            {closureIsRecurring && (
+   702→              <div className="space-y-2">
+   703→                <Label>Recurrence Rule</Label>
+   704→                <Select value={closureRecurrence} onValueChange={setClosureRecurrence}>
+   705→                  <SelectTrigger>
+   706→                    <SelectValue />
+   707→                  </SelectTrigger>
+   708→                  <SelectContent>
+   709→                    <SelectItem value="YEARLY">Yearly</SelectItem>
+   710→                  </SelectContent>
+   711→                </Select>
+   712→              </div>
+   713→            )}
+   714→          </div>
+   715→          <DialogFooter>
+   716→            <Button
+   717→              variant="outline"
+   718→              onClick={() => setClosureDialogOpen(false)}
+   719→            >
+   720→              Cancel
+   721→            </Button>
+   722→            <Button onClick={saveClosure} disabled={closureSaving}>
+   723→              {closureSaving
+   724→                ? "Saving..."
+   725→                : editingClosure
+   726→                  ? "Update Closure"
+   727→                  : "Create Closure"}
+   728→            </Button>
+   729→          </DialogFooter>
+   730→        </DialogContent>
+   731→      </Dialog>
+   732→    </div>
+   733→  );
+   734→}

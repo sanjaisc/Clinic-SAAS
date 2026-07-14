@@ -1,0 +1,1363 @@
+     1→"use client";
+     2→
+     3→import { useCallback, useEffect, useState } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import type { DoctASessionUser } from "@/lib/auth";
+     7→import { useActiveClinicId } from "@/components/active-clinic-context";
+     8→import { DAYS_OF_WEEK, PROVIDER_STATUS, SLOT_MODALITY } from "@/lib/enums";
+     9→
+    10→import { Button } from "@/components/ui/button";
+    11→import { Card, CardContent } from "@/components/ui/card";
+    12→import { Badge } from "@/components/ui/badge";
+    13→import { Input } from "@/components/ui/input";
+    14→import { Label } from "@/components/ui/label";
+    15→import { Textarea } from "@/components/ui/textarea";
+    16→import { Checkbox } from "@/components/ui/checkbox";
+    17→import { Skeleton } from "@/components/ui/skeleton";
+    18→import { Switch } from "@/components/ui/switch";
+    19→import {
+    20→  Dialog,
+    21→  DialogContent,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→  DialogDescription,
+    25→  DialogFooter,
+    26→} from "@/components/ui/dialog";
+    27→import {
+    28→  Select,
+    29→  SelectContent,
+    30→  SelectItem,
+    31→  SelectTrigger,
+    32→  SelectValue,
+    33→} from "@/components/ui/select";
+    34→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    35→import { ScrollArea } from "@/components/ui/scroll-area";
+    36→import { Separator } from "@/components/ui/separator";
+    37→import {
+    38→  AlertDialog,
+    39→  AlertDialogAction,
+    40→  AlertDialogCancel,
+    41→  AlertDialogContent,
+    42→  AlertDialogDescription,
+    43→  AlertDialogFooter,
+    44→  AlertDialogHeader,
+    45→  AlertDialogTitle,
+    46→} from "@/components/ui/alert-dialog";
+    47→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    48→import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
+    49→import {
+    50→  UserPlus,
+    51→  Pencil,
+    52→  Trash2,
+    53→  ChevronDown,
+    54→  ChevronRight,
+    55→  Clock,
+    56→  Video,
+    57→  Building2,
+    58→  Plus,
+    59→  Stethoscope,
+    60→  X,
+    61→  CalendarDays,
+    62→  AlertCircle,
+    63→  RefreshCw,
+    64→} from "lucide-react";
+    65→
+    66→// ─── Types ─────────────────────────────────────────────────────────────────────
+    67→
+    68→interface ProviderListItem {
+    69→  id: string;
+    70→  firstName: string;
+    71→  lastName: string;
+    72→  credentials: string | null;
+    73→  slug: string;
+    74→  photoUrl: string | null;
+    75→  npiNumber: string | null;
+    76→  yearsExperience: number | null;
+    77→  slotDurationMinutes: number;
+    78→  status: string;
+    79→  videoVisitLink: string | null;
+    80→  bio: string | null;
+    81→  createdAt: string;
+    82→  updatedAt: string;
+    83→  _count: {
+    84→    providerServices: number;
+    85→    slotTemplates: number;
+    86→    languages: number;
+    87→  };
+    88→}
+    89→
+    90→interface SlotTemplate {
+    91→  id: string;
+    92→  providerId: string;
+    93→  dayOfWeek: number;
+    94→  startTime: string;
+    95→  endTime: string;
+    96→  modality: string;
+    97→  isActive: boolean;
+    98→  createdAt: string;
+    99→  updatedAt: string;
+   100→}
+   101→
+   102→interface ProviderServiceWithService {
+   103→  id: string;
+   104→  providerId: string;
+   105→  serviceId: string;
+   106→  service: {
+   107→    id: string;
+   108→    name: string;
+   109→    slug: string;
+   110→    description: string | null;
+   111→    specialtyId: string;
+   112→    durationMinutes: number;
+   113→    selfPayPriceCents: number;
+   114→    selfPayPaymentType: string;
+   115→    isActive: boolean;
+   116→    specialty: {
+   117→      id: string;
+   118→      name: string;
+   119→      slug: string;
+   120→    };
+   121→  };
+   122→}
+   123→
+   124→interface SpecialtyWithServices {
+   125→  id: string;
+   126→  name: string;
+   127→  slug: string;
+   128→  services: Array<{
+   129→    id: string;
+   130→    name: string;
+   131→    slug: string;
+   132→    description: string | null;
+   133→    durationMinutes: number;
+   134→    selfPayPriceCents: number;
+   135→    selfPayPaymentType: string;
+   136→    isActive: boolean;
+   137→  }>;
+   138→}
+   139→
+   140→interface ProviderFull extends ProviderListItem {
+   141→  providerServices: ProviderServiceWithService[];
+   142→  slotTemplates: SlotTemplate[];
+   143→  languages: Array<{ id: string; languageId: string; language: { id: string; name: string; code: string } }>;
+   144→}
+   145→
+   146→// ─── Constants ─────────────────────────────────────────────────────────────────
+   147→
+   148→const CREDENTIALS_OPTIONS = ["MD", "DO", "NP", "PA-C", "RN", "PharmD", "Other"];
+   149→const SLOT_DURATION_OPTIONS = [15, 30, 45, 60];
+   150→const STATUS_OPTIONS = [
+   151→  { value: PROVIDER_STATUS.ACTIVE, label: "Active", color: "bg-brand-subtle text-brand " },
+   152→  { value: PROVIDER_STATUS.INACTIVE, label: "Inactive", color: "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400" },
+   153→  { value: PROVIDER_STATUS.SUSPENDED, label: "Suspended", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+   154→];
+   155→
+   156→// ─── Helper ────────────────────────────────────────────────────────────────────
+   157→
+   158→function formatTime(t: string): string {
+   159→  const [h, m] = t.split(":").map(Number);
+   160→  const ampm = h >= 12 ? "PM" : "AM";
+   161→  const h12 = h % 12 || 12;
+   162→  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+   163→}
+   164→
+   165→function getInitials(first: string, last: string): string {
+   166→  return `${(first[0] || "").toUpperCase()}${(last[0] || "").toUpperCase()}`;
+   167→}
+   168→
+   169→function statusColor(status: string): string {
+   170→  return STATUS_OPTIONS.find((s) => s.value === status)?.color || STATUS_OPTIONS[0].color;
+   171→}
+   172→
+   173→// ─── Page Component ────────────────────────────────────────────────────────────
+   174→
+   175→export default function ProvidersPage() {
+   176→  const { data: session } = useSession();
+   177→  const user = session?.user as DoctASessionUser | undefined;
+   178→  const clinicId = useActiveClinicId(user?.clinicId);
+   179→
+   180→  // ── Data State ──
+   181→  const [providers, setProviders] = useState<ProviderListItem[]>([]);
+   182→  const [loading, setLoading] = useState(true);
+   183→  const [loadError, setLoadError] = useState<string | null>(null);
+   184→  const [expandedId, setExpandedId] = useState<string | null>(null);
+   185→  const [expandedProvider, setExpandedProvider] = useState<ProviderFull | null>(null);
+   186→  const [loadingDetail, setLoadingDetail] = useState(false);
+   187→
+   188→  // ── Services data for mapping ──
+   189→  const [specialties, setSpecialties] = useState<SpecialtyWithServices[]>([]);
+   190→  const [servicesLoading, setServicesLoading] = useState(false);
+   191→
+   192→  // ── Dialog States ──
+   193→  const [showProviderDialog, setShowProviderDialog] = useState(false);
+   194→  const [editingProvider, setEditingProvider] = useState<ProviderFull | null>(null);
+   195→  const [saving, setSaving] = useState(false);
+   196→
+   197→  // ── Delete State ──
+   198→  const [deleteTarget, setDeleteTarget] = useState<ProviderListItem | null>(null);
+   199→  const [deleting, setDeleting] = useState(false);
+   200→
+   201→  // ── Template Dialog ──
+   202→  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+   203→  const [editingTemplate, setEditingTemplate] = useState<SlotTemplate | null>(null);
+   204→  const [templateDay, setTemplateDay] = useState(1);
+   205→  const [templateStart, setTemplateStart] = useState("09:00");
+   206→  const [templateEnd, setTemplateEnd] = useState("17:00");
+   207→  const [templateModality, setTemplateModality] = useState(SLOT_MODALITY.IN_PERSON);
+   208→  const [templateSaving, setTemplateSaving] = useState(false);
+   209→
+   210→  // ── Form State ──
+   211→  const [formFirstName, setFormFirstName] = useState("");
+   212→  const [formLastName, setFormLastName] = useState("");
+   213→  const [formCredentials, setFormCredentials] = useState("");
+   214→  const [formNpi, setFormNpi] = useState("");
+   215→  const [formYears, setFormYears] = useState("");
+   216→  const [formBio, setFormBio] = useState("");
+   217→  const [formPhotoUrl, setFormPhotoUrl] = useState("");
+   218→  const [formVideoLink, setFormVideoLink] = useState("");
+   219→  const [formSlotDuration, setFormSlotDuration] = useState("30");
+   220→  const [formStatus, setFormStatus] = useState(PROVIDER_STATUS.ACTIVE);
+   221→
+   222→  // ─── Fetch Providers ─────────────────────────────────────────────────────────
+   223→
+   224→  const fetchProviders = useCallback(async () => {
+   225→    if (!clinicId) return;
+   226→    setLoading(true);
+   227→    try {
+   228→      const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
+   229→      if (!res.ok) throw new Error("Failed to fetch providers");
+   230→      const data = await res.json();
+   231→      setProviders(data.providers || []);
+   232→    } catch (err) {
+   233→      const msg = err instanceof Error ? err.message : "Failed to fetch providers";
+   234→      setLoadError(msg);
+   235→      toast.error(msg);
+   236→    } finally {
+   237→      setLoading(false);
+   238→    }
+   239→  }, [clinicId]);
+   240→
+   241→  // ─── Fetch Services (for mapping) ───────────────────────────────────────────
+   242→
+   243→  const fetchServices = useCallback(async () => {
+   244→    if (!clinicId) return;
+   245→    setServicesLoading(true);
+   246→    try {
+   247→      const res = await fetch(`/api/staff/services?clinicId=${clinicId}`);
+   248→      if (!res.ok) throw new Error("Failed to fetch services");
+   249→      const data = await res.json();
+   250→      setSpecialties(data.specialties || []);
+   251→    } catch {
+   252→      toast.error("Failed to load services");
+   253→    } finally {
+   254→      setServicesLoading(false);
+   255→    }
+   256→  }, [clinicId]);
+   257→
+   258→  // ─── Fetch Provider Detail ──────────────────────────────────────────────────
+   259→
+   260→  const fetchProviderDetail = useCallback(async (providerId: string) => {
+   261→    if (!clinicId) return;
+   262→    setLoadingDetail(true);
+   263→    try {
+   264→      const res = await fetch(`/api/staff/providers/${providerId}?clinicId=${clinicId}`);
+   265→      if (!res.ok) throw new Error("Failed to fetch provider details");
+   266→      const data = await res.json();
+   267→      setExpandedProvider(data.provider);
+   268→      return data.provider as ProviderFull;
+   269→    } catch {
+   270→      toast.error("Failed to load provider details");
+   271→      return null;
+   272→    } finally {
+   273→      setLoadingDetail(false);
+   274→    }
+   275→  }, [clinicId]);
+   276→
+   277→  useEffect(() => {
+   278→    fetchProviders();
+   279→    fetchServices();
+   280→  }, [fetchProviders, fetchServices]);
+   281→
+   282→  // ─── Expand / Collapse ───────────────────────────────────────────────────────
+   283→
+   284→  const handleToggleExpand = async (provider: ProviderListItem) => {
+   285→    if (expandedId === provider.id) {
+   286→      setExpandedId(null);
+   287→      setExpandedProvider(null);
+   288→    } else {
+   289→      setExpandedId(provider.id);
+   290→      const detail = await fetchProviderDetail(provider.id);
+   291→      if (detail) {
+   292→        // Reset template form
+   293→        resetTemplateForm();
+   294→      }
+   295→    }
+   296→  };
+   297→
+   298→  // ─── Provider Dialog (Add/Edit) ─────────────────────────────────────────────
+   299→
+   300→  const openAddDialog = () => {
+   301→    setEditingProvider(null);
+   302→    setFormFirstName("");
+   303→    setFormLastName("");
+   304→    setFormCredentials("");
+   305→    setFormNpi("");
+   306→    setFormYears("");
+   307→    setFormBio("");
+   308→    setFormPhotoUrl("");
+   309→    setFormVideoLink("");
+   310→    setFormSlotDuration("30");
+   311→    setFormStatus(PROVIDER_STATUS.ACTIVE);
+   312→    setShowProviderDialog(true);
+   313→  };
+   314→
+   315→  const openEditDialog = (provider: ProviderFull) => {
+   316→    setEditingProvider(provider);
+   317→    setFormFirstName(provider.firstName);
+   318→    setFormLastName(provider.lastName);
+   319→    setFormCredentials(provider.credentials || "");
+   320→    setFormNpi(provider.npiNumber || "");
+   321→    setFormYears(provider.yearsExperience?.toString() || "");
+   322→    setFormBio(provider.bio || "");
+   323→    setFormPhotoUrl(provider.photoUrl || "");
+   324→    setFormVideoLink(provider.videoVisitLink || "");
+   325→    setFormSlotDuration(provider.slotDurationMinutes.toString());
+   326→    setFormStatus(provider.status);
+   327→    setShowProviderDialog(true);
+   328→  };
+   329→
+   330→  const handleSaveProvider = async () => {
+   331→    if (!formFirstName.trim() || !formLastName.trim()) {
+   332→      toast.error("First name and last name are required");
+   333→      return;
+   334→    }
+   335→    if (!formCredentials.trim()) {
+   336→      toast.error("Credentials are required");
+   337→      return;
+   338→    }
+   339→
+   340→    setSaving(true);
+   341→    try {
+   342→      const body = {
+   343→        firstName: formFirstName,
+   344→        lastName: formLastName,
+   345→        credentials: formCredentials,
+   346→        npiNumber: formNpi || null,
+   347→        yearsExperience: formYears ? Number(formYears) : null,
+   348→        bio: formBio || null,
+   349→        photoUrl: formPhotoUrl || null,
+   350→        videoVisitLink: formVideoLink || null,
+   351→        slotDurationMinutes: Number(formSlotDuration),
+   352→        status: formStatus,
+   353→      };
+   354→
+   355→      if (editingProvider) {
+   356→        const res = await fetch(`/api/staff/providers/${editingProvider.id}`, {
+   357→          method: "PATCH",
+   358→          headers: { "Content-Type": "application/json" },
+   359→          body: JSON.stringify(body),
+   360→        });
+   361→        if (!res.ok) {
+   362→          const err = await res.json();
+   363→          throw new Error(err.error || "Failed to update provider");
+   364→        }
+   365→        toast.success("Provider updated successfully");
+   366→      } else {
+   367→        const res = await fetch("/api/staff/providers", {
+   368→          method: "POST",
+   369→          headers: { "Content-Type": "application/json" },
+   370→          body: JSON.stringify(body),
+   371→        });
+   372→        if (!res.ok) {
+   373→          const err = await res.json();
+   374→          throw new Error(err.error || "Failed to create provider");
+   375→        }
+   376→        toast.success("Provider added successfully");
+   377→      }
+   378→
+   379→      setShowProviderDialog(false);
+   380→      await fetchProviders();
+   381→      // Refresh expanded detail if it was open
+   382→      if (expandedId && editingProvider) {
+   383→        await fetchProviderDetail(expandedId);
+   384→      }
+   385→    } catch (err) {
+   386→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   387→    } finally {
+   388→      setSaving(false);
+   389→    }
+   390→  };
+   391→
+   392→  // ─── Delete Provider ────────────────────────────────────────────────────────
+   393→
+   394→  const handleDeleteProvider = async () => {
+   395→    if (!deleteTarget) return;
+   396→    setDeleting(true);
+   397→    try {
+   398→      const res = await fetch(`/api/staff/providers/${deleteTarget.id}`, {
+   399→        method: "DELETE",
+   400→      });
+   401→      if (!res.ok) {
+   402→        const err = await res.json();
+   403→        throw new Error(err.error || "Failed to delete provider");
+   404→      }
+   405→      toast.success("Provider removed successfully");
+   406→      setDeleteTarget(null);
+   407→      if (expandedId === deleteTarget.id) {
+   408→        setExpandedId(null);
+   409→        setExpandedProvider(null);
+   410→      }
+   411→      await fetchProviders();
+   412→    } catch (err) {
+   413→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   414→    } finally {
+   415→      setDeleting(false);
+   416→    }
+   417→  };
+   418→
+   419→  // ─── Template CRUD ──────────────────────────────────────────────────────────
+   420→
+   421→  const resetTemplateForm = () => {
+   422→    setEditingTemplate(null);
+   423→    setTemplateDay(1);
+   424→    setTemplateStart("09:00");
+   425→    setTemplateEnd("17:00");
+   426→    setTemplateModality(SLOT_MODALITY.IN_PERSON);
+   427→  };
+   428→
+   429→  const openAddTemplate = () => {
+   430→    resetTemplateForm();
+   431→    setShowTemplateDialog(true);
+   432→  };
+   433→
+   434→  const openEditTemplate = (template: SlotTemplate) => {
+   435→    setEditingTemplate(template);
+   436→    setTemplateDay(template.dayOfWeek);
+   437→    setTemplateStart(template.startTime);
+   438→    setTemplateEnd(template.endTime);
+   439→    setTemplateModality(template.modality);
+   440→    setShowTemplateDialog(true);
+   441→  };
+   442→
+   443→  const handleSaveTemplate = async () => {
+   444→    if (!expandedId) return;
+   445→    if (templateStart >= templateEnd) {
+   446→      toast.error("Start time must be before end time");
+   447→      return;
+   448→    }
+   449→
+   450→    setTemplateSaving(true);
+   451→    try {
+   452→      const body = {
+   453→        dayOfWeek: templateDay,
+   454→        startTime: templateStart,
+   455→        endTime: templateEnd,
+   456→        modality: templateModality,
+   457→        isActive: true,
+   458→      };
+   459→
+   460→      if (editingTemplate) {
+   461→        const res = await fetch(
+   462→          `/api/staff/providers/${expandedId}/templates/${editingTemplate.id}`,
+   463→          {
+   464→            method: "PATCH",
+   465→            headers: { "Content-Type": "application/json" },
+   466→            body: JSON.stringify(body),
+   467→          }
+   468→        );
+   469→        if (!res.ok) {
+   470→          const err = await res.json();
+   471→          throw new Error(err.error || "Failed to update template");
+   472→        }
+   473→        toast.success("Schedule template updated");
+   474→      } else {
+   475→        const res = await fetch(`/api/staff/providers/${expandedId}/templates`, {
+   476→          method: "POST",
+   477→          headers: { "Content-Type": "application/json" },
+   478→          body: JSON.stringify(body),
+   479→        });
+   480→        if (!res.ok) {
+   481→          const err = await res.json();
+   482→          throw new Error(err.error || "Failed to create template");
+   483→        }
+   484→        toast.success("Schedule template added");
+   485→      }
+   486→
+   487→      setShowTemplateDialog(false);
+   488→      await fetchProviderDetail(expandedId);
+   489→      await fetchProviders(); // Update template counts
+   490→    } catch (err) {
+   491→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   492→    } finally {
+   493→      setTemplateSaving(false);
+   494→    }
+   495→  };
+   496→
+   497→  const handleDeleteTemplate = async (templateId: string) => {
+   498→    if (!expandedId) return;
+   499→    try {
+   500→      const res = await fetch(
+   501→        `/api/staff/providers/${expandedId}/templates/${templateId}`,
+   502→        { method: "DELETE" }
+   503→      );
+   504→      if (!res.ok) throw new Error("Failed to delete template");
+   505→      toast.success("Schedule template removed");
+   506→      await fetchProviderDetail(expandedId);
+   507→      await fetchProviders();
+   508→    } catch (err) {
+   509→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   510→    }
+   511→  };
+   512→
+   513→  const handleToggleTemplateActive = async (template: SlotTemplate) => {
+   514→    if (!expandedId) return;
+   515→    try {
+   516→      const res = await fetch(
+   517→        `/api/staff/providers/${expandedId}/templates/${template.id}`,
+   518→        {
+   519→          method: "PATCH",
+   520→          headers: { "Content-Type": "application/json" },
+   521→          body: JSON.stringify({ isActive: !template.isActive }),
+   522→        }
+   523→      );
+   524→      if (!res.ok) throw new Error("Failed to toggle template");
+   525→      await fetchProviderDetail(expandedId);
+   526→      await fetchProviders();
+   527→    } catch (err) {
+   528→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   529→    }
+   530→  };
+   531→
+   532→  // ─── Service Mapping ────────────────────────────────────────────────────────
+   533→
+   534→  const isServiceAssigned = (serviceId: string): boolean => {
+   535→    if (!expandedProvider) return false;
+   536→    return expandedProvider.providerServices.some((ps) => ps.serviceId === serviceId);
+   537→  };
+   538→
+   539→  const handleToggleService = async (serviceId: string, checked: boolean) => {
+   540→    if (!expandedId) return;
+   541→    try {
+   542→      if (checked) {
+   543→        const res = await fetch(`/api/staff/providers/${expandedId}/services`, {
+   544→          method: "POST",
+   545→          headers: { "Content-Type": "application/json" },
+   546→          body: JSON.stringify({ serviceId }),
+   547→        });
+   548→        if (!res.ok) {
+   549→          const err = await res.json();
+   550→          if (res.status === 409) {
+   551→            toast.info("Service is already assigned");
+   552→            return;
+   553→          }
+   554→          throw new Error(err.error || "Failed to assign service");
+   555→        }
+   556→        toast.success("Service assigned");
+   557→      } else {
+   558→        const res = await fetch(
+   559→          `/api/staff/providers/${expandedId}/services/${serviceId}`,
+   560→          { method: "DELETE" }
+   561→        );
+   562→        if (!res.ok) throw new Error("Failed to remove service");
+   563→        toast.success("Service removed");
+   564→      }
+   565→      await fetchProviderDetail(expandedId);
+   566→      await fetchProviders(); // Update service counts
+   567→    } catch (err) {
+   568→      toast.error(err instanceof Error ? err.message : "Something went wrong");
+   569→    }
+   570→  };
+   571→
+   572→  // ─── Weekly Template Grid ───────────────────────────────────────────────────
+   573→
+   574→  const getTemplatesForDay = (dayOfWeek: number): SlotTemplate[] => {
+   575→    if (!expandedProvider) return [];
+   576→    return expandedProvider.slotTemplates
+   577→      .filter((t) => t.dayOfWeek === dayOfWeek)
+   578→      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+   579→  };
+   580→
+   581→  // ─── Render ─────────────────────────────────────────────────────────────────
+   582→
+   583→  // ---- Error State ----
+   584→  if (loadError) {
+   585→    return (
+   586→      <Card className="border-destructive/50">
+   587→        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+   588→          <div className="rounded-full bg-destructive/10 p-4">
+   589→            <AlertCircle className="size-8 text-destructive" />
+   590→          </div>
+   591→          <div className="text-center">
+   592→            <h3 className="font-semibold text-lg">Failed to load providers</h3>
+   593→            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+   594→          </div>
+   595→          <Button variant="outline" onClick={() => { setLoadError(null); fetchProviders(); }} className="gap-2">
+   596→            <RefreshCw className="size-4" />
+   597→            Try Again
+   598→          </Button>
+   599→        </CardContent>
+   600→      </Card>
+   601→    );
+   602→  }
+   603→
+   604→  return (
+   605→    <div className="space-y-6">
+   606→      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Providers" }]} />
+   607→      {/* Header */}
+   608→      <div className="flex items-center justify-between gap-4">
+   609→        <div>
+   610→          <h2 className="text-lg font-semibold text-foreground">Provider Roster</h2>
+   611→          <p className="text-sm text-muted-foreground">
+   612→            Manage your providers, schedules, and service assignments
+   613→          </p>
+   614→        </div>
+   615→        <Button onClick={openAddDialog} className="bg-brand hover:bg-brand-hover text-white">
+   616→          <UserPlus className="size-4 mr-2" />
+   617→          Add Provider
+   618→        </Button>
+   619→      </div>
+   620→
+   621→      {/* Provider List */}
+   622→      {loading ? (
+   623→        <div className="space-y-3">
+   624→          {[1, 2, 3].map((i) => (
+   625→            <div key={i} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
+   626→              <Skeleton className="size-10 rounded-full" />
+   627→              <div className="flex-1 space-y-2">
+   628→                <Skeleton className="h-4 w-48" />
+   629→                <Skeleton className="h-3 w-32" />
+   630→              </div>
+   631→              <Skeleton className="h-6 w-20" />
+   632→            </div>
+   633→          ))}
+   634→        </div>
+   635→      ) : providers.length === 0 ? (
+   636→        <div className="flex flex-col items-center justify-center py-16 text-center">
+   637→          <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
+   638→            <UserPlus className="size-6 text-muted-foreground" />
+   639→          </div>
+   640→          <h3 className="text-sm font-medium text-foreground">No providers yet</h3>
+   641→          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+   642→            Add your first provider to start building your team and setting up schedules.
+   643→          </p>
+   644→          <Button onClick={openAddDialog} variant="outline" className="mt-4">
+   645→            <UserPlus className="size-4 mr-2" />
+   646→            Add Provider
+   647→          </Button>
+   648→        </div>
+   649→      ) : (
+   650→        <div className="space-y-2">
+   651→          {providers.map((provider, index) => (
+   652→            <div
+   653→              key={provider.id}
+   654→              className={`rounded-lg border bg-card animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
+   655→                provider.status === "ACTIVE"
+   656→                  ? "border-l-4 border-l-brand"
+   657→                  : provider.status === "SUSPENDED"
+   658→                    ? "border-l-4 border-l-amber-500"
+   659→                    : "border-l-4 border-l-muted-foreground/30"
+   660→              }`}
+   661→              style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
+   662→            >
+   663→              {/* Provider Card Row */}
+   664→              <div
+   665→                className="flex items-center gap-3 sm:gap-4 p-4 cursor-pointer hover:bg-accent/30 transition-colors rounded-lg"
+   666→                onClick={() => handleToggleExpand(provider)}
+   667→              >
+   668→                {/* Expand Arrow */}
+   669→                <div className="text-muted-foreground">
+   670→                  {expandedId === provider.id ? (
+   671→                    <ChevronDown className="size-4" />
+   672→                  ) : (
+   673→                    <ChevronRight className="size-4" />
+   674→                  )}
+   675→                </div>
+   676→
+   677→                {/* Avatar */}
+   678→                <Avatar className="size-10">
+   679→                  {provider.photoUrl ? (
+   680→                    <AvatarImage src={provider.photoUrl} alt={`${provider.firstName} ${provider.lastName}`} />
+   681→                  ) : null}
+   682→                  <AvatarFallback className="bg-brand-subtle text-brand-hover text-sm font-medium">
+   683→                    {getInitials(provider.firstName, provider.lastName)}
+   684→                  </AvatarFallback>
+   685→                </Avatar>
+   686→
+   687→                {/* Name & Credentials */}
+   688→                <div className="flex-1 min-w-0">
+   689→                  <div className="flex items-center gap-2 flex-wrap">
+   690→                    <span className="font-medium text-sm text-foreground truncate">
+   691→                      {provider.firstName} {provider.lastName}
+   692→                    </span>
+   693→                    {provider.credentials && (
+   694→                      <span className="text-xs text-muted-foreground">, {provider.credentials}</span>
+   695→                    )}
+   696→                  </div>
+   697→                  <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+   698→                    <span className="flex items-center gap-1">
+   699→                      <Clock className="size-3" />
+   700→                      {provider.slotDurationMinutes}min slots
+   701→                    </span>
+   702→                    <span>{provider._count.providerServices} services</span>
+   703→                    <span>{provider._count.slotTemplates} templates</span>
+   704→                  </div>
+   705→                </div>
+   706→
+   707→                {/* Status Badge */}
+   708→                <Badge variant="secondary" className={`text-xs hidden sm:inline-flex ${statusColor(provider.status)}`}>
+   709→                  {provider.status}
+   710→                </Badge>
+   711→
+   712→                {/* Actions */}
+   713→                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+   714→                  <Button
+   715→                    variant="ghost"
+   716→                    size="sm"
+   717→                    className="h-8 w-8 p-0"
+   718→                    onClick={() => {
+   719→                      // Need full detail to edit
+   720→                      (async () => {
+   721→                        const detail = await fetchProviderDetail(provider.id);
+   722→                        if (detail) openEditDialog(detail);
+   723→                      })();
+   724→                    }}
+   725→                    title="Edit provider"
+   726→                  >
+   727→                    <Pencil className="size-3.5" />
+   728→                  </Button>
+   729→                  <Button
+   730→                    variant="ghost"
+   731→                    size="sm"
+   732→                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+   733→                    onClick={() => setDeleteTarget(provider)}
+   734→                    title="Remove provider"
+   735→                  >
+   736→                    <Trash2 className="size-3.5" />
+   737→                  </Button>
+   738→                </div>
+   739→              </div>
+   740→
+   741→              {/* Expanded Detail */}
+   742→              {expandedId === provider.id && (
+   743→                <div className="border-t">
+   744→                  {loadingDetail ? (
+   745→                    <div className="p-6 space-y-4">
+   746→                      <Skeleton className="h-8 w-64" />
+   747→                      <Skeleton className="h-32 w-full" />
+   748→                    </div>
+   749→                  ) : expandedProvider ? (
+   750→                    <div className="p-4 sm:p-6">
+   751→                      <ProviderDetail
+   752→                        provider={expandedProvider}
+   753→                        specialties={specialties}
+   754→                        servicesLoading={servicesLoading}
+   755→                        onEditProvider={openEditDialog}
+   756→                        onAddTemplate={openAddTemplate}
+   757→                        onEditTemplate={openEditTemplate}
+   758→                        onDeleteTemplate={handleDeleteTemplate}
+   759→                        onToggleTemplate={handleToggleTemplateActive}
+   760→                        onToggleService={handleToggleService}
+   761→                        isServiceAssigned={isServiceAssigned}
+   762→                        getTemplatesForDay={getTemplatesForDay}
+   763→                      />
+   764→                    </div>
+   765→                  ) : null}
+   766→                </div>
+   767→              )}
+   768→            </div>
+   769→          ))}
+   770→        </div>
+   771→      )}
+   772→
+   773→      {/* ─── Add/Edit Provider Dialog ─────────────────────────────────────────── */}
+   774→      <Dialog open={showProviderDialog} onOpenChange={setShowProviderDialog}>
+   775→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   776→          <DialogHeader>
+   777→            <DialogTitle>
+   778→              {editingProvider ? "Edit Provider" : "Add New Provider"}
+   779→            </DialogTitle>
+   780→            <DialogDescription>
+   781→              {editingProvider
+   782→                ? "Update provider information and settings."
+   783→                : "Add a new provider to your clinic."}
+   784→            </DialogDescription>
+   785→          </DialogHeader>
+   786→
+   787→          <div className="grid gap-5 py-2">
+   788→            {/* Personal Information */}
+   789→            <div className="space-y-4">
+   790→              <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+   791→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   792→                <div className="space-y-2">
+   793→                  <Label htmlFor="firstName">First Name *</Label>
+   794→                  <Input
+   795→                    id="firstName"
+   796→                    value={formFirstName}
+   797→                    onChange={(e) => setFormFirstName(e.target.value)}
+   798→                    placeholder="Jane"
+   799→                  />
+   800→                </div>
+   801→                <div className="space-y-2">
+   802→                  <Label htmlFor="lastName">Last Name *</Label>
+   803→                  <Input
+   804→                    id="lastName"
+   805→                    value={formLastName}
+   806→                    onChange={(e) => setFormLastName(e.target.value)}
+   807→                    placeholder="Smith"
+   808→                  />
+   809→                </div>
+   810→              </div>
+   811→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   812→                <div className="space-y-2">
+   813→                  <Label htmlFor="credentials">Credentials *</Label>
+   814→                  <Select value={formCredentials} onValueChange={setFormCredentials}>
+   815→                    <SelectTrigger className="w-full">
+   816→                      <SelectValue placeholder="Select..." />
+   817→                    </SelectTrigger>
+   818→                    <SelectContent>
+   819→                      {CREDENTIALS_OPTIONS.map((c) => (
+   820→                        <SelectItem key={c} value={c}>
+   821→                          {c}
+   822→                        </SelectItem>
+   823→                      ))}
+   824→                    </SelectContent>
+   825→                  </Select>
+   826→                </div>
+   827→                <div className="space-y-2">
+   828→                  <Label htmlFor="npi">NPI Number</Label>
+   829→                  <Input
+   830→                    id="npi"
+   831→                    value={formNpi}
+   832→                    onChange={(e) => setFormNpi(e.target.value)}
+   833→                    placeholder="1234567890"
+   834→                    maxLength={10}
+   835→                  />
+   836→                </div>
+   837→                <div className="space-y-2">
+   838→                  <Label htmlFor="years">Years Experience</Label>
+   839→                  <Input
+   840→                    id="years"
+   841→                    type="number"
+   842→                    min={0}
+   843→                    max={80}
+   844→                    value={formYears}
+   845→                    onChange={(e) => setFormYears(e.target.value)}
+   846→                    placeholder="10"
+   847→                  />
+   848→                </div>
+   849→              </div>
+   850→              <div className="space-y-2">
+   851→                <Label htmlFor="photoUrl">Photo URL</Label>
+   852→                <Input
+   853→                  id="photoUrl"
+   854→                  value={formPhotoUrl}
+   855→                  onChange={(e) => setFormPhotoUrl(e.target.value)}
+   856→                  placeholder="https://example.com/photo.jpg"
+   857→                />
+   858→                <p className="text-xs text-muted-foreground">
+   859→                  Paste a URL for the provider&apos;s photo. Recommended: square image, at least 200x200px.
+   860→                </p>
+   861→              </div>
+   862→            </div>
+   863→
+   864→            <Separator />
+   865→
+   866→            {/* Professional Information */}
+   867→            <div className="space-y-4">
+   868→              <h3 className="text-sm font-semibold text-foreground">Professional Settings</h3>
+   869→              <div className="space-y-2">
+   870→                <Label htmlFor="bio">Bio</Label>
+   871→                <Textarea
+   872→                  id="bio"
+   873→                  value={formBio}
+   874→                  onChange={(e) => setFormBio(e.target.value)}
+   875→                  placeholder="Provider biography, specializations, and background..."
+   876→                  rows={4}
+   877→                  className="resize-none"
+   878→                />
+   879→              </div>
+   880→              <div className="space-y-2">
+   881→                <Label htmlFor="videoLink">Video Visit Link</Label>
+   882→                <Input
+   883→                  id="videoLink"
+   884→                  value={formVideoLink}
+   885→                  onChange={(e) => setFormVideoLink(e.target.value)}
+   886→                  placeholder="https://doxy.me/..."
+   887→                />
+   888→                <p className="text-xs text-muted-foreground">
+   889→                  Link to third-party video visit service (e.g., Doxy.me, Zoom).
+   890→                </p>
+   891→              </div>
+   892→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   893→                <div className="space-y-2">
+   894→                  <Label>Slot Duration *</Label>
+   895→                  <Select value={formSlotDuration} onValueChange={setFormSlotDuration}>
+   896→                    <SelectTrigger className="w-full">
+   897→                      <SelectValue />
+   898→                    </SelectTrigger>
+   899→                    <SelectContent>
+   900→                      {SLOT_DURATION_OPTIONS.map((d) => (
+   901→                        <SelectItem key={d} value={d.toString()}>
+   902→                          {d} minutes
+   903→                        </SelectItem>
+   904→                      ))}
+   905→                    </SelectContent>
+   906→                  </Select>
+   907→                </div>
+   908→                <div className="space-y-2">
+   909→                  <Label>Status</Label>
+   910→                  <Select value={formStatus} onValueChange={setFormStatus}>
+   911→                    <SelectTrigger className="w-full">
+   912→                      <SelectValue />
+   913→                    </SelectTrigger>
+   914→                    <SelectContent>
+   915→                      {STATUS_OPTIONS.map((s) => (
+   916→                        <SelectItem key={s.value} value={s.value}>
+   917→                          {s.label}
+   918→                        </SelectItem>
+   919→                      ))}
+   920→                    </SelectContent>
+   921→                  </Select>
+   922→                </div>
+   923→              </div>
+   924→            </div>
+   925→          </div>
+   926→
+   927→          <DialogFooter>
+   928→            <Button variant="outline" onClick={() => setShowProviderDialog(false)}>
+   929→              Cancel
+   930→            </Button>
+   931→            <Button
+   932→              onClick={handleSaveProvider}
+   933→              disabled={saving}
+   934→              className="bg-brand hover:bg-brand-hover text-white"
+   935→            >
+   936→              {saving
+   937→                ? "Saving..."
+   938→                : editingProvider
+   939→                  ? "Update Provider"
+   940→                  : "Add Provider"}
+   941→            </Button>
+   942→          </DialogFooter>
+   943→        </DialogContent>
+   944→      </Dialog>
+   945→
+   946→      {/* ─── Template Dialog (Add/Edit) ──────────────────────────────────────── */}
+   947→      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+   948→        <DialogContent className="sm:max-w-md">
+   949→          <DialogHeader>
+   950→            <DialogTitle>
+   951→              {editingTemplate ? "Edit Schedule Template" : "Add Schedule Template"}
+   952→            </DialogTitle>
+   953→            <DialogDescription>
+   954→              Define a weekly recurring time block for this provider.
+   955→            </DialogDescription>
+   956→          </DialogHeader>
+   957→
+   958→          <div className="grid gap-4 py-2">
+   959→            <div className="space-y-2">
+   960→              <Label>Day of Week</Label>
+   961→              <Select
+   962→                value={templateDay.toString()}
+   963→                onValueChange={(v) => setTemplateDay(Number(v))}
+   964→              >
+   965→                <SelectTrigger className="w-full">
+   966→                  <SelectValue />
+   967→                </SelectTrigger>
+   968→                <SelectContent>
+   969→                  {DAYS_OF_WEEK.map((d) => (
+   970→                    <SelectItem key={d.value} value={d.value.toString()}>
+   971→                      {d.label}
+   972→                    </SelectItem>
+   973→                  ))}
+   974→                </SelectContent>
+   975→              </Select>
+   976→            </div>
+   977→            <div className="grid grid-cols-2 gap-4">
+   978→              <div className="space-y-2">
+   979→                <Label htmlFor="tStart">Start Time</Label>
+   980→                <Input
+   981→                  id="tStart"
+   982→                  type="time"
+   983→                  value={templateStart}
+   984→                  onChange={(e) => setTemplateStart(e.target.value)}
+   985→                />
+   986→              </div>
+   987→              <div className="space-y-2">
+   988→                <Label htmlFor="tEnd">End Time</Label>
+   989→                <Input
+   990→                  id="tEnd"
+   991→                  type="time"
+   992→                  value={templateEnd}
+   993→                  onChange={(e) => setTemplateEnd(e.target.value)}
+   994→                />
+   995→              </div>
+   996→            </div>
+   997→            <div className="space-y-2">
+   998→              <Label>Modality</Label>
+   999→              <Select value={templateModality} onValueChange={setTemplateModality}>
+  1000→                <SelectTrigger className="w-full">
+  1001→                  <SelectValue />
+  1002→                </SelectTrigger>
+  1003→                <SelectContent>
+  1004→                  <SelectItem value={SLOT_MODALITY.IN_PERSON}>
+  1005→                    <span className="flex items-center gap-2">
+  1006→                      <Building2 className="size-3.5" />
+  1007→                      In Person
+  1008→                    </span>
+  1009→                  </SelectItem>
+  1010→                  <SelectItem value={SLOT_MODALITY.VIDEO}>
+  1011→                    <span className="flex items-center gap-2">
+  1012→                      <Video className="size-3.5" />
+  1013→                      Video
+  1014→                    </span>
+  1015→                  </SelectItem>
+  1016→                </SelectContent>
+  1017→              </Select>
+  1018→            </div>
+  1019→          </div>
+  1020→
+  1021→          <DialogFooter>
+  1022→            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
+  1023→              Cancel
+  1024→            </Button>
+  1025→            <Button
+  1026→              onClick={handleSaveTemplate}
+  1027→              disabled={templateSaving}
+  1028→              className="bg-brand hover:bg-brand-hover text-white"
+  1029→            >
+  1030→              {templateSaving
+  1031→                ? "Saving..."
+  1032→                : editingTemplate
+  1033→                  ? "Update Template"
+  1034→                  : "Add Template"}
+  1035→            </Button>
+  1036→          </DialogFooter>
+  1037→        </DialogContent>
+  1038→      </Dialog>
+  1039→
+  1040→      {/* ─── Delete Confirmation ─────────────────────────────────────────────── */}
+  1041→      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+  1042→        <AlertDialogContent>
+  1043→          <AlertDialogHeader>
+  1044→            <AlertDialogTitle>Remove Provider</AlertDialogTitle>
+  1045→            <AlertDialogDescription>
+  1046→              {deleteTarget
+  1047→                ? `Are you sure you want to remove ${deleteTarget.firstName} ${deleteTarget.lastName}? ${
+  1048→                    deleteTarget._count.appointments
+  1049→                      ? "This provider has existing appointments and will be set to inactive instead of deleted."
+  1050→                      : "This will permanently delete this provider."
+  1051→                  }`
+  1052→                : ""}
+  1053→            </AlertDialogDescription>
+  1054→          </AlertDialogHeader>
+  1055→          <AlertDialogFooter>
+  1056→            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+  1057→            <AlertDialogAction
+  1058→              onClick={handleDeleteProvider}
+  1059→              disabled={deleting}
+  1060→              className="bg-destructive text-white hover:bg-destructive/90"
+  1061→            >
+  1062→              {deleting ? "Removing..." : "Remove"}
+  1063→            </AlertDialogAction>
+  1064→          </AlertDialogFooter>
+  1065→        </AlertDialogContent>
+  1066→      </AlertDialog>
+  1067→    </div>
+  1068→  );
+  1069→}
+  1070→
+  1071→// ─── Provider Detail Sub-Component ─────────────────────────────────────────────
+  1072→
+  1073→function ProviderDetail({
+  1074→  provider,
+  1075→  specialties,
+  1076→  servicesLoading,
+  1077→  onEditProvider,
+  1078→  onAddTemplate,
+  1079→  onEditTemplate,
+  1080→  onDeleteTemplate,
+  1081→  onToggleTemplate,
+  1082→  onToggleService,
+  1083→  isServiceAssigned,
+  1084→  getTemplatesForDay,
+  1085→}: {
+  1086→  provider: ProviderFull;
+  1087→  specialties: SpecialtyWithServices[];
+  1088→  servicesLoading: boolean;
+  1089→  onEditProvider: (p: ProviderFull) => void;
+  1090→  onAddTemplate: () => void;
+  1091→  onEditTemplate: (t: SlotTemplate) => void;
+  1092→  onDeleteTemplate: (id: string) => void;
+  1093→  onToggleTemplate: (t: SlotTemplate) => void;
+  1094→  onToggleService: (serviceId: string, checked: boolean) => void;
+  1095→  isServiceAssigned: (serviceId: string) => boolean;
+  1096→  getTemplatesForDay: (dayOfWeek: number) => SlotTemplate[];
+  1097→}) {
+  1098→  const assignedServiceIds = new Set(provider.providerServices.map((ps) => ps.serviceId));
+  1099→
+  1100→  return (
+  1101→    <div className="space-y-4">
+  1102→      {/* Provider Summary Bar */}
+  1103→      <div className="flex items-center gap-3 flex-wrap">
+  1104→        <Badge variant="secondary" className={statusColor(provider.status)}>
+  1105→          {provider.status}
+  1106→        </Badge>
+  1107→        <span className="text-xs text-muted-foreground">
+  1108→          Slot: {provider.slotDurationMinutes}min
+  1109→        </span>
+  1110→        {provider.npiNumber && (
+  1111→          <span className="text-xs text-muted-foreground">NPI: {provider.npiNumber}</span>
+  1112→        )}
+  1113→        {provider.yearsExperience != null && (
+  1114→          <span className="text-xs text-muted-foreground">
+  1115→            {provider.yearsExperience}yr exp
+  1116→          </span>
+  1117→        )}
+  1118→        <div className="ml-auto">
+  1119→          <Button variant="outline" size="sm" onClick={() => onEditProvider(provider)}>
+  1120→            <Pencil className="size-3.5 mr-1.5" />
+  1121→            Edit
+  1122→          </Button>
+  1123→        </div>
+  1124→      </div>
+  1125→
+  1126→      {/* Tabs: Schedule Templates | Service Mapping */}
+  1127→      <Tabs defaultValue="schedule" className="w-full">
+  1128→        <TabsList>
+  1129→          <TabsTrigger value="schedule" className="gap-1.5">
+  1130→            <CalendarDays className="size-3.5" />
+  1131→            Schedule Templates
+  1132→          </TabsTrigger>
+  1133→          <TabsTrigger value="services" className="gap-1.5">
+  1134→            <Stethoscope className="size-3.5" />
+  1135→            Service Mapping
+  1136→          </TabsTrigger>
+  1137→        </TabsList>
+  1138→
+  1139→        {/* ── Schedule Templates Tab ── */}
+  1140→        <TabsContent value="schedule" className="mt-4 space-y-4">
+  1141→          <div className="flex items-center justify-between">
+  1142→            <p className="text-sm text-muted-foreground">
+  1143→              {provider.slotTemplates.length} schedule template{provider.slotTemplates.length !== 1 ? "s" : ""} configured
+  1144→            </p>
+  1145→            <Button size="sm" onClick={onAddTemplate} className="bg-brand hover:bg-brand-hover text-white">
+  1146→              <Plus className="size-3.5 mr-1.5" />
+  1147→              Add Template
+  1148→            </Button>
+  1149→          </div>
+  1150→
+  1151→          {/* Weekly Grid */}
+  1152→          <div className="rounded-lg border overflow-hidden">
+  1153→            <div className="divide-y">
+  1154→              {[...DAYS_OF_WEEK].sort((a, b) => (a.value === 0 ? 1 : b.value === 0 ? -1 : a.value - b.value)).map((day) => {
+  1155→                const dayTemplates = getTemplatesForDay(day.value);
+  1156→
+  1157→                return (
+  1158→                  <div key={day.value} className="flex items-start gap-3 p-3 hover:bg-accent/20 transition-colors">
+  1159→                    <div className="w-20 sm:w-24 shrink-0">
+  1160→                      <span className="text-sm font-medium text-foreground">{day.label}</span>
+  1161→                      <span className="text-xs text-muted-foreground ml-1.5">{day.short}</span>
+  1162→                    </div>
+  1163→                    <div className="flex-1 min-w-0">
+  1164→                      {dayTemplates.length === 0 ? (
+  1165→                        <span className="text-xs text-muted-foreground italic">No schedule</span>
+  1166→                      ) : (
+  1167→                        <div className="flex flex-wrap gap-2">
+  1168→                          {dayTemplates.map((template) => (
+  1169→                            <div
+  1170→                              key={template.id}
+  1171→                              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-all ${
+  1172→                                template.isActive
+  1173→                                  ? "bg-background border-border"
+  1174→                                  : "bg-muted/50 border-border opacity-50"
+  1175→                              }`}
+  1176→                            >
+  1177→                              {template.modality === SLOT_MODALITY.VIDEO && (
+  1178→                                <Video className="size-3 text-blue-500" />
+  1179→                              )}
+  1180→                              {template.modality === SLOT_MODALITY.IN_PERSON && (
+  1181→                                <Building2 className="size-3 text-brand" />
+  1182→                              )}
+  1183→                              <span className="font-medium">
+  1184→                                {formatTime(template.startTime)} – {formatTime(template.endTime)}
+  1185→                              </span>
+  1186→                              <Badge
+  1187→                                variant="outline"
+  1188→                                className="text-[10px] px-1 py-0 h-4"
+  1189→                              >
+  1190→                                {template.modality === SLOT_MODALITY.VIDEO ? "Video" : "In-Person"}
+  1191→                              </Badge>
+  1192→                              <div className="flex items-center gap-0.5 ml-1">
+  1193→                                <Button
+  1194→                                  variant="ghost"
+  1195→                                  size="sm"
+  1196→                                  className="h-5 w-5 p-0"
+  1197→                                  onClick={() => onToggleTemplate(template)}
+  1198→                                  title={template.isActive ? "Deactivate" : "Activate"}
+  1199→                                >
+  1200→                                  <Switch
+  1201→                                    checked={template.isActive}
+  1202→                                    className="pointer-events-none scale-75"
+  1203→                                  />
+  1204→                                </Button>
+  1205→                                <Button
+  1206→                                  variant="ghost"
+  1207→                                  size="sm"
+  1208→                                  className="h-5 w-5 p-0"
+  1209→                                  onClick={() => onEditTemplate(template)}
+  1210→                                >
+  1211→                                  <Pencil className="size-2.5" />
+  1212→                                </Button>
+  1213→                                <Button
+  1214→                                  variant="ghost"
+  1215→                                  size="sm"
+  1216→                                  className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+  1217→                                  onClick={() => onDeleteTemplate(template.id)}
+  1218→                                >
+  1219→                                  <X className="size-2.5" />
+  1220→                                </Button>
+  1221→                              </div>
+  1222→                            </div>
+  1223→                          ))}
+  1224→                        </div>
+  1225→                      )}
+  1226→                    </div>
+  1227→                  </div>
+  1228→                );
+  1229→              })}
+  1230→            </div>
+  1231→          </div>
+  1232→        </TabsContent>
+  1233→
+  1234→        {/* ── Service Mapping Tab ── */}
+  1235→        <TabsContent value="services" className="mt-4 space-y-4">
+  1236→          <div className="flex items-center justify-between">
+  1237→            <p className="text-sm text-muted-foreground">
+  1238→              {assignedServiceIds.size} service{assignedServiceIds.size !== 1 ? "s" : ""} assigned
+  1239→            </p>
+  1240→          </div>
+  1241→
+  1242→          {/* Currently Assigned Services (highlighted) */}
+  1243→          {provider.providerServices.length > 0 && (
+  1244→            <div className="space-y-2">
+  1245→              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+  1246→                Currently Assigned
+  1247→              </h4>
+  1248→              <div className="flex flex-wrap gap-2">
+  1249→                {provider.providerServices.map((ps) => (
+  1250→                  <div
+  1251→                    key={ps.id}
+  1252→                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-muted border border-brand-border pl-3 pr-1.5 py-1"
+  1253→                  >
+  1254→                    <span className="text-xs font-medium text-brand">
+  1255→                      {ps.service.name}
+  1256→                    </span>
+  1257→                    <span className="text-[10px] text-brand">
+  1258→                      ({ps.service.specialty.name})
+  1259→                    </span>
+  1260→                    <Button
+  1261→                      variant="ghost"
+  1262→                      size="sm"
+  1263→                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle"
+  1264→                      onClick={() => onToggleService(ps.serviceId, false)}
+  1265→                    >
+  1266→                      <X className="size-3" />
+  1267→                    </Button>
+  1268→                  </div>
+  1269→                ))}
+  1270→              </div>
+  1271→            </div>
+  1272→          )}
+  1273→
+  1274→          <Separator />
+  1275→
+  1276→          {/* Available Services Grouped by Specialty */}
+  1277→          <div className="space-y-4">
+  1278→            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+  1279→              All Services by Specialty
+  1280→            </h4>
+  1281→
+  1282→            {servicesLoading ? (
+  1283→              <div className="space-y-3">
+  1284→                {[1, 2, 3].map((i) => (
+  1285→                  <div key={i} className="space-y-2">
+  1286→                    <Skeleton className="h-4 w-40" />
+  1287→                    <Skeleton className="h-8 w-full" />
+  1288→                    <Skeleton className="h-8 w-full" />
+  1289→                  </div>
+  1290→                ))}
+  1291→              </div>
+  1292→            ) : specialties.length === 0 ? (
+  1293→              <p className="text-sm text-muted-foreground">
+  1294→                No services available. Add services in the Services & Insurance tab first.
+  1295→              </p>
+  1296→            ) : (
+  1297→              <ScrollArea className="max-h-96 overflow-y-auto">
+  1298→                <div className="space-y-4 pr-4">
+  1299→                  {specialties.map((specialty) => {
+  1300→                    const activeServices = specialty.services.filter((s) => s.isActive);
+  1301→                    if (activeServices.length === 0) return null;
+  1302→
+  1303→                    return (
+  1304→                      <div key={specialty.id} className="space-y-2">
+  1305→                        <h5 className="text-sm font-medium text-foreground">
+  1306→                          {specialty.name}
+  1307→                        </h5>
+  1308→                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  1309→                          {activeServices.map((service) => {
+  1310→                            const assigned = isServiceAssigned(service.id);
+  1311→                            return (
+  1312→                              <label
+  1313→                                key={service.id}
+  1314→                                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+  1315→                                  assigned
+  1316→                                    ? "border-brand-border bg-brand-muted/50  "
+  1317→                                    : "border-border hover:bg-accent/30"
+  1318→                                }`}
+  1319→                              >
+  1320→                                <Checkbox
+  1321→                                  checked={assigned}
+  1322→                                  onCheckedChange={(checked) =>
+  1323→                                    onToggleService(service.id, !!checked)
+  1324→                                  }
+  1325→                                  className="mt-0.5"
+  1326→                                />
+  1327→                                <div className="min-w-0">
+  1328→                                  <div className="text-sm font-medium text-foreground">
+  1329→                                    {service.name}
+  1330→                                  </div>
+  1331→                                  {service.description && (
+  1332→                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+  1333→                                      {service.description}
+  1334→                                    </p>
+  1335→                                  )}
+  1336→                                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+  1337→                                    <span className="flex items-center gap-1">
+  1338→                                      <Clock className="size-3" />
+  1339→                                      {service.durationMinutes}min
+  1340→                                    </span>
+  1341→                                    {service.selfPayPriceCents > 0 && (
+  1342→                                      <span>
+  1343→                                        ${(service.selfPayPriceCents / 100).toFixed(2)}
+  1344→                                      </span>
+  1345→                                    )}
+  1346→                                  </div>
+  1347→                                </div>
+  1348→                              </label>
+  1349→                            );
+  1350→                          })}
+  1351→                        </div>
+  1352→                      </div>
+  1353→                    );
+  1354→                  })}
+  1355→                </div>
+  1356→              </ScrollArea>
+  1357→            )}
+  1358→          </div>
+  1359→        </TabsContent>
+  1360→      </Tabs>
+  1361→    </div>
+  1362→  );
+  1363→}

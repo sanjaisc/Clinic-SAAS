@@ -61,6 +61,7 @@ import {
   CalendarDays,
   AlertCircle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ export default function ProvidersPage() {
   const [templateEnd, setTemplateEnd] = useState("17:00");
   const [templateModality, setTemplateModality] = useState(SLOT_MODALITY.IN_PERSON);
   const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateActionLoading, setTemplateActionLoading] = useState<string | null>(null);
 
   // ── Form State ──
   const [formFirstName, setFormFirstName] = useState("");
@@ -496,6 +498,7 @@ export default function ProvidersPage() {
 
   const handleDeleteTemplate = async (templateId: string) => {
     if (!expandedId) return;
+    setTemplateActionLoading(`delete-${templateId}`);
     try {
       const res = await fetch(
         `/api/staff/providers/${expandedId}/templates/${templateId}`,
@@ -507,11 +510,14 @@ export default function ProvidersPage() {
       await fetchProviders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setTemplateActionLoading(null);
     }
   };
 
   const handleToggleTemplateActive = async (template: SlotTemplate) => {
     if (!expandedId) return;
+    setTemplateActionLoading(`toggle-${template.id}`);
     try {
       const res = await fetch(
         `/api/staff/providers/${expandedId}/templates/${template.id}`,
@@ -526,6 +532,8 @@ export default function ProvidersPage() {
       await fetchProviders();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setTemplateActionLoading(null);
     }
   };
 
@@ -760,6 +768,7 @@ export default function ProvidersPage() {
                         onToggleService={handleToggleService}
                         isServiceAssigned={isServiceAssigned}
                         getTemplatesForDay={getTemplatesForDay}
+                        templateActionLoading={templateActionLoading}
                       />
                     </div>
                   ) : null}
@@ -1082,6 +1091,7 @@ function ProviderDetail({
   onToggleService,
   isServiceAssigned,
   getTemplatesForDay,
+  templateActionLoading,
 }: {
   provider: ProviderFull;
   specialties: SpecialtyWithServices[];
@@ -1094,6 +1104,7 @@ function ProviderDetail({
   onToggleService: (serviceId: string, checked: boolean) => void;
   isServiceAssigned: (serviceId: string) => boolean;
   getTemplatesForDay: (dayOfWeek: number) => SlotTemplate[];
+  templateActionLoading: string | null;
 }) {
   const assignedServiceIds = new Set(provider.providerServices.map((ps) => ps.serviceId));
 
@@ -1195,18 +1206,24 @@ function ProviderDetail({
                                   size="sm"
                                   className="h-5 w-5 p-0"
                                   onClick={() => onToggleTemplate(template)}
+                                  disabled={templateActionLoading === `toggle-${template.id}`}
                                   title={template.isActive ? "Deactivate" : "Activate"}
                                 >
-                                  <Switch
-                                    checked={template.isActive}
-                                    className="pointer-events-none scale-75"
-                                  />
+                                  {templateActionLoading === `toggle-${template.id}` ? (
+                                    <Loader2 className="size-2.5 animate-spin" />
+                                  ) : (
+                                    <Switch
+                                      checked={template.isActive}
+                                      className="pointer-events-none scale-75"
+                                    />
+                                  )}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 w-5 p-0"
                                   onClick={() => onEditTemplate(template)}
+                                  disabled={templateActionLoading?.startsWith("toggle-") || templateActionLoading?.startsWith("delete-")}
                                 >
                                   <Pencil className="size-2.5" />
                                 </Button>
@@ -1215,8 +1232,13 @@ function ProviderDetail({
                                   size="sm"
                                   className="h-5 w-5 p-0 text-destructive hover:text-destructive"
                                   onClick={() => onDeleteTemplate(template.id)}
+                                  disabled={templateActionLoading === `delete-${template.id}`}
                                 >
-                                  <X className="size-2.5" />
+                                  {templateActionLoading === `delete-${template.id}` ? (
+                                    <Loader2 className="size-2.5 animate-spin" />
+                                  ) : (
+                                    <X className="size-2.5" />
+                                  )}
                                 </Button>
                               </div>
                             </div>

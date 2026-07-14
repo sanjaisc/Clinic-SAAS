@@ -28,6 +28,8 @@ import {
   ClipboardList,
   UserPlus,
   FileText,
+  CalendarCheck,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -473,6 +475,90 @@ function AuditLogActivitySection({ clinicId }: { clinicId: string | null }) {
   );
 }
 
+interface QuickStats {
+  todayAppointments: number;
+  pendingBookings: number;
+  availableSlots: number;
+  activeProviders: number;
+}
+
+function TodayOverviewSection({ clinicId }: { clinicId: string | null }) {
+  const [stats, setStats] = useState<QuickStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    fetch(`/api/staff/dashboard-stats?clinicId=${clinicId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json) setStats(json);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clinicId]);
+
+  const miniCards = [
+    {
+      title: "Today's Appointments",
+      value: stats?.todayAppointments ?? 0,
+      icon: CalendarCheck,
+      bg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+      border: "border-emerald-200/60",
+    },
+    {
+      title: "Pending Bookings",
+      value: stats?.pendingBookings ?? 0,
+      icon: Clock,
+      bg: "bg-amber-50",
+      iconColor: "text-amber-600",
+      border: "border-amber-200/60",
+    },
+    {
+      title: "Available Slots",
+      value: stats?.availableSlots ?? 0,
+      icon: CalendarDays,
+      bg: "bg-sky-50",
+      iconColor: "text-sky-600",
+      border: "border-sky-200/60",
+    },
+    {
+      title: "Active Providers",
+      value: stats?.activeProviders ?? 0,
+      icon: Users,
+      bg: "bg-violet-50",
+      iconColor: "text-violet-600",
+      border: "border-violet-200/60",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {miniCards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div
+            key={card.title}
+            className={`flex items-center gap-3 rounded-xl border p-4 ${card.border} bg-background hover:shadow-sm transition-shadow`}
+          >
+            <div className={`size-9 rounded-lg ${card.bg} flex items-center justify-center shrink-0`}>
+              <Icon className={`size-4 ${card.iconColor}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground truncate">{card.title}</p>
+              {loading ? (
+                <Skeleton className="h-6 w-8 mt-0.5" />
+              ) : (
+                <p className="text-xl font-bold tracking-tight text-foreground">{card.value}</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -572,6 +658,9 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Today's Overview quick stats */}
+      <TodayOverviewSection clinicId={user?.clinicId ?? null} />
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

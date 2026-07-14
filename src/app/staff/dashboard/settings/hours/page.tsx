@@ -103,8 +103,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function isUpcoming(dateStr: string): boolean {
-  return new Date(dateStr) >= new Date(new Date().toDateString());
+function isUpcoming(startDateStr: string, endDateStr: string): boolean {
+  const today = new Date(new Date().toDateString());
+  return new Date(endDateStr) >= today;
 }
 
 // ---- Main Component ----
@@ -462,6 +463,7 @@ export default function HoursPage() {
                             <Input
                               type="time"
                               value={range.open}
+                              aria-label={`Open time for ${DAY_LABELS[day]}, range ${idx + 1}`}
                               onChange={(e) =>
                                 updateRange(day, idx, "open", e.target.value)
                               }
@@ -471,6 +473,7 @@ export default function HoursPage() {
                             <Input
                               type="time"
                               value={range.close}
+                              aria-label={`Close time for ${DAY_LABELS[day]}, range ${idx + 1}`}
                               onChange={(e) =>
                                 updateRange(day, idx, "close", e.target.value)
                               }
@@ -546,7 +549,7 @@ export default function HoursPage() {
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {closures.map((closure) => {
-                const upcoming = isUpcoming(closure.startDate);
+                const upcoming = isUpcoming(closure.startDate, closure.endDate);
                 return (
                   <div
                     key={closure.id}

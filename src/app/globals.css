@@ -280,6 +280,21 @@
   animation: slideUp 0.4s ease-out;
 }
 
+/* Dashboard page fade-in transition */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Notification badge pulse animation */
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, oklch(0.577 0.245 27.325) 50%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklch, oklch(0.577 0.245 27.325) 0%, transparent); }
+}
+.notification-badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
 /* ========== 14-c: Polish keyframes & utilities ========== */
 
 @keyframes gradient-shift {

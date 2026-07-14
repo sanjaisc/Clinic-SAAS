@@ -1,0 +1,807 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { useRouter } from "next/navigation";
+     6→import Link from "next/link";
+     7→import {
+     8→  CalendarDays,
+     9→  CalendarPlus,
+    10→  Clock,
+    11→  TrendingUp,
+    12→  CheckCircle2,
+    13→  XCircle,
+    14→  AlertTriangle,
+    15→  ArrowRight,
+    16→  Loader2,
+    17→  RefreshCw,
+    18→  Building2,
+    19→  Activity,
+    20→  Phone,
+    21→  Video,
+    22→  UserCheck,
+    23→  BarChart3,
+    24→  CheckCheck,
+    25→  Bell,
+    26→  UserX,
+    27→  CheckCircle,
+    28→  ClipboardList,
+    29→  UserPlus,
+    30→  FileText,
+    31→} from "lucide-react";
+    32→import { Button } from "@/components/ui/button";
+    33→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    34→import { Badge } from "@/components/ui/badge";
+    35→import { Skeleton } from "@/components/ui/skeleton";
+    36→import { format, formatDistanceToNow } from "date-fns";
+    37→import type { DoctASessionUser } from "@/lib/auth";
+    38→import { AUDIT_ACTIONS } from "@/lib/constants";
+    39→
+    40→interface DashboardStats {
+    41→  todayAppointments: number;
+    42→  totalSlotsToday: number;
+    43→  availableSlotsToday: number;
+    44→  bookedToday: number;
+    45→  utilizationPercent: number;
+    46→  upcomingCount: number;
+    47→  totalBookings: number;
+    48→  completedCount: number;
+    49→  cancelledCount: number;
+    50→  noShowCount: number;
+    51→}
+    52→
+    53→interface TodayAppointment {
+    54→  id: string;
+    55→  startTime: string;
+    56→  status: string;
+    57→  patientName: string;
+    58→  patientPhone: string;
+    59→  modality: string;
+    60→  provider: { firstName: string; lastName: string; credentials: string | null };
+    61→  service: { name: string };
+    62→}
+    63→
+    64→interface DashboardData {
+    65→  clinic: { id: string; name: string; slug: string; phoneNumber: string; status: string } | null;
+    66→  today: string;
+    67→  stats: DashboardStats;
+    68→  todayAppointments: TodayAppointment[];
+    69→  upcomingAppointments: TodayAppointment[];
+    70→  recentAppointments: TodayAppointment[];
+    71→}
+    72→
+    73→function StatCard({
+    74→  title,
+    75→  value,
+    76→  subtitle,
+    77→  icon: Icon,
+    78→  gradient,
+    79→  iconBg,
+    80→  trend,
+    81→}: {
+    82→  title: string;
+    83→  value: string | number;
+    84→  subtitle?: string;
+    85→  icon: React.ElementType;
+    86→  gradient: string;
+    87→  iconBg: string;
+    88→  trend?: string;
+    89→}) {
+    90→  return (
+    91→    <Card className="relative overflow-hidden border-border/50 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300">
+    92→      <div className={`absolute inset-x-0 top-0 h-1 ${gradient}`} />
+    93→      {/* Subtle gradient overlay from top */}
+    94→      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
+    95→      <CardContent className="p-5">
+    96→        <div className="flex items-start justify-between">
+    97→          <div className="space-y-2">
+    98→            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+    99→            <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
+   100→            {subtitle && (
+   101→              <p className="text-xs text-muted-foreground">{subtitle}</p>
+   102→            )}
+   103→            {trend && (
+   104→              <div className="flex items-center gap-1 text-xs font-medium">
+   105→                <TrendingUp className="size-3 text-brand" />
+   106→                <span className="text-brand">{trend}</span>
+   107→              </div>
+   108→            )}
+   109→          </div>
+   110→          <div className={`size-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+   111→            <Icon className="size-5" />
+   112→          </div>
+   113→        </div>
+   114→      </CardContent>
+   115→    </Card>
+   116→  );
+   117→}
+   118→
+   119→function AppointmentRow({
+   120→  apt,
+   121→  compact,
+   122→}: {
+   123→  apt: TodayAppointment;
+   124→  compact?: boolean;
+   125→}) {
+   126→  const time = format(new Date(apt.startTime), "h:mm a");
+   127→  const providerName = `Dr. ${apt.provider.firstName} ${apt.provider.lastName}`;
+   128→
+   129→  return (
+   130→    <div
+   131→      className={`flex items-center gap-3 p-3 rounded-xl hover:bg-muted/40 transition-colors group ${
+   132→        compact ? "" : "border border-border/30"
+   133→      }`}
+   134→    >
+   135→      <div className="text-center shrink-0 w-14">
+   136→        <p className="text-sm font-semibold text-foreground">{time}</p>
+   137→      </div>
+   138→      <div className="w-px h-10 bg-border/50 shrink-0" />
+   139→      <div className="flex-1 min-w-0">
+   140→        <p className="text-sm font-medium text-foreground truncate">
+   141→          {apt.patientName}
+   142→        </p>
+   143→        <div className="flex items-center gap-2 mt-0.5">
+   144→          <span className="text-xs text-muted-foreground truncate">
+   145→            {providerName}
+   146→          </span>
+   147→          <span className="text-border">·</span>
+   148→          <span className="text-xs text-muted-foreground truncate">
+   149→            {apt.service.name}
+   150→          </span>
+   151→        </div>
+   152→      </div>
+   153→      <div className="flex items-center gap-2 shrink-0">
+   154→        <Badge
+   155→          variant="outline"
+   156→          className={`text-[10px] px-2 py-0.5 ${
+   157→            apt.modality === "VIDEO"
+   158→              ? "bg-blue-50 text-blue-600 border-blue-200"
+   159→              : "bg-brand-muted text-brand border-brand-border"
+   160→          }`}
+   161→        >
+   162→          {apt.modality === "VIDEO" ? (
+   163→            <Video className="size-2.5 mr-1" />
+   164→          ) : (
+   165→            <Building2 className="size-2.5 mr-1" />
+   166→          )}
+   167→          {apt.modality === "VIDEO" ? "Video" : "In-Clinic"}
+   168→        </Badge>
+   169→        <Badge
+   170→          variant="outline"
+   171→          className={`text-[10px] px-2 py-0.5 ${
+   172→            apt.status === "CHECKED_IN"
+   173→              ? "bg-amber-50 text-amber-700 border-amber-200"
+   174→              : "bg-sky-50 text-sky-700 border-sky-200"
+   175→          }`}
+   176→        >
+   177→          {apt.status === "CHECKED_IN" ? (
+   178→            <UserCheck className="size-2.5 mr-1" />
+   179→          ) : (
+   180→            <Clock className="size-2.5 mr-1" />
+   181→          )}
+   182→          {apt.status === "CHECKED_IN" ? "Checked In" : "Booked"}
+   183→        </Badge>
+   184→      </div>
+   185→    </div>
+   186→  );
+   187→}
+   188→
+   189→function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
+   190→  return (
+   191→    <div className="flex flex-col items-center justify-center py-8 text-center">
+   192→      <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+   193→        <Icon className="size-5 text-muted-foreground" />
+   194→      </div>
+   195→      <p className="text-sm font-medium text-foreground">{title}</p>
+   196→      <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{description}</p>
+   197→    </div>
+   198→  );
+   199→}
+   200→
+   201→// ---- Recent Activity ----
+   202→
+   203→interface ActivityNotification {
+   204→  id: string;
+   205→  action: string;
+   206→  createdAt: string;
+   207→  patientName: string | null;
+   208→  providerName: string | null;
+   209→  serviceName: string | null;
+   210→}
+   211→
+   212→const ACTIVITY_ICON_MAP: Record<string, { icon: React.ElementType; color: string; bg: string; borderColor: string }> = {
+   213→  [AUDIT_ACTIONS.BOOKING_CREATED]: { icon: CalendarPlus, color: "text-brand", bg: "bg-brand-subtle", borderColor: "border-l-brand" },
+   214→  [AUDIT_ACTIONS.BOOKING_CANCELLED]: { icon: XCircle, color: "text-red-500", bg: "bg-red-100", borderColor: "border-l-red-500" },
+   215→  [AUDIT_ACTIONS.BOOKING_CHECKED_IN]: { icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-100", borderColor: "border-l-blue-500" },
+   216→  [AUDIT_ACTIONS.BOOKING_COMPLETED]: { icon: CheckCheck, color: "text-green-600", bg: "bg-green-100", borderColor: "border-l-green-500" },
+   217→  [AUDIT_ACTIONS.BOOKING_NO_SHOW]: { icon: UserX, color: "text-amber-600", bg: "bg-amber-100", borderColor: "border-l-amber-500" },
+   218→};
+   219→
+   220→function getActivityDescription(n: ActivityNotification): string {
+   221→  const patient = n.patientName ?? "Patient";
+   222→  switch (n.action) {
+   223→    case AUDIT_ACTIONS.BOOKING_CREATED:
+   224→      return `New booking for ${patient}`;
+   225→    case AUDIT_ACTIONS.BOOKING_CANCELLED:
+   226→      return `Booking cancelled for ${patient}`;
+   227→    case AUDIT_ACTIONS.BOOKING_CHECKED_IN:
+   228→      return `${patient} checked in`;
+   229→    case AUDIT_ACTIONS.BOOKING_COMPLETED:
+   230→      return `${patient}'s appointment completed`;
+   231→    case AUDIT_ACTIONS.BOOKING_NO_SHOW:
+   232→      return `${patient} did not show up`;
+   233→    default:
+   234→      return n.action;
+   235→  }
+   236→}
+   237→
+   238→function RecentActivitySection({ clinicId }: { clinicId: string | null }) {
+   239→  const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
+   240→  const [loading, setLoading] = useState(true);
+   241→
+   242→  useEffect(() => {
+   243→    if (!clinicId) return;
+   244→    fetch(`/api/staff/notifications?clinicId=${clinicId}`)
+   245→      .then((res) => (res.ok ? res.json() : null))
+   246→      .then((json) => {
+   247→        if (json) setNotifications(json.notifications.slice(0, 5));
+   248→      })
+   249→      .catch(() => {})
+   250→      .finally(() => setLoading(false));
+   251→  }, [clinicId]);
+   252→
+   253→  return (
+   254→    <Card className="border-border/50 shadow-sm overflow-hidden">
+   255→      {/* Subtle gradient header strip */}
+   256→      <div className="h-1 bg-gradient-to-r from-brand to-lavender" />
+   257→      <CardHeader className="pb-3">
+   258→        <div className="flex items-center justify-between">
+   259→          <div className="flex items-center gap-2">
+   260→            <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+   261→              <Bell className="size-4 text-brand" />
+   262→            </div>
+   263→            <div>
+   264→              <CardTitle className="text-base">Recent Activity</CardTitle>
+   265→              <CardDescription className="text-xs">
+   266→                Latest booking events
+   267→              </CardDescription>
+   268→            </div>
+   269→          </div>
+   270→        </div>
+   271→      </CardHeader>
+   272→      <CardContent className="px-4 pb-4">
+   273→        {loading ? (
+   274→          <div className="space-y-3">
+   275→            {[1, 2, 3].map((i) => (
+   276→              <Skeleton key={i} className="h-12 rounded-lg" />
+   277→            ))}
+   278→          </div>
+   279→        ) : notifications.length === 0 ? (
+   280→          <div className="flex flex-col items-center justify-center py-6 text-center">
+   281→            <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+   282→              <Bell className="size-4 text-muted-foreground" />
+   283→            </div>
+   284→            <p className="text-sm text-muted-foreground">No recent activity</p>
+   285→          </div>
+   286→        ) : (
+   287→          <div className="space-y-1">
+   288→            {notifications.map((n) => {
+   289→              const cfg = ACTIVITY_ICON_MAP[n.action];
+   290→              const Icon = cfg?.icon ?? Bell;
+   291→              return (
+   292→                <div
+   293→                  key={n.id}
+   294→                  className={`
+   295→                    flex items-center gap-3 p-2.5 rounded-lg border-l-2
+   296→                    hover:bg-muted/50 transition-colors duration-150
+   297→                    ${cfg?.borderColor ?? "border-l-muted-foreground/30"}
+   298→                  `}
+   299→                >
+   300→                  <div
+   301→                    className={`size-7 rounded-md flex items-center justify-center shrink-0 ${
+   302→                      cfg?.bg ?? "bg-muted"
+   303→                    }`}
+   304→                  >
+   305→                    <Icon className={`size-3.5 ${cfg?.color ?? "text-muted-foreground"}`} />
+   306→                  </div>
+   307→                  <div className="flex-1 min-w-0">
+   308→                    <p className="text-sm text-foreground truncate">
+   309→                      {getActivityDescription(n)}
+   310→                    </p>
+   311→                    <p className="text-xs text-muted-foreground truncate">
+   312→                      {n.providerName && <span>{n.providerName}</span>}
+   313→                      {n.providerName && n.serviceName && <span> &middot; </span>}
+   314→                      {n.serviceName && <span>{n.serviceName}</span>}
+   315→                    </p>
+   316→                  </div>
+   317→                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+   318→                    {formatDistanceToNow(new Date(n.createdAt), {
+   319→                      addSuffix: true,
+   320→                    })}
+   321→                  </span>
+   322→                </div>
+   323→              );
+   324→            })}
+   325→            <Link
+   326→              href="/staff/dashboard/activity"
+   327→              className="w-full flex items-center justify-center gap-1 pt-2 text-xs font-medium text-brand hover:text-brand-hover transition-colors"
+   328→            >
+   329→              View all
+   330→              <ArrowRight className="size-3" />
+   331→            </Link>
+   332→          </div>
+   333→        )}
+   334→      </CardContent>
+   335→    </Card>
+   336→  );
+   337→}
+   338→
+   339→// ---- Audit Log Activity ----
+   340→
+   341→interface AuditLogEntry {
+   342→  id: string;
+   343→  action: string;
+   344→  targetType: string | null;
+   345→  userName: string;
+   346→  createdAt: string;
+   347→}
+   348→
+   349→const AUDIT_BADGE_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className: string }> = {
+   350→  BOOKING_CREATED: { label: "Created", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+   351→  BOOKING_CANCELLED: { label: "Cancelled", variant: "default", className: "bg-red-100 text-red-800 border-red-200" },
+   352→  BOOKING_CHECKED_IN: { label: "Checked In", variant: "default", className: "bg-blue-100 text-blue-800 border-blue-200" },
+   353→  BOOKING_COMPLETED: { label: "Completed", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+   354→  BOOKING_NO_SHOW: { label: "No Show", variant: "default", className: "bg-amber-100 text-amber-800 border-amber-200" },
+   355→  BOOKING_RESCHEDULED: { label: "Rescheduled", variant: "default", className: "bg-purple-100 text-purple-800 border-purple-200" },
+   356→  SLOT_BLOCKED: { label: "Blocked", variant: "secondary", className: "" },
+   357→  SLOT_UNBLOCKED: { label: "Unblocked", variant: "secondary", className: "" },
+   358→  CLINIC_UPDATED: { label: "Clinic", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+   359→  PROVIDER_CREATED: { label: "Provider", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+   360→  PROVIDER_UPDATED: { label: "Provider", variant: "default", className: "bg-brand-subtle text-brand border-brand-border" },
+   361→  STAFF_INVITATION_CREATED: { label: "Invited", variant: "default", className: "bg-sky-100 text-sky-800 border-sky-200" },
+   362→  STAFF_INVITATION_ACCEPTED: { label: "Accepted", variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+   363→  STAFF_INVITATION_REVOKED: { label: "Revoked", variant: "default", className: "bg-red-100 text-red-800 border-red-200" },
+   364→  TEMPLATE_CREATED: { label: "Template", variant: "secondary", className: "" },
+   365→  TEMPLATE_UPDATED: { label: "Template", variant: "secondary", className: "" },
+   366→};
+   367→
+   368→function formatAuditAction(action: string): string {
+   369→  return action.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+   370→}
+   371→
+   372→function AuditLogActivitySection({ clinicId }: { clinicId: string | null }) {
+   373→  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+   374→  const [loading, setLoading] = useState(true);
+   375→
+   376→  useEffect(() => {
+   377→    if (!clinicId) return;
+   378→    fetch(`/api/staff/audit-logs?clinicId=${clinicId}&limit=5`)
+   379→      .then((res) => (res.ok ? res.json() : null))
+   380→      .then((json) => {
+   381→        if (json) setLogs(json.logs);
+   382→      })
+   383→      .catch(() => {})
+   384→      .finally(() => setLoading(false));
+   385→  }, [clinicId]);
+   386→
+   387→  return (
+   388→    <Card className="border-border/50 shadow-sm overflow-hidden">
+   389→      <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
+   390→      <CardHeader className="pb-3">
+   391→        <div className="flex items-center justify-between">
+   392→          <div className="flex items-center gap-2">
+   393→            <div className="size-8 rounded-lg bg-purple-100 flex items-center justify-center">
+   394→              <ClipboardList className="size-4 text-purple-600" />
+   395→            </div>
+   396→            <div>
+   397→              <CardTitle className="text-base">Audit Trail</CardTitle>
+   398→              <CardDescription className="text-xs">
+   399→                Recent system activity for your clinic
+   400→              </CardDescription>
+   401→            </div>
+   402→          </div>
+   403→        </div>
+   404→      </CardHeader>
+   405→      <CardContent className="px-4 pb-4">
+   406→        {loading ? (
+   407→          <div className="space-y-3">
+   408→            {[1, 2, 3].map((i) => (
+   409→              <Skeleton key={i} className="h-10 rounded-lg" />
+   410→            ))}
+   411→          </div>
+   412→        ) : logs.length === 0 ? (
+   413→          <div className="flex flex-col items-center justify-center py-6 text-center">
+   414→            <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+   415→              <ClipboardList className="size-4 text-muted-foreground" />
+   416→            </div>
+   417→            <p className="text-sm text-muted-foreground">No audit log entries</p>
+   418→          </div>
+   419→        ) : (
+   420→          <div className="space-y-1.5">
+   421→            {logs.map((log) => {
+   422→              const badgeConfig = AUDIT_BADGE_CONFIG[log.action];
+   423→              return (
+   424→                <div
+   425→                  key={log.id}
+   426→                  className="flex items-center gap-3 p-2.5 rounded-lg border-l-2 border-l-purple-400 hover:bg-muted/50 transition-colors duration-150"
+   427→                >
+   428→                  <div className="size-7 rounded-md bg-purple-100 flex items-center justify-center shrink-0">
+   429→                    {log.action.includes("BOOKING") ? (
+   430→                      <CalendarDays className="size-3.5 text-purple-600" />
+   431→                    ) : log.action.includes("SLOT") ? (
+   432→                      <Clock className="size-3.5 text-purple-600" />
+   433→                    ) : log.action.includes("CLINIC") || log.action.includes("PROVIDER") ? (
+   434→                      <Building2 className="size-3.5 text-purple-600" />
+   435→                    ) : log.action.includes("STAFF") || log.action.includes("INVITATION") ? (
+   436→                      <UserPlus className="size-3.5 text-purple-600" />
+   437→                    ) : log.action.includes("TEMPLATE") ? (
+   438→                      <FileText className="size-3.5 text-purple-600" />
+   439→                    ) : (
+   440→                      <Activity className="size-3.5 text-purple-600" />
+   441→                    )}
+   442→                  </div>
+   443→                  <div className="flex-1 min-w-0">
+   444→                    <div className="flex items-center gap-2">
+   445→                      <p className="text-sm text-foreground truncate">
+   446→                        {formatAuditAction(log.action)}
+   447→                      </p>
+   448→                      {badgeConfig && (
+   449→                        <Badge
+   450→                          variant={badgeConfig.variant}
+   451→                          className={`text-[10px] px-1.5 py-0 h-4 ${badgeConfig.className}`}
+   452→                        >
+   453→                          {badgeConfig.label}
+   454→                        </Badge>
+   455→                      )}
+   456→                    </div>
+   457→                    <p className="text-xs text-muted-foreground truncate">
+   458→                      by {log.userName}
+   459→                    </p>
+   460→                  </div>
+   461→                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+   462→                    {formatDistanceToNow(new Date(log.createdAt), {
+   463→                      addSuffix: true,
+   464→                    })}
+   465→                  </span>
+   466→                </div>
+   467→              );
+   468→            })}
+   469→          </div>
+   470→        )}
+   471→      </CardContent>
+   472→    </Card>
+   473→  );
+   474→}
+   475→
+   476→export default function DashboardPage() {
+   477→  const { data: session, status } = useSession();
+   478→  const router = useRouter();
+   479→  const [data, setData] = useState<DashboardData | null>(null);
+   480→  const [loading, setLoading] = useState(true);
+   481→  const [error, setError] = useState<string | null>(null);
+   482→
+   483→  const user = session?.user as DoctASessionUser | undefined;
+   484→
+   485→  const fetchDashboard = useCallback(async () => {
+   486→    if (!user?.clinicId) return;
+   487→    setLoading(true);
+   488→    setError(null);
+   489→    try {
+   490→      const res = await fetch(`/api/staff/dashboard?clinicId=${user.clinicId}`);
+   491→      if (!res.ok) throw new Error("Failed to fetch dashboard");
+   492→      const json = await res.json();
+   493→      setData(json);
+   494→    } catch (err) {
+   495→      setError(err instanceof Error ? err.message : "Unknown error");
+   496→    } finally {
+   497→      setLoading(false);
+   498→    }
+   499→  }, [user?.clinicId]);
+   500→
+   501→  useEffect(() => {
+   502→    if (status === "authenticated") fetchDashboard();
+   503→  }, [status, fetchDashboard]);
+   504→
+   505→  if (status === "loading" || !user) {
+   506→    return (
+   507→      <div className="space-y-6">
+   508→        <Skeleton className="h-8 w-64" />
+   509→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   510→          {[1, 2, 3, 4].map((i) => (
+   511→            <Skeleton key={i} className="h-32 rounded-xl" />
+   512→          ))}
+   513→        </div>
+   514→        <Skeleton className="h-80 rounded-xl" />
+   515→      </div>
+   516→    );
+   517→  }
+   518→
+   519→  if (error) {
+   520→    return (
+   521→      <Card className="border-red-200 bg-red-50/30">
+   522→        <CardContent className="flex flex-col items-center justify-center py-12">
+   523→          <AlertTriangle className="size-8 text-red-400 mb-3" />
+   524→          <p className="text-sm font-medium text-red-800">Failed to load dashboard</p>
+   525→          <p className="text-xs text-red-600 mt-1">{error}</p>
+   526→          <Button
+   527→            variant="outline"
+   528→            size="sm"
+   529→            className="mt-4 cursor-pointer"
+   530→            onClick={fetchDashboard}
+   531→          >
+   532→            <RefreshCw className="size-3.5 mr-2" />
+   533→            Retry
+   534→          </Button>
+   535→        </CardContent>
+   536→      </Card>
+   537→    );
+   538→  }
+   539→
+   540→  if (!data) return null;
+   541→
+   542→  return (
+   543→    <div className="space-y-6 animate-in fade-in-0 duration-300">
+   544→      {/* Page header */}
+   545→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   546→        <div>
+   547→          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+   548→            Dashboard
+   549→          </h1>
+   550→          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+   551→            <Activity className="size-3.5" />
+   552→            {data.today}
+   553→          </p>
+   554→        </div>
+   555→        <div className="flex items-center gap-2">
+   556→          <Button
+   557→            variant="outline"
+   558→            size="sm"
+   559→            className="cursor-pointer"
+   560→            onClick={() => router.push("/staff/dashboard/calendar")}
+   561→          >
+   562→            <CalendarDays className="size-3.5 mr-2" />
+   563→            Calendar
+   564→          </Button>
+   565→          <Button
+   566→            size="sm"
+   567→            className="bg-brand hover:bg-brand-hover text-white shadow-sm shadow-brand/20 cursor-pointer"
+   568→            onClick={() => router.push("/staff/dashboard/book")}
+   569→          >
+   570→            <CalendarPlus className="size-3.5 mr-2" />
+   571→            Manual Booking
+   572→          </Button>
+   573→        </div>
+   574→      </div>
+   575→
+   576→      {/* Stat cards */}
+   577→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   578→        <StatCard
+   579→          title="Today's Appointments"
+   580→          value={data.stats.todayAppointments}
+   581→          subtitle={`${data.stats.bookedToday} of ${data.stats.totalSlotsToday} slots filled`}
+   582→          icon={CalendarDays}
+   583→          gradient="bg-gradient-to-r from-brand to-lavender"
+   584→          iconBg="bg-brand-subtle text-brand"
+   585→          trend={`${data.stats.utilizationPercent}% utilization`}
+   586→        />
+   587→        <StatCard
+   588→          title="Checked In"
+   589→          value={data.todayAppointments.filter(a => a.status === "CHECKED_IN").length}
+   590→          subtitle="Currently waiting"
+   591→          icon={UserCheck}
+   592→          gradient="bg-gradient-to-r from-blue-500 to-indigo-500"
+   593→          iconBg="bg-blue-100 text-blue-600"
+   594→        />
+   595→        <StatCard
+   596→          title="Upcoming"
+   597→          value={data.stats.upcomingCount}
+   598→          subtitle="Appointments in next 7 days"
+   599→          icon={Clock}
+   600→          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+   601→          iconBg="bg-amber-100 text-amber-600"
+   602→        />
+   603→        <StatCard
+   604→          title="Total Bookings"
+   605→          value={data.stats.totalBookings}
+   606→          subtitle={`${data.stats.completedCount} completed · ${data.stats.cancelledCount} cancelled · ${data.stats.noShowCount} no-shows`}
+   607→          icon={BarChart3}
+   608→          gradient="bg-gradient-to-r from-purple-500 to-pink-500"
+   609→          iconBg="bg-purple-100 text-purple-600"
+   610→        />
+   611→      </div>
+   612→
+   613→      {/* Gradient divider */}
+   614→      <div className="h-px bg-gradient-to-r from-brand-subtle/30 via-brand-muted/50 to-transparent" />
+   615→
+   616→      {/* Two-column layout */}
+   617→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   618→        {/* Today's schedule — takes 2 columns */}
+   619→        <Card className="lg:col-span-2 border-border/50 shadow-sm">
+   620→          <CardHeader className="pb-3">
+   621→            <div className="flex items-center justify-between">
+   622→              <div className="flex items-center gap-2">
+   623→                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+   624→                  <Activity className="size-4 text-brand" />
+   625→                </div>
+   626→                <div>
+   627→                  <div className="flex items-center gap-2">
+   628→                    <CardTitle className="text-base">Today&apos;s Schedule</CardTitle>
+   629→                    {data.stats.upcomingCount > 0 && (
+   630→                      <span className="relative flex h-2.5 w-2.5">
+   631→                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+   632→                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-muted" />
+   633→                      </span>
+   634→                    )}
+   635→                  </div>
+   636→                  <CardDescription className="text-xs">
+   637→                    {data.stats.todayAppointments} appointment{data.stats.todayAppointments !== 1 ? "s" : ""} today
+   638→                  </CardDescription>
+   639→                </div>
+   640→              </div>
+   641→              <Button
+   642→                variant="ghost"
+   643→                size="sm"
+   644→                className="text-xs cursor-pointer"
+   645→                onClick={() => router.push("/staff/dashboard/appointments")}
+   646→              >
+   647→                View all
+   648→                <ArrowRight className="size-3 ml-1" />
+   649→              </Button>
+   650→            </div>
+   651→          </CardHeader>
+   652→          <CardContent className="px-4 pb-4">
+   653→            {loading ? (
+   654→              <div className="space-y-3">
+   655→                {[1, 2, 3].map((i) => (
+   656→                  <Skeleton key={i} className="h-16 rounded-xl" />
+   657→                ))}
+   658→              </div>
+   659→            ) : data.todayAppointments.length === 0 ? (
+   660→              <EmptyState
+   661→                icon={CalendarDays}
+   662→                title="No appointments today"
+   663→                description="Your schedule is clear. Use Manual Booking to add one."
+   664→              />
+   665→            ) : (
+   666→              <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar">
+   667→                {data.todayAppointments.map((apt) => (
+   668→                  <AppointmentRow key={apt.id} apt={apt} />
+   669→                ))}
+   670→              </div>
+   671→            )}
+   672→          </CardContent>
+   673→        </Card>
+   674→
+   675→        {/* Quick actions + summary */}
+   676→        <div className="space-y-4">
+   677→          {/* Quick actions */}
+   678→          <Card className="border-border/50 shadow-sm">
+   679→            <CardHeader className="pb-3">
+   680→              <CardTitle className="text-base flex items-center gap-2">
+   681→                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+   682→                  <TrendingUp className="size-4 text-brand" />
+   683→                </div>
+   684→                Quick Actions
+   685→              </CardTitle>
+   686→            </CardHeader>
+   687→            <CardContent className="space-y-2 px-4 pb-4">
+   688→              <button
+   689→                onClick={() => router.push("/staff/dashboard/book")}
+   690→                className="w-full flex items-center gap-3 p-3 rounded-xl bg-brand-muted hover:bg-brand-subtle border border-brand-border transition-all text-left cursor-pointer group"
+   691→              >
+   692→                <div className="size-9 rounded-lg bg-brand flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+   693→                  <CalendarPlus className="size-4 text-white" />
+   694→                </div>
+   695→                <div>
+   696→                  <p className="text-sm font-medium text-brand">New Booking</p>
+   697→                  <p className="text-xs text-brand-hover/70">Book for a phone-in patient</p>
+   698→                </div>
+   699→                <ArrowRight className="size-4 text-brand ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+   700→              </button>
+   701→
+   702→              <button
+   703→                onClick={() => router.push("/staff/dashboard/calendar")}
+   704→                className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition-all text-left cursor-pointer group"
+   705→              >
+   706→                <div className="size-9 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+   707→                  <CalendarDays className="size-4 text-white" />
+   708→                </div>
+   709→                <div>
+   710→                  <p className="text-sm font-medium text-blue-900">View Calendar</p>
+   711→                  <p className="text-xs text-blue-700/70">See daily schedule grid</p>
+   712→                </div>
+   713→                <ArrowRight className="size-4 text-blue-400 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+   714→              </button>
+   715→
+   716→              <button
+   717→                onClick={() => router.push("/staff/dashboard/slots")}
+   718→                className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/60 transition-all text-left cursor-pointer group"
+   719→              >
+   720→                <div className="size-9 rounded-lg bg-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+   721→                  <Clock className="size-4 text-white" />
+   722→                </div>
+   723→                <div>
+   724→                  <p className="text-sm font-medium text-amber-900">Manage Slots</p>
+   725→                  <p className="text-xs text-amber-700/70">Block or free time slots</p>
+   726→                </div>
+   727→                <ArrowRight className="size-4 text-amber-400 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+   728→              </button>
+   729→            </CardContent>
+   730→          </Card>
+   731→
+   732→          {/* Performance summary */}
+   733→          <Card className="border-border/50 shadow-sm">
+   734→            <CardHeader className="pb-3">
+   735→              <CardTitle className="text-base flex items-center gap-2">
+   736→                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+   737→                  <BarChart3 className="size-4 text-brand" />
+   738→                </div>
+   739→                Performance
+   740→              </CardTitle>
+   741→            </CardHeader>
+   742→            <CardContent className="px-4 pb-4">
+   743→              {/* Utilization bar */}
+   744→              <div className="space-y-4">
+   745→                <div>
+   746→                  <div className="flex items-center justify-between text-xs mb-1.5">
+   747→                    <span className="font-medium text-muted-foreground">Today&apos;s Utilization</span>
+   748→                    <span className="font-semibold text-foreground">{data.stats.utilizationPercent}%</span>
+   749→                  </div>
+   750→                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+   751→                    <div
+   752→                      className={`h-full rounded-full transition-all duration-700 ${
+   753→                        data.stats.utilizationPercent >= 80
+   754→                          ? "bg-brand-muted"
+   755→                          : data.stats.utilizationPercent >= 50
+   756→                          ? "bg-amber-500"
+   757→                          : "bg-red-400"
+   758→                      }`}
+   759→                      style={{ width: `${Math.min(data.stats.utilizationPercent, 100)}%` }}
+   760→                    />
+   761→                  </div>
+   762→                </div>
+   763→
+   764→                <div className="grid grid-cols-2 gap-3">
+   765→                  <div className="p-3 rounded-xl bg-brand-muted/60 border border-brand-muted">
+   766→                    <div className="flex items-center gap-1.5 mb-1">
+   767→                      <CheckCircle2 className="size-3.5 text-brand" />
+   768→                      <span className="text-xs text-brand-hover font-medium">Completed</span>
+   769→                    </div>
+   770→                    <p className="text-xl font-bold text-brand">{data.stats.completedCount}</p>
+   771→                  </div>
+   772→                  <div className="p-3 rounded-xl bg-red-50/60 border border-red-100">
+   773→                    <div className="flex items-center gap-1.5 mb-1">
+   774→                      <XCircle className="size-3.5 text-red-500" />
+   775→                      <span className="text-xs text-red-700 font-medium">Cancelled</span>
+   776→                    </div>
+   777→                    <p className="text-xl font-bold text-red-800">{data.stats.cancelledCount}</p>
+   778→                  </div>
+   779→                  <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+   780→                    <div className="flex items-center gap-1.5 mb-1">
+   781→                      <AlertTriangle className="size-3.5 text-amber-600" />
+   782→                      <span className="text-xs text-amber-700 font-medium">No-shows</span>
+   783→                    </div>
+   784→                    <p className="text-xl font-bold text-amber-800">{data.stats.noShowCount}</p>
+   785→                  </div>
+   786→                  <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-100">
+   787→                    <div className="flex items-center gap-1.5 mb-1">
+   788→                      <Phone className="size-3.5 text-sky-600" />
+   789→                      <span className="text-xs text-sky-700 font-medium">Available</span>
+   790→                    </div>
+   791→                    <p className="text-xl font-bold text-sky-800">{data.stats.availableSlotsToday}</p>
+   792→                  </div>
+   793→                </div>
+   794→              </div>
+   795→            </CardContent>
+   796→          </Card>
+   797→        </div>
+   798→      </div>
+   799→
+   800→      {/* Recent Activity */}
+   801→      <RecentActivitySection clinicId={user.clinicId} />
+   802→
+   803→      {/* Audit Trail */}
+   804→      <AuditLogActivitySection clinicId={user.clinicId} />
+   805→    </div>
+   806→  );
+   807→}

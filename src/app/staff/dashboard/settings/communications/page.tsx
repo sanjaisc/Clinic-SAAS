@@ -991,6 +991,8 @@ export default function CommunicationsPage() {
                       onChange={(e) =>
                         updateFormMapping(service.id, e.target.value)
                       }
+                      pattern="[0-9a-zA-Z_-]+"
+                      title="Alphanumeric characters, hyphens, and underscores only"
                       className="w-40 h-8 text-sm"
                     />
                   </div>

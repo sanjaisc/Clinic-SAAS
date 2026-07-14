@@ -746,3 +746,32 @@ Stage Summary:
 - Files created: `src/components/settings-breadcrumb.tsx`
 - Files modified: `providers/page.tsx`, `hours/page.tsx`, `services/page.tsx`, `financial/page.tsx`, `admin/clinics/page.tsx`, `admin/providers/page.tsx`, `admin/analytics/page.tsx`, `profile/page.tsx`, `communications/page.tsx`, `staff/page.tsx`
 - ESLint: 0 errors
+
+---
+Task ID: QA-Cycle-3
+Agent: Main Orchestrator + 2 parallel Full-Stack Agents
+Task: Fix remaining audit issues, add dashboard stats, polish UI interactions
+
+Work Log:
+- **Gallery key fix** (`profile/page.tsx`): Changed `key={idx}` → `key={url}` for gallery items (URLs are unique)
+- **Time aria-labels** (`hours/page.tsx`): Added dynamic `aria-label` to all open/close time inputs (e.g., "Open time for Monday, range 1")
+- **isUpcoming fix** (`hours/page.tsx`): Now checks `endDate >= today` instead of only `startDate`, fixing multi-day closure display
+- **Form ID validation** (`communications/page.tsx`): Added `pattern` and `title` attributes to intake form ID input
+- **Promise.allSettled** (`financial/page.tsx`): Replaced `Promise.all` → `Promise.allSettled` for payment type saves; shows specific error naming which services failed
+- **Dashboard Quick Stats** (NEW): Created `GET /api/staff/dashboard-stats?clinicId=X` API returning 4 counts (today's appointments, pending bookings, available slots, active providers). Added `TodayOverviewSection` with 4 styled mini stat cards in responsive grid
+- **Template loading protection** (`providers/page.tsx`): Added `templateActionLoading` state; delete and toggle buttons now disable + show spinner during async operations
+- **Sidebar polish** (`dashboard/layout.tsx`): Stronger brand-colored active indicator, gradient bottom section for user area
+- **Login page enhancements** (`staff/login/page.tsx`): Added "Remember me" checkbox, focus ring animations on inputs, "Secure clinic management platform" footer text, underline animation on forgot password link
+- **Notification badge pulse** (`globals.css` + `notification-bell.tsx`): Red badge color + pulse animation when unread count > 0
+- **Page transitions** (`dashboard/layout.tsx` + `globals.css`): Added `@keyframes pageIn` fade+slide animation, applied to `<main>` with pathname-based key for route-change transitions
+
+Stage Summary:
+- 5 remaining audit issues fixed (all LOW priority items resolved)
+- 1 new API route created (dashboard-stats)
+- 1 new UI section (Today's Overview stats)
+- 3 pages received interaction/styling polish (sidebar, login, notifications)
+- Page transition animations added across all dashboard routes
+- Files created: `src/app/api/staff/dashboard-stats/route.ts`
+- Files modified: `profile/page.tsx`, `hours/page.tsx`, `communications/page.tsx`, `financial/page.tsx`, `providers/page.tsx`, `dashboard/page.tsx`, `dashboard/layout.tsx`, `staff/login/page.tsx`, `notification-bell.tsx`, `globals.css`
+- ESLint: 0 errors
+- All audit items from the original 24-issue report are now RESOLVED
