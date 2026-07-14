@@ -775,3 +775,29 @@ Stage Summary:
 - Files modified: `profile/page.tsx`, `hours/page.tsx`, `communications/page.tsx`, `financial/page.tsx`, `providers/page.tsx`, `dashboard/page.tsx`, `dashboard/layout.tsx`, `staff/login/page.tsx`, `notification-bell.tsx`, `globals.css`
 - ESLint: 0 errors
 - All audit items from the original 24-issue report are now RESOLVED
+
+---
+Task ID: appointments-dropdown-fix
+Agent: Main Orchestrator
+Task: Fix appointment action dropdown showing only "View Details" for most statuses
+
+Work Log:
+- Analyzed the AppointmentActions dropdown component in src/app/staff/dashboard/appointments/page.tsx
+- Identified root cause: dropdown actions were heavily gated by status, with CONFIRMED missing 4 actions and COMPLETED/CANCELLED/NO_SHOW showing only View Details
+- Expanded conditional rendering for all appointment statuses:
+  - CONFIRMED: Added Check In, Reschedule, Cancel, Mark No Show (previously only had QR Code)
+  - CANCELLED: Added Reschedule (for rebooking)
+  - NO_SHOW: Added Reschedule (for rebooking)
+  - BOOKED: Now also shows Send Video Link when modality is VIDEO
+  - CONFIRMED: Now also shows Send Video Link when modality is VIDEO
+  - CHECKED_IN: Now also shows Send Video Link when modality is VIDEO
+- Added `data-video-link-section` attribute to the telehealth section in the detail dialog for scroll-to targeting
+- Widened dropdown from w-44 to w-48 for better text fit
+- Verified: lint passes clean
+- Note: Dev server OOM issues in sandbox (known constraint from previous session) — code-only verification via lint + code review
+
+Stage Summary:
+- Before: BOOKED had 6 actions, CONFIRMED had 1 (QR Code), CHECKED_IN had 2, COMPLETED/CANCELLED/NO_SHOW had 1 (View Details only)
+- After: BOOKED has 7, CONFIRMED has 6, CHECKED_IN has 3, CANCELLED has 2, NO_SHOW has 2, COMPLETED has 1 (appropriate — terminal state)
+- New "Send Video Link" action for VIDEO modality appointments in BOOKED/CONFIRMED/CHECKED_IN statuses
+- File modified: src/app/staff/dashboard/appointments/page.tsx (lines 915-1001)

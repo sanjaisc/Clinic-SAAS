@@ -912,13 +912,14 @@ export default function AppointmentsPage() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
           <Eye className="size-3.5 mr-2" />
           View Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {apt.status === "BOOKED" && (
+        {/* Check In — available for BOOKED and CONFIRMED */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
           <DropdownMenuItem
             onClick={() => handleTransition(apt.id, "CHECKED_IN")}
             className="cursor-pointer"
@@ -927,15 +928,7 @@ export default function AppointmentsPage() {
             Check In
           </DropdownMenuItem>
         )}
-        {apt.status === "BOOKED" && (
-          <DropdownMenuItem
-            onClick={() => openReschedule(apt)}
-            className="cursor-pointer"
-          >
-            <RefreshCw className="size-3.5 mr-2 text-blue-600" />
-            Reschedule
-          </DropdownMenuItem>
-        )}
+        {/* Complete — available for CHECKED_IN */}
         {apt.status === "CHECKED_IN" && (
           <DropdownMenuItem
             onClick={() => handleTransition(apt.id, "COMPLETED")}
@@ -945,7 +938,18 @@ export default function AppointmentsPage() {
             Complete
           </DropdownMenuItem>
         )}
-        {(apt.status === "BOOKED" || apt.status === "CHECKED_IN") && (
+        {/* Reschedule — available for BOOKED, CONFIRMED, CANCELLED, NO_SHOW */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+          <DropdownMenuItem
+            onClick={() => openReschedule(apt)}
+            className="cursor-pointer"
+          >
+            <RefreshCw className="size-3.5 mr-2 text-blue-600" />
+            Reschedule
+          </DropdownMenuItem>
+        )}
+        {/* Cancel — available for BOOKED, CONFIRMED, CHECKED_IN */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
           <DropdownMenuItem
             onClick={() => handleTransition(apt.id, "CANCELLED")}
             className="cursor-pointer text-red-600 focus:text-red-600"
@@ -954,7 +958,18 @@ export default function AppointmentsPage() {
             Cancel
           </DropdownMenuItem>
         )}
+        {/* Mark No Show — available for BOOKED and CONFIRMED */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+          <DropdownMenuItem
+            onClick={() => handleTransition(apt.id, "NO_SHOW")}
+            className="cursor-pointer"
+          >
+            <UserX className="size-3.5 mr-2" />
+            Mark No Show
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
+        {/* QR Code — available for BOOKED and CONFIRMED */}
         {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
           <DropdownMenuItem
             onClick={() => {
@@ -967,13 +982,20 @@ export default function AppointmentsPage() {
             QR Code
           </DropdownMenuItem>
         )}
-        {apt.status === "BOOKED" && (
+        {/* Send Video Link — available for VIDEO modality in active statuses */}
+        {apt.modality === "VIDEO" && (apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
           <DropdownMenuItem
-            onClick={() => handleTransition(apt.id, "NO_SHOW")}
+            onClick={async () => {
+              await openDetail(apt.id);
+              setTimeout(() => {
+                const el = document.querySelector("[data-video-link-section]");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }, 400);
+            }}
             className="cursor-pointer"
           >
-            <UserX className="size-3.5 mr-2" />
-            Mark No Show
+            <Video className="size-3.5 mr-2 text-purple-600" />
+            Send Video Link
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
@@ -2218,7 +2240,7 @@ export default function AppointmentsPage() {
 
                 {/* Feature 5.1 & 5.2: Telehealth / Video Link Section */}
                 {detail.modality === "VIDEO" && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                  <div data-video-link-section className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
                     <h4 className="text-sm font-semibold flex items-center gap-2 text-blue-700">
                       <Video className="size-4" />
                       Telehealth
