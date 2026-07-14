@@ -349,7 +349,7 @@ export default function AdminProvidersPage() {
                       const fullName = `${provider.firstName} ${provider.lastName}`;
 
                       return (
-                        <TableRow key={provider.id}>
+                        <TableRow key={provider.id} className="transition-colors hover:bg-muted/50">
                           <TableCell>
                             <div className="flex items-center gap-2.5">
                               <div className="flex items-center justify-center size-8 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold shrink-0">

@@ -760,7 +760,7 @@ function ClinicTableRow({
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
       <CollapsibleTrigger asChild>
-        <TableRow className="cursor-pointer group">
+        <TableRow className="cursor-pointer group transition-colors hover:bg-muted/50">
           <TableCell className="w-8">
             {isExpanded ? (
               <ChevronUp className="size-4 text-muted-foreground" />

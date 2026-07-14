@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   DollarSign,
   Clock,
@@ -15,6 +16,7 @@ import {
   ArrowRightLeft,
   HeartHandshake,
   Stethoscope,
+  AlertCircle,
 } from "lucide-react";
 import type { DoctASessionUser } from "@/lib/auth";
 import { useActiveClinicId } from "@/components/active-clinic-context";
@@ -108,6 +110,7 @@ export default function FinancialSettingsPage() {
 
   const [data, setData] = useState<FinancialData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -146,7 +149,9 @@ export default function FinancialSettingsPage() {
       setPaymentTypes(ptMap);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load financial settings");
+      const msg = err instanceof Error ? err.message : "Failed to fetch financial settings";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -255,6 +260,27 @@ export default function FinancialSettingsPage() {
     setPaymentTypes((prev) => ({ ...prev, [serviceId]: value }));
   };
 
+  // ---- Error State ----
+  if (loadError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="size-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Failed to load financial settings</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={() => { setLoadError(null); fetchData(); }} className="gap-2">
+            <RefreshCw className="size-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -270,6 +296,7 @@ export default function FinancialSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Financial & Policies" }]} />
       {/* Card 1: Deposit Configuration */}
       <Card>
         <CardHeader>

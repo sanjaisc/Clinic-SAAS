@@ -1,0 +1,642 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback } from "react";
+     4→import { toast } from "sonner";
+     5→import {
+     6→  Search,
+     7→  Filter,
+     8→  Star,
+     9→  Loader2,
+    10→  UserCog,
+    11→  Globe,
+    12→  Clock,
+    13→  GraduationCap,
+    14→} from "lucide-react";
+    15→import {
+    16→  Card,
+    17→  CardContent,
+    18→} from "@/components/ui/card";
+    19→import { Input } from "@/components/ui/input";
+    20→import { Button } from "@/components/ui/button";
+    21→import { Badge } from "@/components/ui/badge";
+    22→import {
+    23→  Select,
+    24→  SelectContent,
+    25→  SelectItem,
+    26→  SelectTrigger,
+    27→  SelectValue,
+    28→} from "@/components/ui/select";
+    29→import {
+    30→  Dialog,
+    31→  DialogContent,
+    32→  DialogHeader,
+    33→  DialogTitle,
+    34→  DialogDescription,
+    35→  DialogFooter,
+    36→} from "@/components/ui/dialog";
+    37→import {
+    38→  Table,
+    39→  TableBody,
+    40→  TableCell,
+    41→  TableHead,
+    42→  TableHeader,
+    43→  TableRow,
+    44→} from "@/components/ui/table";
+    45→import { Skeleton } from "@/components/ui/skeleton";
+    46→import { Textarea } from "@/components/ui/textarea";
+    47→import { Label } from "@/components/ui/label";
+    48→import { Separator } from "@/components/ui/separator";
+    49→import {
+    50→  PROVIDER_STATUS,
+    51→  PROVIDER_STATUSES,
+    52→  CLINIC_STATUS,
+    53→  CLINIC_STATUSES,
+    54→} from "@/lib/enums";
+    55→
+    56→// ─── Types ───────────────────────────────────────────────────────────────────
+    57→
+    58→interface ClinicOption {
+    59→  id: string;
+    60→  name: string;
+    61→  status: string;
+    62→}
+    63→
+    64→interface ProviderRow {
+    65→  id: string;
+    66→  clinicId: string;
+    67→  firstName: string;
+    68→  lastName: string;
+    69→  credentials: string | null;
+    70→  slug: string;
+    71→  npiNumber: string | null;
+    72→  yearsExperience: number | null;
+    73→  rating: number;
+    74→  reviewCount: number;
+    75→  slotDurationMinutes: number;
+    76→  status: string;
+    77→  videoVisitLink: string | null;
+    78→  createdAt: string;
+    79→  updatedAt: string;
+    80→  clinic: { id: string; name: string; slug: string; status: string };
+    81→  languages: string[];
+    82→  _count: {
+    83→    appointments: number;
+    84→    providerServices: number;
+    85→    slotTemplates: number;
+    86→  };
+    87→}
+    88→
+    89→// ─── Status badge config ────────────────────────────────────────────────────
+    90→
+    91→const PROVIDER_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+    92→  ACTIVE: {
+    93→    label: "Active",
+    94→    className: "bg-brand-muted text-brand-hover border-brand-border  ",
+    95→  },
+    96→  INACTIVE: {
+    97→    label: "Inactive",
+    98→    className: "bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+    99→  },
+   100→  SUSPENDED: {
+   101→    label: "Suspended",
+   102→    className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800",
+   103→  },
+   104→};
+   105→
+   106→const CLINIC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+   107→  PUBLISHED: {
+   108→    label: "Published",
+   109→    className: "bg-brand-muted text-brand border-brand-border  ",
+   110→  },
+   111→  DRAFT: {
+   112→    label: "Draft",
+   113→    className: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700",
+   114→  },
+   115→  PENDING: {
+   116→    label: "Pending",
+   117→    className: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800",
+   118→  },
+   119→  SUSPENDED: {
+   120→    label: "Suspended",
+   121→    className: "bg-red-50 text-red-600 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800",
+   122→  },
+   123→  ARCHIVED: {
+   124→    label: "Archived",
+   125→    className: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800",
+   126→  },
+   127→};
+   128→
+   129→// ─── Component ───────────────────────────────────────────────────────────────
+   130→
+   131→export default function AdminProvidersPage() {
+   132→  // State
+   133→  const [providers, setProviders] = useState<ProviderRow[]>([]);
+   134→  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+   135→  const [loading, setLoading] = useState(true);
+   136→  const [search, setSearch] = useState("");
+   137→  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+   138→  const [clinicFilter, setClinicFilter] = useState<string>("ALL");
+   139→  const [page, setPage] = useState(1);
+   140→  const [totalPages, setTotalPages] = useState(1);
+   141→  const [total, setTotal] = useState(0);
+   142→
+   143→  // Edit dialog
+   144→  const [editDialogOpen, setEditDialogOpen] = useState(false);
+   145→  const [editProvider, setEditProvider] = useState<ProviderRow | null>(null);
+   146→  const [editData, setEditData] = useState<Record<string, string | number | null>>({});
+   147→  const [editLoading, setEditLoading] = useState(false);
+   148→
+   149→  // Debounced search
+   150→  const [debouncedSearch, setDebouncedSearch] = useState("");
+   151→
+   152→  useEffect(() => {
+   153→    const t = setTimeout(() => setDebouncedSearch(search), 300);
+   154→    return () => clearTimeout(t);
+   155→  }, [search]);
+   156→
+   157→  // Fetch providers
+   158→  const fetchProviders = useCallback(async () => {
+   159→    setLoading(true);
+   160→    try {
+   161→      const params = new URLSearchParams();
+   162→      if (debouncedSearch) params.set("search", debouncedSearch);
+   163→      if (statusFilter !== "ALL") params.set("status", statusFilter);
+   164→      if (clinicFilter !== "ALL") params.set("clinicId", clinicFilter);
+   165→      params.set("page", String(page));
+   166→      params.set("limit", "20");
+   167→
+   168→      const res = await fetch(`/api/staff/admin/providers?${params}`);
+   169→      if (!res.ok) throw new Error("Failed to fetch providers");
+   170→      const data = await res.json();
+   171→      setProviders(data.providers);
+   172→      setClinics(data.clinics);
+   173→      setTotalPages(data.pagination.totalPages);
+   174→      setTotal(data.pagination.total);
+   175→    } catch {
+   176→      toast.error("Failed to load providers");
+   177→    } finally {
+   178→      setLoading(false);
+   179→    }
+   180→  }, [debouncedSearch, statusFilter, clinicFilter, page]);
+   181→
+   182→  useEffect(() => {
+   183→    fetchProviders();
+   184→  }, [fetchProviders]);
+   185→
+   186→  // Reset page on filter change
+   187→  useEffect(() => {
+   188→    setPage(1);
+   189→  }, [debouncedSearch, statusFilter, clinicFilter]);
+   190→
+   191→  // ─── Emergency Edit ────────────────────────────────────
+   192→
+   193→  const openEditDialog = (provider: ProviderRow) => {
+   194→    setEditProvider(provider);
+   195→    setEditData({
+   196→      firstName: provider.firstName,
+   197→      lastName: provider.lastName,
+   198→      credentials: provider.credentials || "",
+   199→      npiNumber: provider.npiNumber || "",
+   200→      yearsExperience: provider.yearsExperience ?? "",
+   201→      slotDurationMinutes: provider.slotDurationMinutes,
+   202→      status: provider.status,
+   203→      videoVisitLink: provider.videoVisitLink || "",
+   204→      bio: "",
+   205→    });
+   206→    setEditDialogOpen(true);
+   207→  };
+   208→
+   209→  const handleEmergencyEdit = async () => {
+   210→    if (!editProvider) return;
+   211→    setEditLoading(true);
+   212→    try {
+   213→      const payload: Record<string, unknown> = { ...editData };
+   214→      // Convert empty string yearsExperience to null
+   215→      if (payload.yearsExperience === "") {
+   216→        payload.yearsExperience = null;
+   217→      } else if (payload.yearsExperience !== null && payload.yearsExperience !== undefined) {
+   218→        payload.yearsExperience = Number(payload.yearsExperience);
+   219→      }
+   220→
+   221→      const res = await fetch(`/api/staff/admin/providers/${editProvider.id}`, {
+   222→        method: "PATCH",
+   223→        headers: { "Content-Type": "application/json" },
+   224→        body: JSON.stringify(payload),
+   225→      });
+   226→      if (!res.ok) {
+   227→        const err = await res.json();
+   228→        throw new Error(err.error || "Failed to save changes");
+   229→      }
+   230→      toast.success("Provider updated successfully");
+   231→      setEditDialogOpen(false);
+   232→      fetchProviders();
+   233→    } catch (e) {
+   234→      toast.error(e instanceof Error ? e.message : "Failed to save changes");
+   235→    } finally {
+   236→      setEditLoading(false);
+   237→    }
+   238→  };
+   239→
+   240→  // ─── Render ────────────────────────────────────────────
+   241→
+   242→  return (
+   243→    <div className="space-y-6">
+   244→      {/* Header */}
+   245→      <div>
+   246→        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+   247→          Provider Oversight
+   248→        </h2>
+   249→        <p className="text-sm text-muted-foreground mt-1">
+   250→          Manage all providers across all clinics — {total} total
+   251→        </p>
+   252→      </div>
+   253→
+   254→      {/* Filters */}
+   255→      <Card>
+   256→        <CardContent className="p-4">
+   257→          <div className="flex flex-col sm:flex-row gap-3">
+   258→            <div className="relative flex-1">
+   259→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   260→              <Input
+   261→                placeholder="Search by name, credentials, or NPI..."
+   262→                value={search}
+   263→                onChange={(e) => setSearch(e.target.value)}
+   264→                className="pl-9"
+   265→              />
+   266→            </div>
+   267→            <Select value={clinicFilter} onValueChange={setClinicFilter}>
+   268→              <SelectTrigger className="w-full sm:w-[200px]">
+   269→                <UserCog className="size-4 mr-2 text-muted-foreground" />
+   270→                <SelectValue placeholder="All Clinics" />
+   271→              </SelectTrigger>
+   272→              <SelectContent>
+   273→                <SelectItem value="ALL">All Clinics</SelectItem>
+   274→                {clinics.map((c) => (
+   275→                  <SelectItem key={c.id} value={c.id}>
+   276→                    {c.name}
+   277→                    <span className="ml-2 text-xs text-muted-foreground">
+   278→                      ({CLINIC_STATUS_CONFIG[c.status]?.label || c.status})
+   279→                    </span>
+   280→                  </SelectItem>
+   281→                ))}
+   282→              </SelectContent>
+   283→            </Select>
+   284→            <Select value={statusFilter} onValueChange={setStatusFilter}>
+   285→              <SelectTrigger className="w-full sm:w-[160px]">
+   286→                <Filter className="size-4 mr-2 text-muted-foreground" />
+   287→                <SelectValue placeholder="All Statuses" />
+   288→              </SelectTrigger>
+   289→              <SelectContent>
+   290→                <SelectItem value="ALL">All Statuses</SelectItem>
+   291→                {PROVIDER_STATUSES.map((s) => (
+   292→                  <SelectItem key={s} value={s}>
+   293→                    {PROVIDER_STATUS_CONFIG[s]?.label || s}
+   294→                  </SelectItem>
+   295→                ))}
+   296→              </SelectContent>
+   297→            </Select>
+   298→          </div>
+   299→        </CardContent>
+   300→      </Card>
+   301→
+   302→      {/* Providers Table */}
+   303→      <Card>
+   304→        <CardContent className="p-0">
+   305→          {loading ? (
+   306→            <div className="p-6 space-y-4">
+   307→              {Array.from({ length: 6 }).map((_, i) => (
+   308→                <div key={i} className="flex items-center gap-4">
+   309→                  <Skeleton className="h-5 w-40" />
+   310→                  <Skeleton className="h-5 w-16" />
+   311→                  <Skeleton className="h-5 w-32" />
+   312→                  <Skeleton className="h-5 w-20" />
+   313→                  <Skeleton className="h-5 w-12" />
+   314→                  <Skeleton className="h-5 w-24" />
+   315→                </div>
+   316→              ))}
+   317→            </div>
+   318→          ) : providers.length === 0 ? (
+   319→            <div className="py-12 text-center">
+   320→              <UserCog className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+   321→              <p className="text-sm text-muted-foreground">No providers found</p>
+   322→            </div>
+   323→          ) : (
+   324→            <>
+   325→              <div className="max-h-[600px] overflow-y-auto">
+   326→                <Table>
+   327→                  <TableHeader>
+   328→                    <TableRow className="hover:bg-transparent">
+   329→                      <TableHead>Name</TableHead>
+   330→                      <TableHead>Credentials</TableHead>
+   331→                      <TableHead>Clinic</TableHead>
+   332→                      <TableHead>Status</TableHead>
+   333→                      <TableHead className="text-right">Rating</TableHead>
+   334→                      <TableHead>NPI</TableHead>
+   335→                      <TableHead>Languages</TableHead>
+   336→                      <TableHead className="text-right">Actions</TableHead>
+   337→                    </TableRow>
+   338→                  </TableHeader>
+   339→                  <TableBody>
+   340→                    {providers.map((provider) => {
+   341→                      const provCfg = PROVIDER_STATUS_CONFIG[provider.status] || {
+   342→                        label: provider.status,
+   343→                        className: "bg-zinc-100 text-zinc-700 border-zinc-200",
+   344→                      };
+   345→                      const clinicCfg = CLINIC_STATUS_CONFIG[provider.clinic.status] || {
+   346→                        label: provider.clinic.status,
+   347→                        className: "bg-zinc-100 text-zinc-600 border-zinc-200",
+   348→                      };
+   349→                      const fullName = `${provider.firstName} ${provider.lastName}`;
+   350→
+   351→                      return (
+   352→                        <TableRow key={provider.id}>
+   353→                          <TableCell>
+   354→                            <div className="flex items-center gap-2.5">
+   355→                              <div className="flex items-center justify-center size-8 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold shrink-0">
+   356→                                {provider.firstName[0]}
+   357→                                {provider.lastName[0]}
+   358→                              </div>
+   359→                              <span className="font-medium text-foreground whitespace-nowrap">
+   360→                                {fullName}
+   361→                              </span>
+   362→                            </div>
+   363→                          </TableCell>
+   364→                          <TableCell>
+   365→                            {provider.credentials ? (
+   366→                              <Badge variant="secondary" className="text-xs font-normal">
+   367→                                <GraduationCap className="size-3 mr-1" />
+   368→                                {provider.credentials}
+   369→                              </Badge>
+   370→                            ) : (
+   371→                              <span className="text-muted-foreground text-xs">—</span>
+   372→                            )}
+   373→                          </TableCell>
+   374→                          <TableCell>
+   375→                            <div className="space-y-0.5">
+   376→                              <span className="text-sm">{provider.clinic.name}</span>
+   377→                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${clinicCfg.className}`}>
+   378→                                {clinicCfg.label}
+   379→                              </Badge>
+   380→                            </div>
+   381→                          </TableCell>
+   382→                          <TableCell>
+   383→                            <Badge variant="outline" className={provCfg.className}>
+   384→                              {provCfg.label}
+   385→                            </Badge>
+   386→                          </TableCell>
+   387→                          <TableCell className="text-right">
+   388→                            {provider.rating > 0 ? (
+   389→                              <span className="flex items-center justify-end gap-1">
+   390→                                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+   391→                                <span className="text-sm">{provider.rating}</span>
+   392→                                <span className="text-xs text-muted-foreground">({provider.reviewCount})</span>
+   393→                              </span>
+   394→                            ) : (
+   395→                              <span className="text-muted-foreground text-xs">No reviews</span>
+   396→                            )}
+   397→                          </TableCell>
+   398→                          <TableCell className="font-mono text-xs text-muted-foreground">
+   399→                            {provider.npiNumber || "—"}
+   400→                          </TableCell>
+   401→                          <TableCell>
+   402→                            {provider.languages.length > 0 ? (
+   403→                              <div className="flex flex-wrap gap-1">
+   404→                                {provider.languages.slice(0, 2).map((lang) => (
+   405→                                  <Badge key={lang} variant="outline" className="text-[10px] px-1.5 py-0">
+   406→                                    {lang}
+   407→                                  </Badge>
+   408→                                ))}
+   409→                                {provider.languages.length > 2 && (
+   410→                                  <span className="text-[10px] text-muted-foreground">
+   411→                                    +{provider.languages.length - 2}
+   412→                                  </span>
+   413→                                )}
+   414→                              </div>
+   415→                            ) : (
+   416→                              <span className="text-muted-foreground text-xs">—</span>
+   417→                            )}
+   418→                          </TableCell>
+   419→                          <TableCell className="text-right">
+   420→                            <Button
+   421→                              variant="ghost"
+   422→                              size="sm"
+   423→                              onClick={() => openEditDialog(provider)}
+   424→                              className="h-7 px-2 text-xs text-purple-600 dark:text-purple-400"
+   425→                            >
+   426→                              <Globe className="size-3.5 mr-1" />
+   427→                              Edit
+   428→                            </Button>
+   429→                          </TableCell>
+   430→                        </TableRow>
+   431→                      );
+   432→                    })}
+   433→                  </TableBody>
+   434→                </Table>
+   435→              </div>
+   436→
+   437→              {/* Pagination */}
+   438→              {totalPages > 1 && (
+   439→                <div className="flex items-center justify-between px-4 py-3 border-t">
+   440→                  <p className="text-xs text-muted-foreground">
+   441→                    Page {page} of {totalPages} ({total} providers)
+   442→                  </p>
+   443→                  <div className="flex gap-1">
+   444→                    <Button
+   445→                      variant="outline"
+   446→                      size="sm"
+   447→                      disabled={page <= 1}
+   448→                      onClick={() => setPage(page - 1)}
+   449→                    >
+   450→                      Previous
+   451→                    </Button>
+   452→                    <Button
+   453→                      variant="outline"
+   454→                      size="sm"
+   455→                      disabled={page >= totalPages}
+   456→                      onClick={() => setPage(page + 1)}
+   457→                    >
+   458→                      Next
+   459→                    </Button>
+   460→                  </div>
+   461→                </div>
+   462→              )}
+   463→            </>
+   464→          )}
+   465→        </CardContent>
+   466→      </Card>
+   467→
+   468→      {/* Emergency Edit Dialog */}
+   469→      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+   470→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   471→          <DialogHeader>
+   472→            <DialogTitle className="flex items-center gap-2">
+   473→              <Globe className="size-5 text-purple-500" />
+   474→              Emergency Edit — {editProvider?.firstName} {editProvider?.lastName}
+   475→            </DialogTitle>
+   476→            <DialogDescription>
+   477→              Edit any provider field. Changes take effect immediately.
+   478→              <br />
+   479→              <span className="text-xs text-muted-foreground">
+   480→                Clinic: {editProvider?.clinic.name} ({editProvider?.clinic.status})
+   481→              </span>
+   482→            </DialogDescription>
+   483→          </DialogHeader>
+   484→
+   485→          <div className="space-y-4 py-2">
+   486→            {/* Personal Info */}
+   487→            <div>
+   488→              <h4 className="text-sm font-semibold text-foreground mb-3">Personal Information</h4>
+   489→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   490→                <div>
+   491→                  <Label htmlFor="edit-firstName">First Name</Label>
+   492→                  <Input
+   493→                    id="edit-firstName"
+   494→                    value={String(editData.firstName || "")}
+   495→                    onChange={(e) => setEditData({ ...editData, firstName: e.target.value })}
+   496→                  />
+   497→                </div>
+   498→                <div>
+   499→                  <Label htmlFor="edit-lastName">Last Name</Label>
+   500→                  <Input
+   501→                    id="edit-lastName"
+   502→                    value={String(editData.lastName || "")}
+   503→                    onChange={(e) => setEditData({ ...editData, lastName: e.target.value })}
+   504→                  />
+   505→                </div>
+   506→                <div>
+   507→                  <Label htmlFor="edit-credentials">Credentials</Label>
+   508→                  <Select
+   509→                    value={String(editData.credentials || "")}
+   510→                    onValueChange={(v) => setEditData({ ...editData, credentials: v })}
+   511→                  >
+   512→                    <SelectTrigger id="edit-credentials">
+   513→                      <SelectValue placeholder="Select..." />
+   514→                    </SelectTrigger>
+   515→                    <SelectContent>
+   516→                      <SelectItem value="MD">MD</SelectItem>
+   517→                      <SelectItem value="DO">DO</SelectItem>
+   518→                      <SelectItem value="NP">NP</SelectItem>
+   519→                      <SelectItem value="PA-C">PA-C</SelectItem>
+   520→                      <SelectItem value="RN">RN</SelectItem>
+   521→                      <SelectItem value="PharmD">PharmD</SelectItem>
+   522→                      <SelectItem value="Other">Other</SelectItem>
+   523→                    </SelectContent>
+   524→                  </Select>
+   525→                </div>
+   526→                <div>
+   527→                  <Label htmlFor="edit-npi">NPI Number</Label>
+   528→                  <Input
+   529→                    id="edit-npi"
+   530→                    value={String(editData.npiNumber || "")}
+   531→                    onChange={(e) => setEditData({ ...editData, npiNumber: e.target.value })}
+   532→                  />
+   533→                </div>
+   534→                <div>
+   535→                  <Label htmlFor="edit-years">Years of Experience</Label>
+   536→                  <Input
+   537→                    id="edit-years"
+   538→                    type="number"
+   539→                    min="0"
+   540→                    value={editData.yearsExperience === null || editData.yearsExperience === "" ? "" : Number(editData.yearsExperience)}
+   541→                    onChange={(e) => setEditData({ ...editData, yearsExperience: e.target.value === "" ? null : e.target.value })}
+   542→                  />
+   543→                </div>
+   544→              </div>
+   545→            </div>
+   546→
+   547→            <Separator />
+   548→
+   549→            {/* Professional Settings */}
+   550→            <div>
+   551→              <h4 className="text-sm font-semibold text-foreground mb-3">Professional Settings</h4>
+   552→              <div className="space-y-3">
+   553→                <div>
+   554→                  <Label htmlFor="edit-slot-duration">Slot Duration</Label>
+   555→                  <Select
+   556→                    value={String(editData.slotDurationMinutes || "30")}
+   557→                    onValueChange={(v) => setEditData({ ...editData, slotDurationMinutes: Number(v) })}
+   558→                  >
+   559→                    <SelectTrigger id="edit-slot-duration">
+   560→                      <SelectValue />
+   561→                    </SelectTrigger>
+   562→                    <SelectContent>
+   563→                      <SelectItem value="15">15 minutes</SelectItem>
+   564→                      <SelectItem value="30">30 minutes</SelectItem>
+   565→                      <SelectItem value="45">45 minutes</SelectItem>
+   566→                      <SelectItem value="60">60 minutes</SelectItem>
+   567→                    </SelectContent>
+   568→                  </Select>
+   569→                </div>
+   570→                <div>
+   571→                  <Label htmlFor="edit-status">Status</Label>
+   572→                  <Select
+   573→                    value={String(editData.status || "ACTIVE")}
+   574→                    onValueChange={(v) => setEditData({ ...editData, status: v })}
+   575→                  >
+   576→                    <SelectTrigger id="edit-status">
+   577→                      <SelectValue />
+   578→                    </SelectTrigger>
+   579→                    <SelectContent>
+   580→                      {PROVIDER_STATUSES.map((s) => (
+   581→                        <SelectItem key={s} value={s}>
+   582→                          {PROVIDER_STATUS_CONFIG[s]?.label || s}
+   583→                        </SelectItem>
+   584→                      ))}
+   585→                    </SelectContent>
+   586→                  </Select>
+   587→                </div>
+   588→                <div>
+   589→                  <Label htmlFor="edit-video-link">Video Visit Link</Label>
+   590→                  <Input
+   591→                    id="edit-video-link"
+   592→                    value={String(editData.videoVisitLink || "")}
+   593→                    onChange={(e) => setEditData({ ...editData, videoVisitLink: e.target.value })}
+   594→                    placeholder="https://..."
+   595→                  />
+   596→                </div>
+   597→              </div>
+   598→            </div>
+   599→
+   600→            {editProvider && (
+   601→              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+   602→                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Provider Summary</h4>
+   603→                <div className="grid grid-cols-2 gap-2 text-xs">
+   604→                  <div>
+   605→                    <span className="text-muted-foreground">Appointments:</span>{" "}
+   606→                    <span className="font-medium">{editProvider._count.appointments}</span>
+   607→                  </div>
+   608→                  <div>
+   609→                    <span className="text-muted-foreground">Services:</span>{" "}
+   610→                    <span className="font-medium">{editProvider._count.providerServices}</span>
+   611→                  </div>
+   612→                  <div>
+   613→                    <span className="text-muted-foreground">Active Templates:</span>{" "}
+   614→                    <span className="font-medium">{editProvider._count.slotTemplates}</span>
+   615→                  </div>
+   616→                  <div>
+   617→                    <span className="text-muted-foreground">Languages:</span>{" "}
+   618→                    <span className="font-medium">{editProvider.languages.join(", ") || "None"}</span>
+   619→                  </div>
+   620→                </div>
+   621→              </div>
+   622→            )}
+   623→          </div>
+   624→
+   625→          <DialogFooter>
+   626→            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+   627→              Cancel
+   628→            </Button>
+   629→            <Button
+   630→              onClick={handleEmergencyEdit}
+   631→              disabled={editLoading}
+   632→              className="bg-purple-600 hover:bg-purple-700 text-white"
+   633→            >
+   634→              {editLoading && <Loader2 className="size-4 mr-2 animate-spin" />}
+   635→              Save Emergency Edit
+   636→            </Button>
+   637→          </DialogFooter>
+   638→        </DialogContent>
+   639→      </Dialog>
+   640→    </div>
+   641→  );
+   642→}

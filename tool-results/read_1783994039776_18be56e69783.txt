@@ -1298,7 +1298,7 @@
   1298→                    <Button
   1299→                      variant="ghost"
   1300→                      size="sm"
-  1301→                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle "
+  1301→                      className="h-5 w-5 p-0 rounded-full hover:bg-brand-subtle"
   1302→                      onClick={() => onToggleService(ps.serviceId, false)}
   1303→                    >
   1304→                      <X className="size-3" />

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   Search,
   DollarSign,
@@ -18,6 +19,8 @@ import {
   Plus,
   Pencil,
   Check,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import type { DoctASessionUser } from "@/lib/auth";
 import { useActiveClinicId } from "@/components/active-clinic-context";
@@ -155,6 +158,9 @@ export default function ServicesSettingsPage() {
   const [copaySaving, setCopaySaving] = useState<string | null>(null);
   const copaySavingRef = useRef(false);
 
+  // Error state
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const clinicId = useActiveClinicId(user?.clinicId);
 
   // ---- Data Fetching ----
@@ -172,7 +178,9 @@ export default function ServicesSettingsPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load services data");
+      const msg = err instanceof Error ? err.message : "Failed to load services data";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -214,6 +222,10 @@ export default function ServicesSettingsPage() {
       ),
     }))
     .filter((spec) => spec.services.length > 0) ?? [];
+
+  // Count services for search indicator
+  const totalServiceCount = data?.specialties.reduce((sum, s) => sum + s.services.length, 0) ?? 0;
+  const filteredServiceCount = filteredSpecialties.reduce((sum, s) => sum + s.services.length, 0);
 
   // When "All" filter, show all filtered specialties
   // When specific specialty, show only that one
@@ -488,6 +500,27 @@ export default function ServicesSettingsPage() {
     }
   };
 
+  // ---- Error State ----
+  if (loadError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="size-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Failed to load services</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={() => { setLoadError(null); fetchData(); }} className="gap-2">
+            <RefreshCw className="size-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // ---- Render: Loading ----
   if (loading) {
     return (
@@ -502,6 +535,7 @@ export default function ServicesSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Services & Insurance" }]} />
       {/* Card 1: Self-Pay Flat Rate (preserved) */}
       <Card>
         <CardHeader>
@@ -573,15 +607,31 @@ export default function ServicesSettingsPage() {
                 </CardDescription>
               </div>
               {/* Search */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search services or specialties..."
-                  aria-label="Search services or specialties"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search services or specialties..."
+                    aria-label="Search services or specialties"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-8"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                      aria-label="Clear search"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {filteredServiceCount} of {totalServiceCount} services
+                  </span>
+                )}
               </div>
             </div>
 
@@ -644,10 +694,26 @@ export default function ServicesSettingsPage() {
         <CardContent>
           {!displayedSpecialties || displayedSpecialties.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Stethoscope className="size-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">
-                {searchQuery ? "No services match your search." : "No services available."}
+              <Search className="size-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm font-medium">
+                {searchQuery ? "No results found" : "No services available"}
               </p>
+              <p className="text-xs mt-1">
+                {searchQuery
+                  ? `No services match "${searchQuery}". Try a different search term.`
+                  : "Add services from the catalog to get started."}
+              </p>
+              {searchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="size-3.5 mr-1.5" />
+                  Clear Search
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">

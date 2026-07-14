@@ -461,7 +461,7 @@ export default function AdminAnalyticsPage() {
                     </div>
                     {/* Bar */}
                     <div
-                      className="w-full bg-purple-500/80 hover:bg-purple-600 rounded-t-sm transition-colors min-h-[2px]"
+                      className="w-full bg-purple-500/80 hover:bg-purple-600 rounded-t-sm transition-all duration-200 min-h-[2px]"
                       style={{ height: `${Math.max(heightPct, 1)}%` }}
                     />
                     {/* Label */}
@@ -622,13 +622,13 @@ export default function AdminAnalyticsPage() {
                 {analytics.noShowDistribution.map((d) => {
                   const widthPct = (d.count / maxNoShow) * 100;
                   return (
-                    <div key={d.day} className="flex items-center gap-3">
+                    <div key={d.day} className="flex items-center gap-3 group">
                       <span className="text-xs font-medium w-8 text-right text-muted-foreground">
                         {d.day}
                       </span>
                       <div className="flex-1 h-7 bg-muted rounded-md overflow-hidden relative">
                         <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-md transition-all duration-500 flex items-center px-2"
+                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 rounded-md transition-all duration-300 flex items-center px-2"
                           style={{
                             width: `${Math.max(widthPct, d.count > 0 ? 8 : 0)}%`,
                           }}

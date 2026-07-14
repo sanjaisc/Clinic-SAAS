@@ -8,6 +8,7 @@ import { useActiveClinicId } from "@/components/active-clinic-context";
 import { DAYS_OF_WEEK, PROVIDER_STATUS, SLOT_MODALITY } from "@/lib/enums";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   UserPlus,
   Pencil,
@@ -57,6 +59,8 @@ import {
   Stethoscope,
   X,
   CalendarDays,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -176,6 +180,7 @@ export default function ProvidersPage() {
   // ── Data State ──
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedProvider, setExpandedProvider] = useState<ProviderFull | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -224,8 +229,10 @@ export default function ProvidersPage() {
       if (!res.ok) throw new Error("Failed to fetch providers");
       const data = await res.json();
       setProviders(data.providers || []);
-    } catch {
-      toast.error("Failed to load providers");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch providers";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -573,8 +580,30 @@ export default function ProvidersPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  // ---- Error State ----
+  if (loadError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="size-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Failed to load providers</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={() => { setLoadError(null); fetchProviders(); }} className="gap-2">
+            <RefreshCw className="size-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Providers" }]} />
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -619,8 +648,18 @@ export default function ProvidersPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {providers.map((provider) => (
-            <div key={provider.id} className="rounded-lg border bg-card">
+          {providers.map((provider, index) => (
+            <div
+              key={provider.id}
+              className={`rounded-lg border bg-card animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
+                provider.status === "ACTIVE"
+                  ? "border-l-4 border-l-brand"
+                  : provider.status === "SUSPENDED"
+                    ? "border-l-4 border-l-amber-500"
+                    : "border-l-4 border-l-muted-foreground/30"
+              }`}
+              style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
+            >
               {/* Provider Card Row */}
               <div
                 className="flex items-center gap-3 sm:gap-4 p-4 cursor-pointer hover:bg-accent/30 transition-colors rounded-lg"
@@ -1112,9 +1151,7 @@ function ProviderDetail({
           {/* Weekly Grid */}
           <div className="rounded-lg border overflow-hidden">
             <div className="divide-y">
-              {DAYS_OF_WEEK.filter((d) => d.value >= 1).map((day) => {
-                // Show Mon-Sun (value 1-6, then 0 for Sunday)
-                const dayVal = day.value === 0 ? 7 : day.value;
+              {[...DAYS_OF_WEEK].sort((a, b) => (a.value === 0 ? 1 : b.value === 0 ? -1 : a.value - b.value)).map((day) => {
                 const dayTemplates = getTemplatesForDay(day.value);
 
                 return (
@@ -1190,81 +1227,6 @@ function ProviderDetail({
                   </div>
                 );
               })}
-              {/* Sunday row */}
-              {(() => {
-                const sundayTemplates = getTemplatesForDay(0);
-                return (
-                  <div className="flex items-start gap-3 p-3 hover:bg-accent/20 transition-colors">
-                    <div className="w-20 sm:w-24 shrink-0">
-                      <span className="text-sm font-medium text-foreground">Sunday</span>
-                      <span className="text-xs text-muted-foreground ml-1.5">Sun</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {sundayTemplates.length === 0 ? (
-                        <span className="text-xs text-muted-foreground italic">No schedule</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {sundayTemplates.map((template) => (
-                            <div
-                              key={template.id}
-                              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-all ${
-                                template.isActive
-                                  ? "bg-background border-border"
-                                  : "bg-muted/50 border-border opacity-50"
-                              }`}
-                            >
-                              {template.modality === SLOT_MODALITY.VIDEO && (
-                                <Video className="size-3 text-blue-500" />
-                              )}
-                              {template.modality === SLOT_MODALITY.IN_PERSON && (
-                                <Building2 className="size-3 text-brand" />
-                              )}
-                              <span className="font-medium">
-                                {formatTime(template.startTime)} – {formatTime(template.endTime)}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] px-1 py-0 h-4"
-                              >
-                                {template.modality === SLOT_MODALITY.VIDEO ? "Video" : "In-Person"}
-                              </Badge>
-                              <div className="flex items-center gap-0.5 ml-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => onToggleTemplate(template)}
-                                >
-                                  <Switch
-                                    checked={template.isActive}
-                                    className="pointer-events-none scale-75"
-                                  />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => onEditTemplate(template)}
-                                >
-                                  <Pencil className="size-2.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => onDeleteTemplate(template.id)}
-                                >
-                                  <X className="size-2.5" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           </div>
         </TabsContent>

@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   Building2,
   Phone,
@@ -758,6 +759,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Clinic Profile" }]} />
       {/* ---- Card 1: Core Details ---- */}
       <Card>
         <CardHeader>

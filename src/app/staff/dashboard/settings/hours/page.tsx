@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   Clock,
   Plus,
@@ -13,6 +14,8 @@ import {
   X,
   CalendarDays,
   Copy,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,6 +123,9 @@ export default function HoursPage() {
   const [closures, setClosures] = useState<Closure[]>([]);
   const [closuresLoading, setClosuresLoading] = useState(true);
 
+  // Error state
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Delete confirmation state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingClosureId, setDeletingClosureId] = useState<string | null>(null);
@@ -161,7 +167,9 @@ export default function HoursPage() {
       setOriginalHours(JSON.parse(JSON.stringify(normalized)));
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load operating hours");
+      const msg = err instanceof Error ? err.message : "Failed to load operating hours";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setHoursLoading(false);
     }
@@ -357,8 +365,30 @@ export default function HoursPage() {
     }
   };
 
+  // ---- Error State ----
+  if (loadError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="rounded-full bg-destructive/10 p-4">
+            <AlertCircle className="size-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Failed to load hours</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">{loadError}</p>
+          </div>
+          <Button variant="outline" onClick={() => { setLoadError(null); fetchHours(); fetchClosures(); }} className="gap-2">
+            <RefreshCw className="size-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Hours & Closures" }]} />
       {/* Card 1: Weekly Operating Hours */}
       <Card>
         <CardHeader>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   Users,
   Send,
@@ -274,6 +275,7 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Staff Onboarding" }]} />
       {/* Card 1: Current Staff */}
       <Card>
         <CardHeader>

@@ -1,0 +1,1231 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback, useRef } from "react";
+     4→import { useSession } from "next-auth/react";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Search,
+     8→  DollarSign,
+     9→  Clock,
+    10→  UserPlus,
+    11→  X,
+    12→  ChevronDown,
+    13→  ChevronRight,
+    14→  Loader2,
+    15→  Stethoscope,
+    16→  CreditCard,
+    17→  ShieldCheck,
+    18→  Plus,
+    19→  Pencil,
+    20→  Check,
+    21→} from "lucide-react";
+    22→import type { DoctASessionUser } from "@/lib/auth";
+    23→import { useActiveClinicId } from "@/components/active-clinic-context";
+    24→
+    25→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Input } from "@/components/ui/input";
+    28→import { Label } from "@/components/ui/label";
+    29→import { Badge } from "@/components/ui/badge";
+    30→import { Skeleton } from "@/components/ui/skeleton";
+    31→import {
+    32→  Dialog,
+    33→  DialogContent,
+    34→  DialogDescription,
+    35→  DialogFooter,
+    36→  DialogHeader,
+    37→  DialogTitle,
+    38→} from "@/components/ui/dialog";
+    39→import {
+    40→  Select,
+    41→  SelectContent,
+    42→  SelectItem,
+    43→  SelectTrigger,
+    44→  SelectValue,
+    45→} from "@/components/ui/select";
+    46→import {
+    47→  Collapsible,
+    48→  CollapsibleContent,
+    49→  CollapsibleTrigger,
+    50→} from "@/components/ui/collapsible";
+    51→import {
+    52→  Tooltip,
+    53→  TooltipContent,
+    54→  TooltipTrigger,
+    55→} from "@/components/ui/tooltip";
+    56→import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+    57→
+    58→// ---- Types ----
+    59→interface ProviderBrief {
+    60→  id: string;
+    61→  firstName: string;
+    62→  lastName: string;
+    63→  credentials: string | null;
+    64→}
+    65→
+    66→interface LinkedInsurance {
+    67→  id: string;
+    68→  insuranceId: string;
+    69→  insuranceName: string;
+    70→  copayCents: number;
+    71→  isActive: boolean;
+    72→}
+    73→
+    74→interface ServiceBrief {
+    75→  id: string;
+    76→  name: string;
+    77→  slug: string;
+    78→  description: string | null;
+    79→  durationMinutes: number;
+    80→  globalPriceCents: number;
+    81→  clinicPriceCents: number;
+    82→  selfPayPaymentType: string;
+    83→  isActive: boolean;
+    84→  assignedProviders: ProviderBrief[];
+    85→  linkedInsurances: LinkedInsurance[];
+    86→}
+    87→
+    88→interface SpecialtyGroup {
+    89→  id: string;
+    90→  name: string;
+    91→  slug: string;
+    92→  services: ServiceBrief[];
+    93→}
+    94→
+    95→interface ServicesData {
+    96→  specialties: SpecialtyGroup[];
+    97→  clinicInsurances: Array<{ id: string; name: string; slug: string; isActive: boolean }>;
+    98→  selfPayFlatRateCents: number;
+    99→}
+   100→
+   101→// ---- Helpers ----
+   102→function centsToDollars(cents: number): string {
+   103→  return `$${(cents / 100).toFixed(2)}`;
+   104→}
+   105→
+   106→function dollarsToCents(str: string): number {
+   107→  const num = parseFloat(str);
+   108→  if (isNaN(num) || num < 0) return -1;
+   109→  return Math.round(num * 100);
+   110→}
+   111→
+   112→// ---- Component ----
+   113→export default function ServicesSettingsPage() {
+   114→  const { data: session } = useSession();
+   115→  const user = session?.user as DoctASessionUser | undefined;
+   116→
+   117→  const [data, setData] = useState<ServicesData | null>(null);
+   118→  const [loading, setLoading] = useState(true);
+   119→  const [searchQuery, setSearchQuery] = useState("");
+   120→
+   121→  // Phase A: Specialty filter
+   122→  const [activeSpecialty, setActiveSpecialty] = useState<string>("all");
+   123→  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+   124→
+   125→  // Provider assignment (preserved)
+   126→  const [assigningService, setAssigningService] = useState<ServiceBrief | null>(null);
+   127→  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+   128→  const [providers, setProviders] = useState<ProviderBrief[]>([]);
+   129→  const [selectedProviderId, setSelectedProviderId] = useState("");
+   130→  const [assignLoading, setAssignLoading] = useState(false);
+   131→  const [removeLoading, setRemoveLoading] = useState<string | null>(null);
+   132→
+   133→  // Flat rate (preserved)
+   134→  const [flatRateDollars, setFlatRateDollars] = useState("");
+   135→  const [flatRateSaving, setFlatRateSaving] = useState(false);
+   136→
+   137→  // Payment type (preserved)
+   138→  const [paymentTypeLoading, setPaymentTypeLoading] = useState<string | null>(null);
+   139→
+   140→  // Phase C: Custom pricing
+   141→  const [editingPriceServiceId, setEditingPriceServiceId] = useState<string | null>(null);
+   142→  const [priceDraft, setPriceDraft] = useState("");
+   143→  const [priceSaving, setPriceSaving] = useState<string | null>(null);
+   144→  const priceInputRef = useRef<HTMLInputElement>(null);
+   145→  const priceSavingRef = useRef(false);
+   146→
+   147→  // Phase B: Insurance mapping
+   148→  const [insuranceAddingServiceId, setInsuranceAddingServiceId] = useState<string | null>(null);
+   149→  const [newInsuranceId, setNewInsuranceId] = useState("");
+   150→  const [newCopayDollars, setNewCopayDollars] = useState("0.00");
+   151→  const [insuranceAddLoading, setInsuranceAddLoading] = useState<string | null>(null);
+   152→  const [insuranceRemoveLoading, setInsuranceRemoveLoading] = useState<string | null>(null);
+   153→  const [editingCopayKey, setEditingCopayKey] = useState<string | null>(null);
+   154→  const [copayDraft, setCopayDraft] = useState("");
+   155→  const [copaySaving, setCopaySaving] = useState<string | null>(null);
+   156→  const copaySavingRef = useRef(false);
+   157→
+   158→  const clinicId = useActiveClinicId(user?.clinicId);
+   159→
+   160→  // ---- Data Fetching ----
+   161→  const fetchData = useCallback(async () => {
+   162→    if (!clinicId) return;
+   163→    try {
+   164→      const res = await fetch(`/api/staff/services?clinicId=${clinicId}`);
+   165→      if (!res.ok) throw new Error("Failed to fetch services");
+   166→      const json = await res.json();
+   167→      setData(json);
+   168→      setFlatRateDollars((json.selfPayFlatRateCents / 100).toFixed(2));
+   169→      // Initialize expanded groups: first specialty when "all"
+   170→      if (json.specialties?.length > 0) {
+   171→        setExpandedGroups(new Set([json.specialties[0].id]));
+   172→      }
+   173→    } catch (err) {
+   174→      console.error(err);
+   175→      toast.error("Failed to load services data");
+   176→    } finally {
+   177→      setLoading(false);
+   178→    }
+   179→  }, [clinicId]);
+   180→
+   181→  const fetchProviders = useCallback(async () => {
+   182→    if (!clinicId) return;
+   183→    try {
+   184→      const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
+   185→      if (!res.ok) throw new Error("Failed to fetch providers");
+   186→      const json = await res.json();
+   187→      setProviders(json.providers || []);
+   188→    } catch (err) {
+   189→      console.error(err);
+   190→    }
+   191→  }, [clinicId]);
+   192→
+   193→  useEffect(() => {
+   194→    fetchData();
+   195→    fetchProviders();
+   196→  }, [fetchData, fetchProviders]);
+   197→
+   198→  // Focus price input when entering edit mode
+   199→  useEffect(() => {
+   200→    if (editingPriceServiceId && priceInputRef.current) {
+   201→      priceInputRef.current.focus();
+   202→      priceInputRef.current.select();
+   203→    }
+   204→  }, [editingPriceServiceId]);
+   205→
+   206→  // ---- Filtered Specialties ----
+   207→  const filteredSpecialties = data?.specialties
+   208→    .map((spec) => ({
+   209→      ...spec,
+   210→      services: spec.services.filter(
+   211→        (svc) =>
+   212→          svc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   213→          spec.name.toLowerCase().includes(searchQuery.toLowerCase())
+   214→      ),
+   215→    }))
+   216→    .filter((spec) => spec.services.length > 0) ?? [];
+   217→
+   218→  // When "All" filter, show all filtered specialties
+   219→  // When specific specialty, show only that one
+   220→  const displayedSpecialties =
+   221→    activeSpecialty === "all"
+   222→      ? filteredSpecialties
+   223→      : filteredSpecialties.filter((s) => s.id === activeSpecialty);
+   224→
+   225→  // Phase A: Toggle specialty filter
+   226→  const handleSpecialtyFilter = (specId: string) => {
+   227→    setActiveSpecialty(specId);
+   228→    if (specId === "all") {
+   229→      // Reset to first specialty expanded
+   230→      const first = filteredSpecialties[0];
+   231→      setExpandedGroups(first ? new Set([first.id]) : new Set());
+   232→    } else {
+   233→      setExpandedGroups(new Set([specId]));
+   234→    }
+   235→  };
+   236→
+   237→  // Toggle collapsible group
+   238→  const toggleGroup = (specId: string) => {
+   239→    setExpandedGroups((prev) => {
+   240→      const next = new Set(prev);
+   241→      if (next.has(specId)) {
+   242→        next.delete(specId);
+   243→      } else {
+   244→        next.add(specId);
+   245→      }
+   246→      return next;
+   247→    });
+   248→  };
+   249→
+   250→  // Compute assignment stats per specialty (for tab indicators)
+   251→  const getSpecialtyStats = (spec: SpecialtyGroup) => {
+   252→    const total = spec.services.length;
+   253→    const withProviders = spec.services.filter((s) => s.assignedProviders.length > 0).length;
+   254→    return { total, withProviders };
+   255→  };
+   256→
+   257→  // ---- Handlers: Preserved ----
+   258→
+   259→  // Save self-pay flat rate
+   260→  const handleSaveFlatRate = async () => {
+   261→    const cents = dollarsToCents(flatRateDollars);
+   262→    if (cents < 0) {
+   263→      toast.error("Please enter a valid amount");
+   264→      return;
+   265→    }
+   266→    setFlatRateSaving(true);
+   267→    try {
+   268→      const res = await fetch("/api/staff/services/clinic", {
+   269→        method: "PATCH",
+   270→        headers: { "Content-Type": "application/json" },
+   271→        body: JSON.stringify({ selfPayFlatRateCents: cents }),
+   272→      });
+   273→      if (!res.ok) {
+   274→        const err = await res.json();
+   275→        throw new Error(err.error || "Failed to save");
+   276→      }
+   277→      toast.success("Self-pay flat rate updated");
+   278→      fetchData();
+   279→    } catch (err) {
+   280→      toast.error(err instanceof Error ? err.message : "Failed to save flat rate");
+   281→    } finally {
+   282→      setFlatRateSaving(false);
+   283→    }
+   284→  };
+   285→
+   286→  // Assign service to provider
+   287→  const handleAssign = async () => {
+   288→    if (!assigningService || !selectedProviderId) return;
+   289→    setAssignLoading(true);
+   290→    try {
+   291→      const res = await fetch("/api/staff/services/assign", {
+   292→        method: "POST",
+   293→        headers: { "Content-Type": "application/json" },
+   294→        body: JSON.stringify({
+   295→          providerId: selectedProviderId,
+   296→          serviceId: assigningService.id,
+   297→        }),
+   298→      });
+   299→      if (!res.ok) {
+   300→        const err = await res.json();
+   301→        throw new Error(err.error || "Failed to assign");
+   302→      }
+   303→      toast.success(`Assigned "${assigningService.name}" to provider`);
+   304→      setAssignDialogOpen(false);
+   305→      setSelectedProviderId("");
+   306→      fetchData();
+   307→    } catch (err) {
+   308→      toast.error(err instanceof Error ? err.message : "Failed to assign service");
+   309→    } finally {
+   310→      setAssignLoading(false);
+   311→    }
+   312→  };
+   313→
+   314→  // Remove service from provider
+   315→  const handleRemove = async (providerId: string, serviceId: string, serviceName: string) => {
+   316→    setRemoveLoading(`${providerId}-${serviceId}`);
+   317→    try {
+   318→      const res = await fetch("/api/staff/services/assign", {
+   319→        method: "DELETE",
+   320→        headers: { "Content-Type": "application/json" },
+   321→        body: JSON.stringify({ providerId, serviceId }),
+   322→      });
+   323→      if (!res.ok) {
+   324→        const err = await res.json();
+   325→        throw new Error(err.error || "Failed to remove");
+   326→      }
+   327→      toast.success(`Removed "${serviceName}" from provider`);
+   328→      fetchData();
+   329→    } catch (err) {
+   330→      toast.error(err instanceof Error ? err.message : "Failed to remove service");
+   331→    } finally {
+   332→      setRemoveLoading(null);
+   333→    }
+   334→  };
+   335→
+   336→  // Change payment type
+   337→  const handlePaymentTypeChange = async (serviceId: string, newType: string) => {
+   338→    setPaymentTypeLoading(serviceId);
+   339→    try {
+   340→      const res = await fetch(`/api/staff/services/${serviceId}/payment-type`, {
+   341→        method: "PATCH",
+   342→        headers: { "Content-Type": "application/json" },
+   343→        body: JSON.stringify({ selfPayPaymentType: newType }),
+   344→      });
+   345→      if (!res.ok) {
+   346→        const err = await res.json();
+   347→        throw new Error(err.error || "Failed to update payment type");
+   348→      }
+   349→      toast.success("Payment type updated");
+   350→      fetchData();
+   351→    } catch (err) {
+   352→      toast.error(err instanceof Error ? err.message : "Failed to update payment type");
+   353→    } finally {
+   354→      setPaymentTypeLoading(null);
+   355→    }
+   356→  };
+   357→
+   358→  // ---- Phase C: Custom Pricing Handlers ----
+   359→
+   360→  const startPriceEdit = (service: ServiceBrief) => {
+   361→    const currentCents = service.clinicPriceCents > 0 ? service.clinicPriceCents : service.globalPriceCents;
+   362→    setPriceDraft((currentCents / 100).toFixed(2));
+   363→    setEditingPriceServiceId(service.id);
+   364→  };
+   365→
+   366→  const cancelPriceEdit = () => {
+   367→    setEditingPriceServiceId(null);
+   368→    setPriceDraft("");
+   369→  };
+   370→
+   371→  const savePrice = async (serviceId: string) => {
+   372→    const cents = dollarsToCents(priceDraft);
+   373→    if (cents < 0) {
+   374→      toast.error("Please enter a valid price");
+   375→      return;
+   376→    }
+   377→    if (priceSavingRef.current) return;
+   378→    priceSavingRef.current = true;
+   379→    setPriceSaving(serviceId);
+   380→    try {
+   381→      const res = await fetch("/api/staff/clinic-service", {
+   382→        method: "PATCH",
+   383→        headers: { "Content-Type": "application/json" },
+   384→        body: JSON.stringify({ serviceId, clinicPriceCents: cents }),
+   385→      });
+   386→      if (!res.ok) {
+   387→        const err = await res.json();
+   388→        throw new Error(err.error || "Failed to save price");
+   389→      }
+   390→      toast.success("Service price updated");
+   391→      setEditingPriceServiceId(null);
+   392→      setPriceDraft("");
+   393→      fetchData();
+   394→    } catch (err) {
+   395→      toast.error(err instanceof Error ? err.message : "Failed to save price");
+   396→    } finally {
+   397→      priceSavingRef.current = false;
+   398→      setPriceSaving(null);
+   399→    }
+   400→  };
+   401→
+   402→  // ---- Phase B: Insurance Mapping Handlers ----
+   403→
+   404→  const handleAddInsurance = async (serviceId: string) => {
+   405→    if (!newInsuranceId) return;
+   406→    const copayCents = dollarsToCents(newCopayDollars);
+   407→    if (copayCents < 0) {
+   408→      toast.error("Please enter a valid copay amount");
+   409→      return;
+   410→    }
+   411→    setInsuranceAddLoading(serviceId);
+   412→    try {
+   413→      const res = await fetch("/api/staff/service-insurances", {
+   414→        method: "POST",
+   415→        headers: { "Content-Type": "application/json" },
+   416→        body: JSON.stringify({ serviceId, insuranceId: newInsuranceId, copayCents }),
+   417→      });
+   418→      if (!res.ok) {
+   419→        const err = await res.json();
+   420→        throw new Error(err.error || "Failed to add insurance");
+   421→      }
+   422→      toast.success("Insurance coverage added");
+   423→      setNewInsuranceId("");
+   424→      setNewCopayDollars("0.00");
+   425→      setInsuranceAddingServiceId(null);
+   426→      fetchData();
+   427→    } catch (err) {
+   428→      toast.error(err instanceof Error ? err.message : "Failed to add insurance");
+   429→    } finally {
+   430→      setInsuranceAddLoading(null);
+   431→    }
+   432→  };
+   433→
+   434→  const handleRemoveInsurance = async (serviceId: string, insuranceId: string, insuranceName: string) => {
+   435→    setInsuranceRemoveLoading(`${serviceId}-${insuranceId}`);
+   436→    try {
+   437→      const res = await fetch("/api/staff/service-insurances", {
+   438→        method: "DELETE",
+   439→        headers: { "Content-Type": "application/json" },
+   440→        body: JSON.stringify({ serviceId, insuranceId }),
+   441→      });
+   442→      if (!res.ok) {
+   443→        const err = await res.json();
+   444→        throw new Error(err.error || "Failed to remove insurance");
+   445→      }
+   446→      toast.success(`Removed ${insuranceName} coverage`);
+   447→      fetchData();
+   448→    } catch (err) {
+   449→      toast.error(err instanceof Error ? err.message : "Failed to remove insurance");
+   450→    } finally {
+   451→      setInsuranceRemoveLoading(null);
+   452→    }
+   453→  };
+   454→
+   455→  const startCopayEdit = (key: string, currentCents: number) => {
+   456→    setEditingCopayKey(key);
+   457→    setCopayDraft((currentCents / 100).toFixed(2));
+   458→  };
+   459→
+   460→  const saveCopay = async (serviceId: string, insuranceId: string) => {
+   461→    const copayCents = dollarsToCents(copayDraft);
+   462→    if (copayCents < 0) {
+   463→      toast.error("Please enter a valid copay amount");
+   464→      return;
+   465→    }
+   466→    if (copaySavingRef.current) return;
+   467→    copaySavingRef.current = true;
+   468→    setCopaySaving(`${serviceId}-${insuranceId}`);
+   469→    try {
+   470→      const res = await fetch("/api/staff/service-insurances", {
+   471→        method: "POST",
+   472→        headers: { "Content-Type": "application/json" },
+   473→        body: JSON.stringify({ serviceId, insuranceId, copayCents }),
+   474→      });
+   475→      if (!res.ok) {
+   476→        const err = await res.json();
+   477→        throw new Error(err.error || "Failed to update copay");
+   478→      }
+   479→      toast.success("Copay updated");
+   480→      setEditingCopayKey(null);
+   481→      setCopayDraft("");
+   482→      fetchData();
+   483→    } catch (err) {
+   484→      toast.error(err instanceof Error ? err.message : "Failed to update copay");
+   485→    } finally {
+   486→      copaySavingRef.current = false;
+   487→      setCopaySaving(null);
+   488→    }
+   489→  };
+   490→
+   491→  // ---- Render: Loading ----
+   492→  if (loading) {
+   493→    return (
+   494→      <div className="space-y-6">
+   495→        <Skeleton className="h-32 w-full rounded-lg" />
+   496→        <Skeleton className="h-10 w-full rounded-lg" />
+   497→        <Skeleton className="h-64 w-full rounded-lg" />
+   498→        <Skeleton className="h-48 w-full rounded-lg" />
+   499→      </div>
+   500→    );
+   501→  }
+   502→
+   503→  return (
+   504→    <div className="space-y-6">
+   505→      {/* Card 1: Self-Pay Flat Rate (preserved) */}
+   506→      <Card>
+   507→        <CardHeader>
+   508→          <CardTitle className="flex items-center gap-2 text-base">
+   509→            <DollarSign className="size-5 text-brand" />
+   510→            Self-Pay Flat Rate
+   511→          </CardTitle>
+   512→          <CardDescription>
+   513→            Set a per-visit flat rate for self-pay patients at your clinic.
+   514→          </CardDescription>
+   515→        </CardHeader>
+   516→        <CardContent>
+   517→          <div className="flex items-end gap-3 max-w-sm">
+   518→            <div className="flex-1">
+   519→              <Label htmlFor="selfPayFlatRate">Flat Rate</Label>
+   520→              <div className="relative mt-1.5">
+   521→                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+   522→                  $
+   523→                </span>
+   524→                <Input
+   525→                  id="selfPayFlatRate"
+   526→                  type="number"
+   527→                  min="0"
+   528→                  step="0.01"
+   529→                  value={flatRateDollars}
+   530→                  onChange={(e) => setFlatRateDollars(e.target.value)}
+   531→                  className="pl-7"
+   532→                  placeholder="0.00"
+   533→                />
+   534→              </div>
+   535→            </div>
+   536→            <Button
+   537→              onClick={handleSaveFlatRate}
+   538→              disabled={flatRateSaving}
+   539→              className="bg-brand hover:bg-brand-hover text-white"
+   540→            >
+   541→              {flatRateSaving ? (
+   542→                <Loader2 className="size-4 animate-spin" />
+   543→              ) : (
+   544→                "Save"
+   545→              )}
+   546→            </Button>
+   547→          </div>
+   548→          {data && data.clinicInsurances.length > 0 && (
+   549→            <div className="mt-4 flex flex-wrap items-center gap-2">
+   550→              <span className="text-xs text-muted-foreground">Accepted insurances:</span>
+   551→              {data.clinicInsurances.map((ins) => (
+   552→                <Badge key={ins.id} variant="secondary" className="text-xs">
+   553→                  {ins.name}
+   554→                </Badge>
+   555→              ))}
+   556→            </div>
+   557→          )}
+   558→        </CardContent>
+   559→      </Card>
+   560→
+   561→      {/* Card 2: Service Catalog — Redesigned */}
+   562→      <Card>
+   563→        <CardHeader>
+   564→          <div className="flex flex-col gap-4">
+   565→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   566→              <div>
+   567→                <CardTitle className="flex items-center gap-2 text-base">
+   568→                  <Stethoscope className="size-5 text-brand" />
+   569→                  Service Catalog
+   570→                </CardTitle>
+   571→                <CardDescription className="mt-1">
+   572→                  Browse, configure pricing, and assign services to your providers
+   573→                </CardDescription>
+   574→              </div>
+   575→              {/* Search */}
+   576→              <div className="relative w-full sm:w-64">
+   577→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   578→                <Input
+   579→                  placeholder="Search services or specialties..."
+   580→                  aria-label="Search services or specialties"
+   581→                  value={searchQuery}
+   582→                  onChange={(e) => setSearchQuery(e.target.value)}
+   583→                  className="pl-9"
+   584→                />
+   585→              </div>
+   586→            </div>
+   587→
+   588→            {/* Phase A: Specialty Quick-Nav Tabs */}
+   589→            {data && (
+   590→              <ScrollArea className="w-full -mb-1">
+   591→                <div className="flex items-center gap-2 pb-2">
+   592→                  <button
+   593→                    onClick={() => handleSpecialtyFilter("all")}
+   594→                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+   595→                      activeSpecialty === "all"
+   596→                        ? "bg-brand text-white shadow-sm"
+   597→                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+   598→                    }`}
+   599→                  >
+   600→                    All
+   601→                    <span className={`text-[10px] ${activeSpecialty === "all" ? "text-white/70" : "text-muted-foreground/70"}`}>
+   602→                      ({data.specialties.reduce((sum, s) => sum + s.services.length, 0)})
+   603→                    </span>
+   604→                  </button>
+   605→                  {data.specialties.map((spec) => {
+   606→                    const stats = getSpecialtyStats(spec);
+   607→                    const isActive = activeSpecialty === spec.id;
+   608→                    const allAssigned = stats.withProviders === stats.total;
+   609→                    return (
+   610→                      <button
+   611→                        key={spec.id}
+   612→                        onClick={() => handleSpecialtyFilter(spec.id)}
+   613→                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+   614→                          isActive
+   615→                            ? "bg-brand text-white shadow-sm"
+   616→                            : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+   617→                        }`}
+   618→                      >
+   619→                        {spec.name}
+   620→                        <span className={`text-[10px] ${isActive ? "text-white/70" : "text-muted-foreground/70"}`}>
+   621→                          ({stats.total})
+   622→                        </span>
+   623→                        <span
+   624→                          className={`inline-block size-1.5 rounded-full ${
+   625→                            allAssigned
+   626→                              ? isActive
+   627→                                ? "bg-green-300"
+   628→                                : "bg-green-500"
+   629→                              : isActive
+   630→                                ? "bg-white/40"
+   631→                                : "bg-muted-foreground/30"
+   632→                          }`}
+   633→                          title={`${stats.withProviders}/${stats.total} services with providers`}
+   634→                        />
+   635→                      </button>
+   636→                    );
+   637→                  })}
+   638→                </div>
+   639→                <ScrollBar orientation="horizontal" />
+   640→              </ScrollArea>
+   641→            )}
+   642→          </div>
+   643→        </CardHeader>
+   644→        <CardContent>
+   645→          {!displayedSpecialties || displayedSpecialties.length === 0 ? (
+   646→            <div className="text-center py-12 text-muted-foreground">
+   647→              <Stethoscope className="size-10 mx-auto mb-3 opacity-40" />
+   648→              <p className="text-sm">
+   649→                {searchQuery ? "No services match your search." : "No services available."}
+   650→              </p>
+   651→            </div>
+   652→          ) : (
+   653→            <div className="space-y-3">
+   654→              {displayedSpecialties.map((specialty) => {
+   655→                const isOpen = expandedGroups.has(specialty.id);
+   656→                return (
+   657→                  <Collapsible
+   658→                    key={specialty.id}
+   659→                    open={isOpen}
+   660→                    onOpenChange={(open) => {
+   661→                      // Only handle manual toggle from the trigger button
+   662→                      // Don't fight with the controlled `open` prop changes
+   663→                      if (open && !isOpen) {
+   664→                        setExpandedGroups((prev) => new Set(prev).add(specialty.id));
+   665→                      } else if (!open && isOpen) {
+   666→                        setExpandedGroups((prev) => {
+   667→                          const next = new Set(prev);
+   668→                          next.delete(specialty.id);
+   669→                          return next;
+   670→                        });
+   671→                      }
+   672→                    }}
+   673→                  >
+   674→                    <CollapsibleTrigger asChild>
+   675→                      <button className="flex items-center gap-2 w-full py-2 group">
+   676→                        {isOpen ? (
+   677→                          <ChevronDown className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+   678→                        ) : (
+   679→                          <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+   680→                        )}
+   681→                        <span className="text-sm font-semibold text-foreground">
+   682→                          {specialty.name}
+   683→                        </span>
+   684→                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   685→                          {specialty.services.length}
+   686→                        </Badge>
+   687→                        <span className="text-xs text-muted-foreground ml-1">
+   688→                          — {specialty.services.length} service{specialty.services.length !== 1 ? "s" : ""}
+   689→                        </span>
+   690→                      </button>
+   691→                    </CollapsibleTrigger>
+   692→                    <CollapsibleContent>
+   693→                      <div className="space-y-3 pt-1 pb-2 pl-6">
+   694→                        {specialty.services.map((service) => (
+   695→                          <ServiceRow
+   696→                            key={service.id}
+   697→                            service={service}
+   698→                            clinicInsurances={data?.clinicInsurances ?? []}
+   699→                            // Provider assignment handlers
+   700→                            removeLoading={removeLoading}
+   701→                            onRemoveProvider={handleRemove}
+   702→                            onAssignClick={() => {
+   703→                              setAssigningService(service);
+   704→                              setSelectedProviderId("");
+   705→                              setAssignDialogOpen(true);
+   706→                            }}
+   707→                            // Payment type handler
+   708→                            paymentTypeLoading={paymentTypeLoading}
+   709→                            onPaymentTypeChange={handlePaymentTypeChange}
+   710→                            // Phase C: Pricing
+   711→                            editingPriceServiceId={editingPriceServiceId}
+   712→                            priceDraft={priceDraft}
+   713→                            priceSaving={priceSaving}
+   714→                            priceInputRef={priceInputRef}
+   715→                            onPriceDraftChange={setPriceDraft}
+   716→                            onStartPriceEdit={startPriceEdit}
+   717→                            onCancelPriceEdit={cancelPriceEdit}
+   718→                            onSavePrice={savePrice}
+   719→                            // Phase B: Insurance
+   720→                            insuranceAddingServiceId={insuranceAddingServiceId}
+   721→                            newInsuranceId={newInsuranceId}
+   722→                            newCopayDollars={newCopayDollars}
+   723→                            insuranceAddLoading={insuranceAddLoading}
+   724→                            insuranceRemoveLoading={insuranceRemoveLoading}
+   725→                            editingCopayKey={editingCopayKey}
+   726→                            copayDraft={copayDraft}
+   727→                            copaySaving={copaySaving}
+   728→                            onSetInsuranceAddingServiceId={setInsuranceAddingServiceId}
+   729→                            onNewInsuranceIdChange={setNewInsuranceId}
+   730→                            onNewCopayDollarsChange={setNewCopayDollars}
+   731→                            onAddInsurance={handleAddInsurance}
+   732→                            onRemoveInsurance={handleRemoveInsurance}
+   733→                            onStartCopayEdit={startCopayEdit}
+   734→                            onCopayDraftChange={setCopayDraft}
+   735→                            onSaveCopay={saveCopay}
+   736→                            onCancelCopayEdit={() => setEditingCopayKey(null)}
+   737→                          />
+   738→                        ))}
+   739→                      </div>
+   740→                    </CollapsibleContent>
+   741→                  </Collapsible>
+   742→                );
+   743→              })}
+   744→            </div>
+   745→          )}
+   746→        </CardContent>
+   747→      </Card>
+   748→
+   749→      {/* Assign Provider Dialog (preserved) */}
+   750→      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+   751→        <DialogContent className="sm:max-w-md">
+   752→          <DialogHeader>
+   753→            <DialogTitle>Assign Service to Provider</DialogTitle>
+   754→            <DialogDescription>
+   755→              Select a provider to offer{" "}
+   756→              <span className="font-medium text-foreground">
+   757→                {assigningService?.name}
+   758→              </span>
+   759→              .
+   760→            </DialogDescription>
+   761→          </DialogHeader>
+   762→          <div className="py-2">
+   763→            <Label htmlFor="providerSelect">Provider</Label>
+   764→            <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+   765→              <SelectTrigger id="providerSelect" className="mt-1.5">
+   766→                <SelectValue placeholder="Choose a provider..." />
+   767→              </SelectTrigger>
+   768→              <SelectContent>
+   769→                {providers.length === 0 ? (
+   770→                  <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+   771→                    No providers available. Add providers first.
+   772→                  </div>
+   773→                ) : (
+   774→                  providers.map((p) => (
+   775→                    <SelectItem key={p.id} value={p.id}>
+   776→                      {p.firstName} {p.lastName}
+   777→                      {p.credentials ? ` (${p.credentials})` : ""}
+   778→                    </SelectItem>
+   779→                  ))
+   780→                )}
+   781→              </SelectContent>
+   782→            </Select>
+   783→          </div>
+   784→          <DialogFooter>
+   785→            <Button
+   786→              variant="outline"
+   787→              onClick={() => setAssignDialogOpen(false)}
+   788→              disabled={assignLoading}
+   789→            >
+   790→              Cancel
+   791→            </Button>
+   792→            <Button
+   793→              onClick={handleAssign}
+   794→              disabled={assignLoading || !selectedProviderId}
+   795→              className="bg-brand hover:bg-brand-hover text-white"
+   796→            >
+   797→              {assignLoading ? (
+   798→                <Loader2 className="size-4 animate-spin" />
+   799→              ) : (
+   800→                "Assign"
+   801→              )}
+   802→            </Button>
+   803→          </DialogFooter>
+   804→        </DialogContent>
+   805→      </Dialog>
+   806→    </div>
+   807→  );
+   808→}
+   809→
+   810→// ---- ServiceRow sub-component ----
+   811→interface ServiceRowProps {
+   812→  service: ServiceBrief;
+   813→  clinicInsurances: Array<{ id: string; name: string; slug: string; isActive: boolean }>;
+   814→  // Provider assignment
+   815→  removeLoading: string | null;
+   816→  onRemoveProvider: (providerId: string, serviceId: string, serviceName: string) => void;
+   817→  onAssignClick: () => void;
+   818→  // Payment type
+   819→  paymentTypeLoading: string | null;
+   820→  onPaymentTypeChange: (serviceId: string, newType: string) => void;
+   821→  // Phase C: Pricing
+   822→  editingPriceServiceId: string | null;
+   823→  priceDraft: string;
+   824→  priceSaving: string | null;
+   825→  priceInputRef: React.RefObject<HTMLInputElement | null>;
+   826→  onPriceDraftChange: (val: string) => void;
+   827→  onStartPriceEdit: (service: ServiceBrief) => void;
+   828→  onCancelPriceEdit: () => void;
+   829→  onSavePrice: (serviceId: string) => void;
+   830→  // Phase B: Insurance
+   831→  insuranceAddingServiceId: string | null;
+   832→  newInsuranceId: string;
+   833→  newCopayDollars: string;
+   834→  insuranceAddLoading: string | null;
+   835→  insuranceRemoveLoading: string | null;
+   836→  editingCopayKey: string | null;
+   837→  copayDraft: string;
+   838→  copaySaving: string | null;
+   839→  onSetInsuranceAddingServiceId: (id: string | null) => void;
+   840→  onNewInsuranceIdChange: (val: string) => void;
+   841→  onNewCopayDollarsChange: (val: string) => void;
+   842→  onAddInsurance: (serviceId: string) => void;
+   843→  onRemoveInsurance: (serviceId: string, insuranceId: string, name: string) => void;
+   844→  onStartCopayEdit: (key: string, currentCents: number) => void;
+   845→  onCopayDraftChange: (val: string) => void;
+   846→  onSaveCopay: (serviceId: string, insuranceId: string) => void;
+   847→  onCancelCopayEdit: () => void;
+   848→}
+   849→
+   850→function ServiceRow({
+   851→  service,
+   852→  clinicInsurances,
+   853→  removeLoading,
+   854→  onRemoveProvider,
+   855→  onAssignClick,
+   856→  paymentTypeLoading,
+   857→  onPaymentTypeChange,
+   858→  editingPriceServiceId,
+   859→  priceDraft,
+   860→  priceSaving,
+   861→  priceInputRef,
+   862→  onPriceDraftChange,
+   863→  onStartPriceEdit,
+   864→  onCancelPriceEdit,
+   865→  onSavePrice,
+   866→  insuranceAddingServiceId,
+   867→  newInsuranceId,
+   868→  newCopayDollars,
+   869→  insuranceAddLoading,
+   870→  insuranceRemoveLoading,
+   871→  editingCopayKey,
+   872→  copayDraft,
+   873→  copaySaving,
+   874→  onSetInsuranceAddingServiceId,
+   875→  onNewInsuranceIdChange,
+   876→  onNewCopayDollarsChange,
+   877→  onAddInsurance,
+   878→  onRemoveInsurance,
+   879→  onStartCopayEdit,
+   880→  onCopayDraftChange,
+   881→  onSaveCopay,
+   882→  onCancelCopayEdit,
+   883→}: ServiceRowProps) {
+   884→  const isEditingPrice = editingPriceServiceId === service.id;
+   885→  const hasCustomPrice = service.clinicPriceCents > 0;
+   886→  const effectivePriceCents = service.clinicPriceCents > 0 ? service.clinicPriceCents : service.globalPriceCents;
+   887→  const isAddingInsurance = insuranceAddingServiceId === service.id;
+   888→
+   889→  // Insurances not yet linked to this service
+   890→  const availableInsurances = clinicInsurances.filter(
+   891→    (ci) => !service.linkedInsurances.some((li) => li.insuranceId === ci.id)
+   892→  );
+   893→
+   894→  return (
+   895→    <div className="border border-border rounded-lg p-4 hover:border-brand-border transition-colors">
+   896→      {/* Row 1: Service name, duration, price, actions */}
+   897→      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+   898→        <div className="flex-1 min-w-0">
+   899→          <div className="flex items-center gap-2 flex-wrap">
+   900→            <h4 className="font-medium text-sm text-foreground">
+   901→              {service.name}
+   902→            </h4>
+   903→            <Badge variant="outline" className="text-xs gap-1">
+   904→              <Clock className="size-3" />
+   905→              {service.durationMinutes} min
+   906→            </Badge>
+   907→
+   908→            {/* Phase C: Pricing */}
+   909→            {isEditingPrice ? (
+   910→              <div className="inline-flex items-center gap-1.5">
+   911→                <div className="relative">
+   912→                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+   913→                  <Input
+   914→                    ref={priceInputRef}
+   915→                    type="number"
+   916→                    min="0"
+   917→                    step="0.01"
+   918→                    value={priceDraft}
+   919→                    onChange={(e) => onPriceDraftChange(e.target.value)}
+   920→                    onKeyDown={(e) => {
+   921→                      if (e.key === "Enter") onSavePrice(service.id);
+   922→                      if (e.key === "Escape") onCancelPriceEdit();
+   923→                    }}
+   924→                    onBlur={() => onSavePrice(service.id)}
+   925→                    className="h-7 w-24 pl-5 text-xs"
+   926→                  />
+   927→                </div>
+   928→                <button
+   929→                  onClick={() => onSavePrice(service.id)}
+   930→                  disabled={priceSaving === service.id}
+   931→                  className="p-1 rounded hover:bg-brand-subtle text-brand transition-colors"
+   932→                  title="Save price"
+   933→                >
+   934→                  {priceSaving === service.id ? (
+   935→                    <Loader2 className="size-3.5 animate-spin" />
+   936→                  ) : (
+   937→                    <Check className="size-3.5" />
+   938→                  )}
+   939→                </button>
+   940→                <button
+   941→                  onClick={onCancelPriceEdit}
+   942→                  className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors"
+   943→                  title="Cancel"
+   944→                >
+   945→                  <X className="size-3.5" />
+   946→                </button>
+   947→              </div>
+   948→            ) : hasCustomPrice ? (
+   949→              <Tooltip>
+   950→                <TooltipTrigger asChild>
+   951→                  <Badge
+   952→                    variant="outline"
+   953→                    className="text-xs gap-1 cursor-pointer border-brand/30 text-brand bg-brand-subtle/50 hover:bg-brand-subtle transition-colors"
+   954→                    onClick={() => onStartPriceEdit(service)}
+   955→                  >
+   956→                    <DollarSign className="size-3" />
+   957→                    {centsToDollars(service.clinicPriceCents)}
+   958→                    <Pencil className="size-2.5 opacity-60" />
+   959→                  </Badge>
+   960→                </TooltipTrigger>
+   961→                <TooltipContent>
+   962→                  Your Price — click to edit (global: {centsToDollars(service.globalPriceCents)})
+   963→                </TooltipContent>
+   964→              </Tooltip>
+   965→            ) : service.globalPriceCents > 0 ? (
+   966→              <Tooltip>
+   967→                <TooltipTrigger asChild>
+   968→                  <Badge
+   969→                    variant="outline"
+   970→                    className="text-xs gap-1 cursor-pointer hover:border-brand/30 hover:text-foreground transition-colors"
+   971→                    onClick={() => onStartPriceEdit(service)}
+   972→                  >
+   973→                    Default: {centsToDollars(service.globalPriceCents)}
+   974→                  </Badge>
+   975→                </TooltipTrigger>
+   976→                <TooltipContent>Click to set a custom price for your clinic</TooltipContent>
+   977→              </Tooltip>
+   978→            ) : null}
+   979→          </div>
+   980→
+   981→          {service.description && (
+   982→            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+   983→              {service.description}
+   984→            </p>
+   985→          )}
+   986→
+   987→          {/* Assigned Providers */}
+   988→          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+   989→            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mr-1">
+   990→              Providers
+   991→            </span>
+   992→            {service.assignedProviders.length === 0 ? (
+   993→              <span className="text-xs text-muted-foreground italic">
+   994→                None assigned
+   995→              </span>
+   996→            ) : (
+   997→              service.assignedProviders.map((provider) => (
+   998→                <Badge
+   999→                  key={provider.id}
+  1000→                  variant="secondary"
+  1001→                  className="text-xs gap-1.5 pr-1"
+  1002→                >
+  1003→                  {provider.firstName} {provider.lastName}
+  1004→                  {provider.credentials && (
+  1005→                    <span className="text-muted-foreground">
+  1006→                      {provider.credentials}
+  1007→                    </span>
+  1008→                  )}
+  1009→                  <button
+  1010→                    onClick={() =>
+  1011→                      onRemoveProvider(provider.id, service.id, service.name)
+  1012→                    }
+  1013→                    disabled={
+  1014→                      removeLoading === `${provider.id}-${service.id}`
+  1015→                    }
+  1016→                    className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/10 hover:text-destructive transition-colors"
+  1017→                    title="Remove assignment"
+  1018→                  >
+  1019→                    {removeLoading === `${provider.id}-${service.id}` ? (
+  1020→                      <Loader2 className="size-3 animate-spin" />
+  1021→                    ) : (
+  1022→                      <X className="size-3" />
+  1023→                    )}
+  1024→                  </button>
+  1025→                </Badge>
+  1026→              ))
+  1027→            )}
+  1028→          </div>
+  1029→
+  1030→          {/* Phase B: Insurance Coverage */}
+  1031→          <div className="mt-3 border-t border-border/60 pt-3">
+  1032→            <div className="flex items-center gap-2 mb-2">
+  1033→              <ShieldCheck className="size-3.5 text-muted-foreground" />
+  1034→              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+  1035→                Accepted Insurances
+  1036→              </span>
+  1037→              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+  1038→                {service.linkedInsurances.length}
+  1039→              </Badge>
+  1040→            </div>
+  1041→
+  1042→            {service.linkedInsurances.length > 0 && (
+  1043→              <div className="space-y-1.5 mb-2">
+  1044→                {service.linkedInsurances.map((li) => {
+  1045→                  const copayKey = `${service.id}-${li.insuranceId}`;
+  1046→                  const isEditingCopay = editingCopayKey === copayKey;
+  1047→                  return (
+  1048→                    <div
+  1049→                      key={li.id}
+  1050→                      className="flex items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5"
+  1051→                    >
+  1052→                      <span className="text-xs text-foreground flex-1 min-w-0 truncate">
+  1053→                        {li.insuranceName}
+  1054→                      </span>
+  1055→                      {isEditingCopay ? (
+  1056→                        <div className="inline-flex items-center gap-1">
+  1057→                          <div className="relative">
+  1058→                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+  1059→                            <Input
+  1060→                              type="number"
+  1061→                              min="0"
+  1062→                              step="0.01"
+  1063→                              value={copayDraft}
+  1064→                              onChange={(e) => onCopayDraftChange(e.target.value)}
+  1065→                              onKeyDown={(e) => {
+  1066→                                if (e.key === "Enter") onSaveCopay(service.id, li.insuranceId);
+  1067→                                if (e.key === "Escape") onCancelCopayEdit();
+  1068→                              }}
+  1069→                              onBlur={() => onSaveCopay(service.id, li.insuranceId)}
+  1070→                              className="h-6 w-20 pl-4 text-[11px]"
+  1071→                            />
+  1072→                          </div>
+  1073→                          <button
+  1074→                            onClick={() => onSaveCopay(service.id, li.insuranceId)}
+  1075→                            disabled={copaySaving === copayKey}
+  1076→                            className="p-0.5 rounded hover:bg-brand-subtle text-brand"
+  1077→                          >
+  1078→                            {copaySaving === copayKey ? (
+  1079→                              <Loader2 className="size-3 animate-spin" />
+  1080→                            ) : (
+  1081→                              <Check className="size-3" />
+  1082→                            )}
+  1083→                          </button>
+  1084→                          <button
+  1085→                            onClick={onCancelCopayEdit}
+  1086→                            className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+  1087→                          >
+  1088→                            <X className="size-3" />
+  1089→                          </button>
+  1090→                        </div>
+  1091→                      ) : (
+  1092→                        <Tooltip>
+  1093→                          <TooltipTrigger asChild>
+  1094→                            <button
+  1095→                              onClick={() => onStartCopayEdit(copayKey, li.copayCents)}
+  1096→                              className="text-xs font-medium text-brand hover:underline cursor-pointer whitespace-nowrap"
+  1097→                            >
+  1098→                              ${li.copayCents > 0 ? (li.copayCents / 100).toFixed(2) : "0.00"}
+  1099→                            </button>
+  1100→                          </TooltipTrigger>
+  1101→                          <TooltipContent>Copay — click to edit</TooltipContent>
+  1102→                        </Tooltip>
+  1103→                      )}
+  1104→                      <button
+  1105→                        onClick={() => onRemoveInsurance(service.id, li.insuranceId, li.insuranceName)}
+  1106→                        disabled={insuranceRemoveLoading === `${service.id}-${li.insuranceId}`}
+  1107→                        className="p-0.5 rounded-full hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+  1108→                        title="Remove insurance"
+  1109→                      >
+  1110→                        {insuranceRemoveLoading === `${service.id}-${li.insuranceId}` ? (
+  1111→                          <Loader2 className="size-3 animate-spin" />
+  1112→                        ) : (
+  1113→                          <X className="size-3" />
+  1114→                        )}
+  1115→                      </button>
+  1116→                    </div>
+  1117→                  );
+  1118→                })}
+  1119→              </div>
+  1120→            )}
+  1121→
+  1122→            {/* Add insurance row */}
+  1123→            {isAddingInsurance ? (
+  1124→              <div className="flex items-center gap-2 flex-wrap">
+  1125→                <Select value={newInsuranceId} onValueChange={onNewInsuranceIdChange}>
+  1126→                  <SelectTrigger className="h-7 w-[180px] text-xs">
+  1127→                    <SelectValue placeholder="Select insurance..." />
+  1128→                  </SelectTrigger>
+  1129→                  <SelectContent>
+  1130→                    {availableInsurances.length === 0 ? (
+  1131→                      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+  1132→                        All insurances already linked
+  1133→                      </div>
+  1134→                    ) : (
+  1135→                      availableInsurances.map((ins) => (
+  1136→                        <SelectItem key={ins.id} value={ins.id} className="text-xs">
+  1137→                          {ins.name}
+  1138→                        </SelectItem>
+  1139→                      ))
+  1140→                    )}
+  1141→                  </SelectContent>
+  1142→                </Select>
+  1143→                <div className="relative">
+  1144→                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+  1145→                  <Input
+  1146→                    type="number"
+  1147→                    min="0"
+  1148→                    step="0.01"
+  1149→                    value={newCopayDollars}
+  1150→                    onChange={(e) => onNewCopayDollarsChange(e.target.value)}
+  1151→                    className="h-7 w-20 pl-4 text-xs"
+  1152→                    placeholder="Copay"
+  1153→                  />
+  1154→                </div>
+  1155→                <Button
+  1156→                  size="sm"
+  1157→                  className="h-7 text-xs gap-1 bg-brand hover:bg-brand-hover text-white"
+  1158→                  disabled={!newInsuranceId || insuranceAddLoading === service.id}
+  1159→                  onClick={() => onAddInsurance(service.id)}
+  1160→                >
+  1161→                  {insuranceAddLoading === service.id ? (
+  1162→                    <Loader2 className="size-3 animate-spin" />
+  1163→                  ) : (
+  1164→                    <>
+  1165→                      <Plus className="size-3" />
+  1166→                      Add
+  1167→                    </>
+  1168→                  )}
+  1169→                </Button>
+  1170→                <button
+  1171→                  onClick={() => {
+  1172→                    onSetInsuranceAddingServiceId(null);
+  1173→                    onNewInsuranceIdChange("");
+  1174→                    onNewCopayDollarsChange("0.00");
+  1175→                  }}
+  1176→                  className="p-1 rounded hover:bg-muted text-muted-foreground"
+  1177→                >
+  1178→                  <X className="size-3.5" />
+  1179→                </button>
+  1180→              </div>
+  1181→            ) : (
+  1182→              <button
+  1183→                onClick={() => onSetInsuranceAddingServiceId(service.id)}
+  1184→                className="inline-flex items-center gap-1 text-xs text-brand hover:text-brand-hover transition-colors"
+  1185→              >
+  1186→                <Plus className="size-3" />
+  1187→                Add insurance
+  1188→              </button>
+  1189→            )}
+  1190→          </div>
+  1191→        </div>
+  1192→
+  1193→        {/* Right-side actions */}
+  1194→        <div className="flex items-center gap-2 shrink-0 lg:mt-0 mt-1">
+  1195→          {/* Payment Type Dropdown */}
+  1196→          <div className="flex items-center gap-1.5">
+  1197→            <CreditCard className="size-3.5 text-muted-foreground" />
+  1198→            <Select
+  1199→              value={service.selfPayPaymentType}
+  1200→              onValueChange={(value) => onPaymentTypeChange(service.id, value)}
+  1201→              disabled={paymentTypeLoading === service.id}
+  1202→            >
+  1203→              <SelectTrigger className="w-[150px] h-8 text-xs">
+  1204→                {paymentTypeLoading === service.id ? (
+  1205→                  <Loader2 className="size-3.5 animate-spin" />
+  1206→                ) : (
+  1207→                  <SelectValue />
+  1208→                )}
+  1209→              </SelectTrigger>
+  1210→              <SelectContent>
+  1211→                <SelectItem value="FULL_UPFRONT">Full Upfront</SelectItem>
+  1212→                <SelectItem value="STANDARD_DEPOSIT">Standard Deposit</SelectItem>
+  1213→              </SelectContent>
+  1214→            </Select>
+  1215→          </div>
+  1216→
+  1217→          {/* Assign to Provider Button */}
+  1218→          <Button
+  1219→            variant="outline"
+  1220→            size="sm"
+  1221→            className="h-8 text-xs gap-1.5"
+  1222→            onClick={onAssignClick}
+  1223→          >
+  1224→            <UserPlus className="size-3.5" />
+  1225→            Assign
+  1226→          </Button>
+  1227→        </div>
+  1228→      </div>
+  1229→    </div>
+  1230→  );
+  1231→}

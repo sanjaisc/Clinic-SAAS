@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { SettingsBreadcrumb } from "@/components/settings-breadcrumb";
 import {
   Mail,
   Save,
@@ -827,6 +828,7 @@ export default function CommunicationsPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsBreadcrumb items={[{ label: "Settings" }, { label: "Communications" }]} />
       {/* Card 1: Common Instructions Block */}
       <Card>
         <CardHeader>
