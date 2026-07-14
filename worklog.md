@@ -801,3 +801,31 @@ Stage Summary:
 - After: BOOKED has 7, CONFIRMED has 6, CHECKED_IN has 3, CANCELLED has 2, NO_SHOW has 2, COMPLETED has 1 (appropriate — terminal state)
 - New "Send Video Link" action for VIDEO modality appointments in BOOKED/CONFIRMED/CHECKED_IN statuses
 - File modified: src/app/staff/dashboard/appointments/page.tsx (lines 915-1001)
+
+---
+Task ID: appointments-dropdown-universal-actions
+Agent: Main Orchestrator
+Task: Fix appointment action dropdown showing only "View Details" for COMPLETED status and other terminal states
+
+Work Log:
+- Analyzed user screenshot showing all 4 appointments with "Completed" status and dropdown only showing "View Details"
+- Root cause: Previous fix only added status-transition actions for active statuses; COMPLETED/CANCELLED/NO_SHOW had no additional actions
+- Added 3 new universal actions to the dropdown:
+  1. "Add Note" — opens detail dialog and auto-scrolls to the Internal Notes section (available for ALL statuses)
+  2. "Copy Details" — copies a formatted appointment summary to clipboard with toast feedback (available for ALL statuses)
+  3. "Rebook Patient" — navigates to /staff/dashboard/book?rebookFrom=<id> (available for COMPLETED, CANCELLED, NO_SHOW)
+- Added data-notes-section attribute to the notes div in the detail dialog for scroll targeting
+- Added ClipboardCopy and CalendarPlus icon imports from lucide-react
+- Added useRouter import and hook for Rebook navigation
+- Fixed separator logic to avoid double-separators: grouped status-transition items, quick-access items, and universal items each with single separator
+- Widened dropdown from w-48 to w-52 for better text fit
+- Verified lint passes clean
+
+Stage Summary:
+- COMPLETED dropdown: 1 action → 4 actions (View Details, Add Note, Copy Details, Rebook Patient)
+- CANCELLED dropdown: 1 action → 5 actions (+ Reschedule, Add Note, Copy Details, Rebook)
+- NO_SHOW dropdown: 1 action → 5 actions (+ Reschedule, Add Note, Copy Details, Rebook)
+- BOOKED dropdown: 6 actions → 8-9 actions (+ Add Note, Copy Details, Send Video Link for VIDEO)
+- CONFIRMED dropdown: 2 actions → 8-9 actions (same as BOOKED now)
+- CHECKED_IN dropdown: 3 actions → 5-6 actions (+ Add Note, Copy Details, Send Video Link for VIDEO)
+- File modified: src/app/staff/dashboard/appointments/page.tsx

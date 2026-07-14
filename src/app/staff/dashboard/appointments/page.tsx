@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  ClipboardCopy,
+  CalendarPlus,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { QrCodeDisplay } from "@/components/qr-code-display";
@@ -232,6 +235,7 @@ const TRANSITION_ICONS: Record<string, React.ReactNode> = {
 
 export default function AppointmentsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const clinicId = session?.user?.clinicId as string | undefined;
 
   // Filters
@@ -912,90 +916,135 @@ export default function AppointmentsPage() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
           <Eye className="size-3.5 mr-2" />
           View Details
         </DropdownMenuItem>
+
+        {/* ---- Status-transition section ---- */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+          <>
+            <DropdownMenuSeparator />
+            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+              <DropdownMenuItem
+                onClick={() => handleTransition(apt.id, "CHECKED_IN")}
+                className="cursor-pointer"
+              >
+                <UserCheck className="size-3.5 mr-2 text-amber-600" />
+                Check In
+              </DropdownMenuItem>
+            )}
+            {apt.status === "CHECKED_IN" && (
+              <DropdownMenuItem
+                onClick={() => handleTransition(apt.id, "COMPLETED")}
+                className="cursor-pointer"
+              >
+                <CheckCircle2 className="size-3.5 mr-2 text-brand" />
+                Complete
+              </DropdownMenuItem>
+            )}
+            {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+              <DropdownMenuItem
+                onClick={() => openReschedule(apt)}
+                className="cursor-pointer"
+              >
+                <RefreshCw className="size-3.5 mr-2 text-blue-600" />
+                Reschedule
+              </DropdownMenuItem>
+            )}
+            {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
+              <DropdownMenuItem
+                onClick={() => handleTransition(apt.id, "CANCELLED")}
+                className="cursor-pointer text-red-600 focus:text-red-600"
+              >
+                <XCircle className="size-3.5 mr-2" />
+                Cancel
+              </DropdownMenuItem>
+            )}
+            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+              <DropdownMenuItem
+                onClick={() => handleTransition(apt.id, "NO_SHOW")}
+                className="cursor-pointer"
+              >
+                <UserX className="size-3.5 mr-2" />
+                Mark No Show
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+
+        {/* ---- Quick-access section (QR Code, Video Link) ---- */}
+        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || (apt.modality === "VIDEO" && apt.status === "CHECKED_IN")) && (
+          <>
+            <DropdownMenuSeparator />
+            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setQrAppointmentId(apt.id);
+                  setQrPatientName(apt.patientName);
+                }}
+                className="cursor-pointer"
+              >
+                <QrCode className="size-3.5 mr-2 text-brand" />
+                QR Code
+              </DropdownMenuItem>
+            )}
+            {apt.modality === "VIDEO" && (apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
+              <DropdownMenuItem
+                onClick={async () => {
+                  await openDetail(apt.id);
+                  setTimeout(() => {
+                    const el = document.querySelector("[data-video-link-section]");
+                    el?.scrollIntoView({ behavior: "smooth" });
+                  }, 400);
+                }}
+                className="cursor-pointer"
+              >
+                <Video className="size-3.5 mr-2 text-purple-600" />
+                Send Video Link
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+
+        {/* ---- Universal actions — available for ALL statuses ---- */}
         <DropdownMenuSeparator />
-        {/* Check In — available for BOOKED and CONFIRMED */}
-        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
-          <DropdownMenuItem
-            onClick={() => handleTransition(apt.id, "CHECKED_IN")}
-            className="cursor-pointer"
-          >
-            <UserCheck className="size-3.5 mr-2 text-amber-600" />
-            Check In
-          </DropdownMenuItem>
-        )}
-        {/* Complete — available for CHECKED_IN */}
-        {apt.status === "CHECKED_IN" && (
-          <DropdownMenuItem
-            onClick={() => handleTransition(apt.id, "COMPLETED")}
-            className="cursor-pointer"
-          >
-            <CheckCircle2 className="size-3.5 mr-2 text-brand" />
-            Complete
-          </DropdownMenuItem>
-        )}
-        {/* Reschedule — available for BOOKED, CONFIRMED, CANCELLED, NO_SHOW */}
-        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
-          <DropdownMenuItem
-            onClick={() => openReschedule(apt)}
-            className="cursor-pointer"
-          >
-            <RefreshCw className="size-3.5 mr-2 text-blue-600" />
-            Reschedule
-          </DropdownMenuItem>
-        )}
-        {/* Cancel — available for BOOKED, CONFIRMED, CHECKED_IN */}
-        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
-          <DropdownMenuItem
-            onClick={() => handleTransition(apt.id, "CANCELLED")}
-            className="cursor-pointer text-red-600 focus:text-red-600"
-          >
-            <XCircle className="size-3.5 mr-2" />
-            Cancel
-          </DropdownMenuItem>
-        )}
-        {/* Mark No Show — available for BOOKED and CONFIRMED */}
-        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
-          <DropdownMenuItem
-            onClick={() => handleTransition(apt.id, "NO_SHOW")}
-            className="cursor-pointer"
-          >
-            <UserX className="size-3.5 mr-2" />
-            Mark No Show
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        {/* QR Code — available for BOOKED and CONFIRMED */}
-        {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+        <DropdownMenuItem
+          onClick={async () => {
+            await openDetail(apt.id);
+            setTimeout(() => {
+              const el = document.querySelector("[data-notes-section]");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }, 400);
+          }}
+          className="cursor-pointer"
+        >
+          <StickyNote className="size-3.5 mr-2 text-amber-600" />
+          Add Note
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            const summary = `${apt.patientName} — ${apt.service.name} with Dr. ${apt.provider.firstName} ${apt.provider.lastName}\n${format(parseISO(apt.startTime), "MMM d, yyyy 'at' h:mm a")} · ${apt.modality} · ${apt.status}`;
+            navigator.clipboard.writeText(summary).then(
+              () => toast.success("Appointment details copied"),
+              () => toast.error("Failed to copy")
+            );
+          }}
+          className="cursor-pointer"
+        >
+          <ClipboardCopy className="size-3.5 mr-2" />
+          Copy Details
+        </DropdownMenuItem>
+        {(apt.status === "COMPLETED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
           <DropdownMenuItem
             onClick={() => {
-              setQrAppointmentId(apt.id);
-              setQrPatientName(apt.patientName);
+              router.push(`/staff/dashboard/book?rebookFrom=${apt.id}`);
             }}
             className="cursor-pointer"
           >
-            <QrCode className="size-3.5 mr-2 text-brand" />
-            QR Code
-          </DropdownMenuItem>
-        )}
-        {/* Send Video Link — available for VIDEO modality in active statuses */}
-        {apt.modality === "VIDEO" && (apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
-          <DropdownMenuItem
-            onClick={async () => {
-              await openDetail(apt.id);
-              setTimeout(() => {
-                const el = document.querySelector("[data-video-link-section]");
-                el?.scrollIntoView({ behavior: "smooth" });
-              }, 400);
-            }}
-            className="cursor-pointer"
-          >
-            <Video className="size-3.5 mr-2 text-purple-600" />
-            Send Video Link
+            <CalendarPlus className="size-3.5 mr-2 text-brand" />
+            Rebook Patient
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
@@ -2479,7 +2528,7 @@ export default function AppointmentsPage() {
                 )}
 
                 {/* Internal Notes */}
-                <div className="rounded-lg border border-border/60 p-4">
+                <div data-notes-section className="rounded-lg border border-border/60 p-4">
                   <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <StickyNote className="size-4 text-brand" />
                     Internal Notes
