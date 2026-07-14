@@ -829,3 +829,28 @@ Stage Summary:
 - CONFIRMED dropdown: 2 actions → 8-9 actions (same as BOOKED now)
 - CHECKED_IN dropdown: 3 actions → 5-6 actions (+ Add Note, Copy Details, Send Video Link for VIDEO)
 - File modified: src/app/staff/dashboard/appointments/page.tsx
+
+---
+Task ID: manual-booking-focus-fix
+Agent: Main Orchestrator
+Task: Fix input fields losing focus on every keystroke in manual booking page
+
+Work Log:
+- User reported: name, email, phone fields in manual booking lose focus after each character
+- Root cause: 6 inner functions (StepIndicator, StepProviderSlot, StepPatientDetails, StepVisitDetails, StepReview, StepConfirmation) were defined inside the ManualBookPage component and used as JSX components (`<StepPatientDetails />`)
+- When parent re-renders on state change (e.g., typing a character), React sees the inner function as a NEW component type, unmounts the old one, and mounts a new one — destroying input focus
+- Fix: Changed all 6 usages from JSX component syntax to function call syntax:
+  - `<StepIndicator />` → `{StepIndicator()}`
+  - `<StepProviderSlot />` → `{StepProviderSlot()}`
+  - `<StepPatientDetails />` → `{StepPatientDetails()}`
+  - `<StepVisitDetails />` → `{StepVisitDetails()}`
+  - `<StepReview />` → `{StepReview()}`
+  - `<StepConfirmation />` → `{StepConfirmation()}`
+- When calling as functions, React treats the returned JSX as part of the parent's render tree (no component boundary), so inputs persist across re-renders
+- Verified no other dashboard pages have this pattern (only book/page.tsx was affected)
+- Lint passes clean
+
+Stage Summary:
+- Fixed critical UX bug: all form fields in manual booking now maintain focus during typing
+- Changed 6 lines in src/app/staff/dashboard/book/page.tsx (lines 1421, 1444-1448)
+- No other pages affected

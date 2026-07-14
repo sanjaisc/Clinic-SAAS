@@ -1418,7 +1418,7 @@ export default function ManualBookPage() {
       </div>
 
       {/* Step indicator (not on confirmation step) */}
-      {step < 5 && <StepIndicator />}
+      {step < 5 && StepIndicator()}
 
       {/* Error banner */}
       {error && (
@@ -1441,11 +1441,11 @@ export default function ManualBookPage() {
       )}
 
       {/* Step content */}
-      {step === 1 && <StepProviderSlot />}
-      {step === 2 && <StepPatientDetails />}
-      {step === 3 && <StepVisitDetails />}
-      {step === 4 && <StepReview />}
-      {step === 5 && <StepConfirmation />}
+      {step === 1 && StepProviderSlot()}
+      {step === 2 && StepPatientDetails()}
+      {step === 3 && StepVisitDetails()}
+      {step === 4 && StepReview()}
+      {step === 5 && StepConfirmation()}
 
       {/* Navigation buttons */}
       {step < 5 && (
