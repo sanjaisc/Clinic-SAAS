@@ -9,7 +9,7 @@ import { STAFF_ROLE } from "@/lib/enums";
 // Types
 // ---------------------------------------------------------------------------
 
-interface ClinicOption {
+export interface ClinicOption {
   id: string;
   name: string;
   slug: string;

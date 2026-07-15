@@ -613,7 +613,7 @@ export default function CalendarPage() {
     for (const day of weekData) {
       for (const provider of filteredProviders) {
         const key = `${provider.id}|${day.date}`;
-        cells[key] = day.slots.filter((s) => s.providerId === provider.id);
+        cells[key] = day.slots.filter((s) => s.provider?.id === provider.id);
       }
     }
 

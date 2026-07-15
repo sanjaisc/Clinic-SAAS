@@ -124,7 +124,7 @@ export default function FinancialSettingsPage() {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   const fetchData = useCallback(async () => {
     if (!clinicId) return;

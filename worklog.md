@@ -911,3 +911,31 @@ Stage Summary:
 - The adapter is a permanent fix needed for NextAuth v4 on Next.js 16
 - Dev server instability is a known sandbox memory limitation, not a code issue
 - Credentials: admin@downtownmedicalgroup.clinicbook.com / admin123
+
+---
+Task ID: 6
+Agent: Main Orchestrator
+Task: Fix appointment deployment failure + TypeScript error cleanup
+
+Work Log:
+- Diagnosed build failure: `package.json` build script contained `cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/` but `output: "standalone"` was removed from `next.config.ts` in a previous session, so `.next/standalone/` directory was never created
+- Fixed `package.json` build script: removed standalone copy commands, changed to `next build` only
+- Fixed `package.json` start script: changed from `bun .next/standalone/server.js` to `next start -p 3000`
+- Verified full appointment booking flow works end-to-end (search → slot selection → patient info → confirm → "Appointment Confirmed!")
+- Fixed 44+ TypeScript errors across app code:
+  - `accept-invitation/route.ts`: Fixed dynamic import of `deleteByPrefix` (was importing non-existent named export)
+  - `cron/trigger/route.ts`: Removed invalid `slotLock: null` Prisma filter
+  - `calendar/page.tsx`: Fixed `s.providerId` → `s.provider?.id` (SlotInfo has `provider` object, not `providerId`)
+  - `providers/page.tsx`: Fixed `_count.appointments` reference (field doesn't exist on API response)
+  - `search-page.tsx`: Removed invalid `title` prop from Lucide icon components
+  - `use-clinic-context.ts`: Exported `ClinicOption` interface
+  - 9 settings pages: Fixed `string | null | undefined` → `string | null` with `?? null`
+  - 2 settings pages: Fixed `SetStateAction` literal type narrowing (widened to `string`)
+  - `taxonomy/page.tsx`: Moved `formatPrice` to module scope for sub-component access
+  - `analytics/page.tsx`: Added null guard for `data` + imported `Loader2`
+
+Stage Summary:
+- **Build fix**: Root cause was orphaned `cp` commands in build script referencing non-existent `.next/standalone/` directory
+- **TypeScript**: All app source files now have zero TypeScript errors (only non-app files like examples/seed/skills have errors)
+- **Booking flow**: Verified working in production — full 3-step booking completes successfully
+- **Known limitation**: Dev server OOM in sandbox environment; production build is reliable

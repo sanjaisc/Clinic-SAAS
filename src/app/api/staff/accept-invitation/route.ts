@@ -206,8 +206,8 @@ export async function POST(request: NextRequest) {
 
     // Invalidate cache for this clinic
     try {
-      const { deleteByPrefix } = await import("@/lib/cache");
-      await deleteByPrefix(`clinic:${invitation.clinicId}`);
+      const { cache } = await import("@/lib/cache");
+      cache.deleteByPrefix(`clinic:${invitation.clinicId}`);
     } catch {
       // Non-critical
     }

@@ -552,7 +552,7 @@ function SafeMarkdownEditor({
 export default function CommunicationsPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   // Data state
   const [data, setData] = useState<CommsData | null>(null);
@@ -562,7 +562,7 @@ export default function CommunicationsPage() {
   const [emailFromName, setEmailFromName] = useState("");
   const [customEmailHeader, setCustomEmailHeader] = useState("");
   const [commonInstructions, setCommonInstructions] = useState("");
-  const [intakeReminderDays, setIntakeReminderDays] = useState(INTAKE_CADENCE.THREE_AND_ONE_DAY);
+  const [intakeReminderDays, setIntakeReminderDays] = useState<string>(INTAKE_CADENCE.THREE_AND_ONE_DAY);
   const [intakeFormIds, setIntakeFormIds] = useState<Record<string, string>>({});
 
   // Saving states

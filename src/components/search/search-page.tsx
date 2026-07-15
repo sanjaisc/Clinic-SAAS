@@ -741,7 +741,6 @@ export function SearchPage() {
                       <CheckCircle2
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-brand cursor-pointer"
                         onClick={clearZip}
-                        title="Clear location"
                       />
                     )}
                     {zipStatus === "resolving" && (
@@ -751,7 +750,6 @@ export function SearchPage() {
                       <X
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-red-400 cursor-pointer"
                         onClick={() => { setZipStatus("idle"); setZipError(""); }}
-                        title="Clear error"
                       />
                     )}
                   </div>

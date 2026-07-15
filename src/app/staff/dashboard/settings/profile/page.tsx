@@ -150,7 +150,7 @@ function ImageCropUploader({
 }) {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
   const [preview, setPreview] = useState<string | null>(currentUrl);
   const [rawFile, setRawFile] = useState<File | null>(null);
   const [crop, setCrop] = useState<CropData | null>(null);
@@ -476,7 +476,7 @@ function FaqItem({
 export default function ProfileSettingsPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
   const clinicParam = getClinicParam(clinicId);
 
   // ---- Data States ----

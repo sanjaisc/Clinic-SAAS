@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+     4→import { useRouter } from "next/navigation";
+     5→import { useSession } from "next-auth/react";
+     6→import { toast } from "sonner";
+     7→import {
+     8→  Search,
+     9→  Calendar,
+    10→  MoreHorizontal,
+    11→  Eye,
+    12→  UserCheck,
+    13→  CheckCircle2,
+    14→  XCircle,
+    15→  UserX,
+    16→  Clock,
+    17→  Phone,
+    18→  Mail,
+    19→  User,
+    20→  FileText,
+    21→  CreditCard,
+    22→  Shield,
+    23→  Baby,
+    24→  Send,
+    25→  ChevronLeft,
+    26→  ChevronRight,
+    27→  Filter,
+    28→  X,
+    29→  Loader2,
+    30→  CalendarDays,
+    31→  StickyNote,
+    32→  DollarSign,
+    33→  Hash,
+    34→  Bell,
+    35→  QrCode,
+    36→  Pencil,
+    37→  Check,
+    38→  ArrowRight,
+    39→  RefreshCw,
+    40→  LayoutGrid,
+    41→  List,
+    42→  Video,
+    43→  Link2,
+    44→  AlertTriangle,
+    45→  ArrowUp,
+    46→  ArrowDown,
+    47→  ArrowUpDown,
+    48→  ClipboardCopy,
+    49→  CalendarPlus,
+    50→} from "lucide-react";
+    51→import { Label } from "@/components/ui/label";
+    52→import { QrCodeDisplay } from "@/components/qr-code-display";
+    53→import { Button } from "@/components/ui/button";
+    54→import { Input } from "@/components/ui/input";
+    55→import { Checkbox } from "@/components/ui/checkbox";
+    56→import { Badge } from "@/components/ui/badge";
+    57→import { Skeleton } from "@/components/ui/skeleton";
+    58→import { Textarea } from "@/components/ui/textarea";
+    59→import {
+    60→  Select,
+    61→  SelectContent,
+    62→  SelectItem,
+    63→  SelectTrigger,
+    64→  SelectValue,
+    65→} from "@/components/ui/select";
+    66→import {
+    67→  DropdownMenu,
+    68→  DropdownMenuContent,
+    69→  DropdownMenuItem,
+    70→  DropdownMenuSeparator,
+    71→  DropdownMenuTrigger,
+    72→} from "@/components/ui/dropdown-menu";
+    73→import {
+    74→  Dialog,
+    75→  DialogContent,
+    76→  DialogHeader,
+    77→  DialogTitle,
+    78→  DialogDescription,
+    79→} from "@/components/ui/dialog";
+    80→import {
+    81→  AlertDialog,
+    82→  AlertDialogAction,
+    83→  AlertDialogCancel,
+    84→  AlertDialogContent,
+    85→  AlertDialogDescription,
+    86→  AlertDialogFooter,
+    87→  AlertDialogHeader,
+    88→  AlertDialogTitle,
+    89→} from "@/components/ui/alert-dialog";
+    90→import { Separator } from "@/components/ui/separator";
+    91→import {
+    92→  Popover,
+    93→  PopoverContent,
+    94→  PopoverTrigger,
+    95→} from "@/components/ui/popover";
+    96→import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+    97→import { format, parseISO, addDays } from "date-fns";
+    98→import { cn } from "@/lib/utils";
+    99→
+   100→// =============================================================================
+   101→// Types
+   102→// =============================================================================
+   103→
+   104→interface AppointmentRow {
+   105→  id: string;
+   106→  patientName: string;
+   107→  patientDob: string;
+   108→  patientPhone: string;
+   109→  patientEmail: string;
+   110→  patientType: string;
+   111→  guardianName: string | null;
+   112→  guardianRelation: string | null;
+   113→  reasonForVisit: string;
+   114→  modality: string;
+   115→  startTime: string;
+   116→  endTime: string;
+   117→  status: string;
+   118→  isDemoInsurance: boolean;
+   119→  depositCents: number;
+   120→  selfPayCents: number;
+   121→  paymentStatus: string;
+   122→  paymentMethod: string | null;
+   123→  cancellationReason: string | null;
+   124→  cancelledAt: string | null;
+   125→  intakeCompleted: boolean;
+   126→  insuranceVerified: boolean;
+   127→  createdAt: string;
+   128→  provider: { id: string; firstName: string; lastName: string; credentials: string | null; videoVisitLink?: string | null };
+   129→  service: { id: string; name: string };
+   130→  slot: { id: string; modality: string; status: string };
+   131→  insurance: { id: string; name: string; isDemo: boolean } | null;
+   132→}
+   133→
+   134→interface AppointmentDetail extends AppointmentRow {
+   135→  specialty: { id: string; name: string };
+   136→  clinic: { id: string; name: string; phoneNumber: string };
+   137→  ledger: {
+   138→    id: string;
+   139→    type: string;
+   140→    amountCents: number;
+   141→    description: string | null;
+   142→    paymentStatus: string | null;
+   143→    processedBy: string | null;
+   144→    createdAt: string;
+   145→  } | null;
+   146→  tokens: {
+   147→    id: string;
+   148→    purpose: string;
+   149→    createdAt: string;
+   150→    expiresAt: string;
+   151→    consumedAt: string | null;
+   152→  }[];
+   153→  notes: NoteItem[];
+   154→  validTransitions: string[];
+   155→}
+   156→
+   157→interface NoteItem {
+   158→  id: string;
+   159→  content: string;
+   160→  createdAt: string;
+   161→  author: { id: string; name: string; role: string } | null;
+   162→}
+   163→
+   164→interface ProviderOption {
+   165→  id: string;
+   166→  firstName: string;
+   167→  lastName: string;
+   168→  credentials: string | null;
+   169→}
+   170→
+   171→interface RescheduleSlot {
+   172→  id: string;
+   173→  startTime: string;
+   174→  endTime: string;
+   175→  modality: string;
+   176→}
+   177→
+   178→interface WaitlistRow {
+   179→  id: string;
+   180→  patientName: string;
+   181→  patientEmail: string;
+   182→  patientPhone: string;
+   183→  patientType: string;
+   184→  preferredModality: string | null;
+   185→  status: string;
+   186→  contactCount: number;
+   187→  lastContactAt: string | null;
+   188→  expiresAt: string | null;
+   189→  createdAt: string;
+   190→  providerName: string;
+   191→  serviceName: string;
+   192→}
+   193→
+   194→// =============================================================================
+   195→// Status Helpers
+   196→// =============================================================================
+   197→
+   198→const STATUS_STYLES: Record<string, string> = {
+   199→  BOOKED: "bg-blue-100 text-blue-700 border-blue-200",
+   200→  CHECKED_IN: "bg-amber-100 text-amber-700 border-amber-200",
+   201→  COMPLETED: "bg-brand-subtle text-brand-hover border-brand-border",
+   202→  CANCELLED: "bg-red-100 text-red-700 border-red-200",
+   203→  NO_SHOW: "bg-gray-100 text-gray-600 border-gray-200",
+   204→  ARCHIVED: "bg-muted text-muted-foreground border-muted",
+   205→};
+   206→
+   207→const STATUS_LABELS: Record<string, string> = {
+   208→  BOOKED: "Booked",
+   209→  CHECKED_IN: "Checked In",
+   210→  COMPLETED: "Completed",
+   211→  CANCELLED: "Cancelled",
+   212→  NO_SHOW: "No Show",
+   213→  ARCHIVED: "Archived",
+   214→};
+   215→
+   216→const TRANSITION_LABELS: Record<string, string> = {
+   217→  CHECKED_IN: "Check In",
+   218→  COMPLETED: "Complete",
+   219→  CANCELLED: "Cancel",
+   220→  NO_SHOW: "No Show",
+   221→  ARCHIVED: "Archive",
+   222→};
+   223→
+   224→const TRANSITION_ICONS: Record<string, React.ReactNode> = {
+   225→  CHECKED_IN: <UserCheck className="size-3.5" />,
+   226→  COMPLETED: <CheckCircle2 className="size-3.5" />,
+   227→  CANCELLED: <XCircle className="size-3.5" />,
+   228→  NO_SHOW: <UserX className="size-3.5" />,
+   229→  ARCHIVED: <FileText className="size-3.5" />,
+   230→};
+   231→
+   232→// =============================================================================
+   233→// Component
+   234→// =============================================================================
+   235→
+   236→export default function AppointmentsPage() {
+   237→  const { data: session } = useSession();
+   238→  const router = useRouter();
+   239→  const clinicId = session?.user?.clinicId as string | undefined;
+   240→
+   241→  // Filters
+   242→  const [statusFilter, setStatusFilter] = useState<string>("");
+   243→  const [dateFrom, setDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
+   244→  const [dateTo, setDateTo] = useState(() => format(addDays(new Date(), 30), "yyyy-MM-dd"));
+   245→  const [search, setSearch] = useState("");
+   246→  const [providerFilter, setProviderFilter] = useState<string>("");
+   247→  const [page, setPage] = useState(1);
+   248→
+   249→  // Data
+   250→  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+   251→  const [totalPages, setTotalPages] = useState(1);
+   252→  const [total, setTotal] = useState(0);
+   253→  const [loading, setLoading] = useState(true);
+   254→  const [error, setError] = useState<string | null>(null);
+   255→
+   256→  // Providers
+   257→  const [providers, setProviders] = useState<ProviderOption[]>([]);
+   258→
+   259→  // Detail dialog
+   260→  const [selectedId, setSelectedId] = useState<string | null>(null);
+   261→  const [detail, setDetail] = useState<AppointmentDetail | null>(null);
+   262→  const [detailLoading, setDetailLoading] = useState(false);
+   263→
+   264→  // Notes
+   265→  const [noteContent, setNoteContent] = useState("");
+   266→  const [noteSubmitting, setNoteSubmitting] = useState(false);
+   267→
+   268→  // Patient edit mode in detail dialog
+   269→  const [editingPatient, setEditingPatient] = useState(false);
+   270→  const [editName, setEditName] = useState("");
+   271→  const [editEmail, setEditEmail] = useState("");
+   272→  const [editPhone, setEditPhone] = useState("");
+   273→  const [editDob, setEditDob] = useState("");
+   274→  const [editInsuranceVerified, setEditInsuranceVerified] = useState(false);
+   275→  const [patientSaving, setPatientSaving] = useState(false);
+   276→
+   277→  // Status transition
+   278→  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+   279→
+   280→  // QR Code dialog
+   281→  const [qrAppointmentId, setQrAppointmentId] = useState<string | null>(null);
+   282→  const [qrPatientName, setQrPatientName] = useState<string | undefined>(undefined);
+   283→
+   284→  // View mode: appointments or waitlist
+   285→  const [viewMode, setViewMode] = useState<"appointments" | "waitlist">("appointments");
+   286→
+   287→  // Waitlist data
+   288→  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistRow[]>([]);
+   289→  const [waitlistLoading, setWaitlistLoading] = useState(false);
+   290→  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+   291→  const [waitlistActionId, setWaitlistActionId] = useState<string | null>(null);
+   292→
+   293→  // Reschedule dialog
+   294→  const [rescheduleApt, setRescheduleApt] = useState<AppointmentRow | null>(null);
+   295→  const [rescheduleProviderId, setRescheduleProviderId] = useState("");
+   296→  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
+   297→  const [rescheduleSlots, setRescheduleSlots] = useState<RescheduleSlot[]>([]);
+   298→  const [rescheduleSlotsLoading, setRescheduleSlotsLoading] = useState(false);
+   299→  const [rescheduleSelectedSlotId, setRescheduleSelectedSlotId] = useState("");
+   300→  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+   301→
+   302→  // Feature 1.1: Column sorting
+   303→  const [sortField, setSortField] = useState<string>("startTime");
+   304→  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+   305→
+   306→  // Feature 1.2: Grid/table view toggle
+   307→  const [listView, setListView] = useState<"table" | "grid">("table");
+   308→
+   309→  // Feature 5.1: Video link manager
+   310→  const [editVideoLink, setEditVideoLink] = useState("");
+   311→  const [videoLinkSaving, setVideoLinkSaving] = useState(false);
+   312→  const [videoLinkSending, setVideoLinkSending] = useState(false);
+   313→
+   314→  // Feature 6.1: Payment request
+   315→  const [paymentRequestSending, setPaymentRequestSending] = useState(false);
+   316→  const [paymentRequestAmount, setPaymentRequestAmount] = useState("");
+   317→
+   318→  // Feature 6.2: Refund confirmation
+   319→  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+   320→  const [refundSubmitting, setRefundSubmitting] = useState(false);
+   321→
+   322→  // Feature 7.1: Conflict alert
+   323→  const [conflictIds, setConflictIds] = useState<Set<string>>(new Set());
+   324→
+   325→  // Build query params
+   326→  const buildQuery = useCallback(
+   327→    (overrides?: { pageOverride?: number }) => {
+   328→      const params = new URLSearchParams();
+   329→      if (statusFilter) params.set("status", statusFilter);
+   330→      if (dateFrom) params.set("dateFrom", dateFrom);
+   331→      if (dateTo) params.set("dateTo", dateTo);
+   332→      if (search) params.set("search", search);
+   333→      if (providerFilter) params.set("providerId", providerFilter);
+   334→      params.set("page", String(overrides?.pageOverride ?? page));
+   335→      params.set("limit", "20");
+   336→      if (clinicId) params.set("clinicId", clinicId);
+   337→      return params.toString();
+   338→    },
+   339→    [statusFilter, dateFrom, dateTo, search, providerFilter, page, clinicId]
+   340→  );
+   341→
+   342→  // Fetch appointments
+   343→  const fetchAppointments = useCallback(async () => {
+   344→    setLoading(true);
+   345→    setError(null);
+   346→    try {
+   347→      const res = await fetch(`/api/staff/appointments?${buildQuery()}`);
+   348→      if (!res.ok) {
+   349→        const data = await res.json().catch(() => ({}));
+   350→        throw new Error(data.error || "Failed to fetch appointments");
+   351→      }
+   352→      const data = await res.json();
+   353→      setAppointments(data.data || []);
+   354→      setTotalPages(data.pagination?.totalPages || 1);
+   355→      setTotal(data.pagination?.total || 0);
+   356→    } catch (err) {
+   357→      setError(err instanceof Error ? err.message : "Unknown error");
+   358→    } finally {
+   359→      setLoading(false);
+   360→    }
+   361→  }, [buildQuery]);
+   362→
+   363→  // Fetch providers
+   364→  useEffect(() => {
+   365→    if (!clinicId) return;
+   366→    (async () => {
+   367→      try {
+   368→        const res = await fetch(`/api/taxonomies?clinicId=${clinicId}&include=providers`);
+   369→        if (res.ok) {
+   370→          // Providers come from the dashboard or we use a simpler approach
+   371→        }
+   372→      } catch {
+   373→        // non-critical
+   374→      }
+   375→    })();
+   376→  }, [clinicId]);
+   377→
+   378→  // Track previous filter values to detect non-page filter changes
+   379→  const prevFiltersRef = useRef({ statusFilter, dateFrom, dateTo, search, providerFilter });
+   380→
+   381→  // Single effect: fetch appointments on any dependency change, reset page on filter change
+   382→  useEffect(() => {
+   383→    const prev = prevFiltersRef.current;
+   384→    const filterChanged =
+   385→      prev.statusFilter !== statusFilter ||
+   386→      prev.dateFrom !== dateFrom ||
+   387→      prev.dateTo !== dateTo ||
+   388→      prev.search !== search ||
+   389→      prev.providerFilter !== providerFilter;
+   390→    prevFiltersRef.current = { statusFilter, dateFrom, dateTo, search, providerFilter };
+   391→
+   392→    if (filterChanged) {
+   393→      setPage(1);
+   394→      // fetchAppointments will re-run with page=1 via the dependency update below
+   395→      return;
+   396→    }
+   397→    fetchAppointments();
+   398→  }, [statusFilter, dateFrom, dateTo, search, providerFilter, page, fetchAppointments]);
+   399→
+   400→  // Fetch providers for the clinic
+   401→  useEffect(() => {
+   402→    if (!clinicId) return;
+   403→    (async () => {
+   404→      try {
+   405→        const res = await fetch(`/api/staff/providers?clinicId=${clinicId}`);
+   406→        if (res.ok) {
+   407→          const data = await res.json();
+   408→          const allProviders = (data.providers || []).map(
+   409→            (p: Record<string, unknown>) => ({
+   410→              id: p.id as string,
+   411→              firstName: (p.firstName as string) || "",
+   412→              lastName: (p.lastName as string) || "",
+   413→              credentials: (p.credentials as string) || null,
+   414→            })
+   415→          );
+   416→          setProviders(allProviders);
+   417→        }
+   418→      } catch {
+   419→        // non-critical
+   420→      }
+   421→    })();
+   422→  }, [clinicId]);
+   423→
+   424→  // Fetch conflict IDs on mount
+   425→  useEffect(() => {
+   426→    if (!clinicId) return;
+   427→    (async () => {
+   428→      try {
+   429→        const res = await fetch(`/api/staff/appointments/conflicts?clinicId=${clinicId}`);
+   430→        if (res.ok) {
+   431→          const data = await res.json();
+   432→          const ids = new Set<string>();
+   433→          for (const group of (data.conflicts || []) as Array<{ appointments: Array<{ id: string }> }>) {
+   434→            for (const apt of group.appointments) {
+   435→              ids.add(apt.id);
+   436→            }
+   437→          }
+   438→          setConflictIds(ids);
+   439→        }
+   440→      } catch {
+   441→        // non-critical
+   442→      }
+   443→    })();
+   444→  }, [clinicId]);
+   445→
+   446→  // Feature 1.1: Client-side sorting
+   447→  const sortedAppointments = useMemo(() => {
+   448→    const sorted = [...appointments];
+   449→    const dir = sortDir === "asc" ? 1 : -1;
+   450→    sorted.sort((a, b) => {
+   451→      let valA: string;
+   452→      let valB: string;
+   453→      switch (sortField) {
+   454→        case "startTime":
+   455→          valA = a.startTime;
+   456→          valB = b.startTime;
+   457→          break;
+   458→        case "patientName":
+   459→          valA = a.patientName.toLowerCase();
+   460→          valB = b.patientName.toLowerCase();
+   461→          break;
+   462→        case "provider": {
+   463→          valA = `${a.provider.lastName} ${a.provider.firstName}`.toLowerCase();
+   464→          valB = `${b.provider.lastName} ${b.provider.firstName}`.toLowerCase();
+   465→          break;
+   466→        }
+   467→        case "status":
+   468→          valA = a.status;
+   469→          valB = b.status;
+   470→          break;
+   471→        default:
+   472→          valA = a.startTime;
+   473→          valB = b.startTime;
+   474→      }
+   475→      if (valA < valB) return -1 * dir;
+   476→      if (valA > valB) return 1 * dir;
+   477→      return 0;
+   478→    });
+   479→    return sorted;
+   480→  }, [appointments, sortField, sortDir]);
+   481→
+   482→  const handleSort = (field: string) => {
+   483→    if (sortField === field) {
+   484→      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+   485→    } else {
+   486→      setSortField(field);
+   487→      setSortDir("asc");
+   488→    }
+   489→  };
+   490→
+   491→  const SortIcon = ({ field }: { field: string }) => {
+   492→    if (sortField !== field) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
+   493→    return sortDir === "asc" ? <ArrowUp className="size-3 ml-1 text-brand" /> : <ArrowDown className="size-3 ml-1 text-brand" />;
+   494→  };
+   495→
+   496→  // Open detail dialog
+   497→  const openDetail = async (id: string) => {
+   498→    setSelectedId(id);
+   499→    setDetailLoading(true);
+   500→    setDetail(null);
+   501→    setNoteContent("");
+   502→    setEditingPatient(false);
+   503→    setPaymentRequestAmount("");
+   504→    try {
+   505→      const res = await fetch(`/api/staff/appointments/${id}`);
+   506→      if (!res.ok) throw new Error("Failed to load appointment");
+   507→      const data = await res.json();
+   508→      setDetail(data);
+   509→      // Populate edit fields
+   510→      setEditName(data.patientName);
+   511→      setEditEmail(data.patientEmail);
+   512→      setEditPhone(data.patientPhone);
+   513→      setEditDob(data.patientDob ? format(parseISO(data.patientDob), "yyyy-MM-dd") : "");
+   514→      setEditInsuranceVerified(data.insuranceVerified ?? false);
+   515→      // Populate video link
+   516→      setEditVideoLink(data.provider?.videoVisitLink || "");
+   517→    } catch {
+   518→      setDetail(null);
+   519→    } finally {
+   520→      setDetailLoading(false);
+   521→    }
+   522→  };
+   523→
+   524→  // Status transition
+   525→  const handleTransition = async (appointmentId: string, newStatus: string) => {
+   526→    setTransitioningId(appointmentId);
+   527→    try {
+   528→      const res = await fetch(`/api/staff/appointments/${appointmentId}`, {
+   529→        method: "PATCH",
+   530→        headers: { "Content-Type": "application/json" },
+   531→        body: JSON.stringify({ status: newStatus }),
+   532→      });
+   533→      if (!res.ok) {
+   534→        const data = await res.json().catch(() => ({}));
+   535→        throw new Error(data.error || "Failed to update status");
+   536→      }
+   537→      // Refresh list
+   538→      fetchAppointments();
+   539→      // Refresh detail if open
+   540→      if (selectedId === appointmentId) {
+   541→        openDetail(appointmentId);
+   542→      }
+   543→      const statusLabels: Record<string, string> = {
+   544→        CHECKED_IN: "checked in",
+   545→        COMPLETED: "marked as completed",
+   546→        CANCELLED: "cancelled",
+   547→        NO_SHOW: "marked as no-show",
+   548→      };
+   549→      toast.success(`Appointment ${statusLabels[newStatus] || "updated"}`);
+   550→    } catch (err) {
+   551→      toast.error(err instanceof Error ? err.message : "Failed to update status");
+   552→    } finally {
+   553→      setTransitioningId(null);
+   554→    }
+   555→  };
+   556→
+   557→  // Add note
+   558→  const handleAddNote = async () => {
+   559→    if (!selectedId || !noteContent.trim()) return;
+   560→    setNoteSubmitting(true);
+   561→    try {
+   562→      const res = await fetch(`/api/staff/appointments/${selectedId}/notes`, {
+   563→        method: "POST",
+   564→        headers: { "Content-Type": "application/json" },
+   565→        body: JSON.stringify({ content: noteContent.trim() }),
+   566→      });
+   567→      if (!res.ok) throw new Error("Failed to add note");
+   568→      setNoteContent("");
+   569→      // Refresh detail
+   570→      openDetail(selectedId);
+   571→      toast.success("Note added");
+   572→    } catch {
+   573→      toast.error("Failed to add note");
+   574→    } finally {
+   575→      setNoteSubmitting(false);
+   576→    }
+   577→  };
+   578→
+   579→  // Save patient contact details + insurance verified + DOB
+   580→  const handleSavePatient = async () => {
+   581→    if (!selectedId || !detail) return;
+   582→    setPatientSaving(true);
+   583→    try {
+   584→      const body: Record<string, unknown> = {
+   585→        patientName: editName,
+   586→        patientEmail: editEmail,
+   587→        patientPhone: editPhone,
+   588→        patientDob: editDob,
+   589→        insuranceVerified: editInsuranceVerified,
+   590→      };
+   591→      const res = await fetch(`/api/staff/appointments/${selectedId}`, {
+   592→        method: "PATCH",
+   593→        headers: { "Content-Type": "application/json" },
+   594→        body: JSON.stringify(body),
+   595→      });
+   596→      if (!res.ok) {
+   597→        const data = await res.json().catch(() => ({}));
+   598→        throw new Error(data.error || "Failed to update patient details");
+   599→      }
+   600→      setEditingPatient(false);
+   601→      // Refresh detail to get updated data
+   602→      openDetail(selectedId);
+   603→      toast.success("Patient details updated");
+   604→    } catch (err) {
+   605→      toast.error(err instanceof Error ? err.message : "Failed to update patient details");
+   606→    } finally {
+   607→      setPatientSaving(false);
+   608→    }
+   609→  };
+   610→
+   611→  // ---- Reschedule ----
+   612→  const openReschedule = (apt: AppointmentRow) => {
+   613→    setRescheduleApt(apt);
+   614→    setRescheduleProviderId(apt.provider.id);
+   615→    setRescheduleDate(undefined);
+   616→    setRescheduleSlots([]);
+   617→    setRescheduleSelectedSlotId("");
+   618→  };
+   619→
+   620→  const handleRescheduleProviderChange = async (providerId: string) => {
+   621→    setRescheduleProviderId(providerId);
+   622→    setRescheduleSelectedSlotId("");
+   623→    if (rescheduleDate) {
+   624→      await fetchRescheduleSlots(providerId, rescheduleDate);
+   625→    } else {
+   626→      setRescheduleSlots([]);
+   627→    }
+   628→  };
+   629→
+   630→  const handleRescheduleDateChange = async (date: Date | undefined) => {
+   631→    setRescheduleDate(date);
+   632→    setRescheduleSelectedSlotId("");
+   633→    if (date && rescheduleProviderId) {
+   634→      await fetchRescheduleSlots(rescheduleProviderId, date);
+   635→    } else {
+   636→      setRescheduleSlots([]);
+   637→    }
+   638→  };
+   639→
+   640→  const fetchRescheduleSlots = async (providerId: string, date: Date) => {
+   641→    setRescheduleSlotsLoading(true);
+   642→    try {
+   643→      const dateStr = format(date, "yyyy-MM-dd");
+   644→      const res = await fetch(`/api/staff/book?providerId=${providerId}&date=${dateStr}`);
+   645→      if (!res.ok) throw new Error("Failed to load slots");
+   646→      const data = await res.json();
+   647→      setRescheduleSlots(data.slots || []);
+   648→    } catch {
+   649→      setRescheduleSlots([]);
+   650→      toast.error("Failed to load available slots");
+   651→    } finally {
+   652→      setRescheduleSlotsLoading(false);
+   653→    }
+   654→  };
+   655→
+   656→  const handleRescheduleConfirm = async () => {
+   657→    if (!rescheduleApt || !rescheduleSelectedSlotId || rescheduleSubmitting) return;
+   658→    setRescheduleSubmitting(true);
+   659→    try {
+   660→      const res = await fetch(`/api/staff/appointments/${rescheduleApt.id}/reschedule`, {
+   661→        method: "POST",
+   662→        headers: { "Content-Type": "application/json" },
+   663→        body: JSON.stringify({ newSlotId: rescheduleSelectedSlotId }),
+   664→      });
+   665→      if (!res.ok) {
+   666→        const data = await res.json().catch(() => ({}));
+   667→        throw new Error(data.error || "Reschedule failed");
+   668→      }
+   669→      toast.success("Appointment rescheduled successfully");
+   670→      setRescheduleApt(null);
+   671→      fetchAppointments();
+   672→      // Also refresh detail if this appointment's detail is open
+   673→      if (selectedId === rescheduleApt.id) {
+   674→        setSelectedId(null);
+   675→        setDetail(null);
+   676→      }
+   677→    } catch (err) {
+   678→      toast.error(err instanceof Error ? err.message : "Failed to reschedule");
+   679→    } finally {
+   680→      setRescheduleSubmitting(false);
+   681→    }
+   682→  };
+   683→
+   684→  // Fetch waitlist entries
+   685→  const fetchWaitlist = useCallback(async () => {
+   686→    if (!clinicId) return;
+   687→    setWaitlistLoading(true);
+   688→    setWaitlistError(null);
+   689→    try {
+   690→      const res = await fetch(`/api/staff/waitlist?clinicId=${clinicId}`);
+   691→      if (!res.ok) {
+   692→        const data = await res.json().catch(() => ({}));
+   693→        throw new Error(data.error || "Failed to fetch waitlist");
+   694→      }
+   695→      const data = await res.json();
+   696→      setWaitlistEntries(data.data || []);
+   697→    } catch (err) {
+   698→      setWaitlistError(err instanceof Error ? err.message : "Failed to fetch waitlist");
+   699→    } finally {
+   700→      setWaitlistLoading(false);
+   701→    }
+   702→  }, [clinicId]);
+   703→
+   704→  // Fetch waitlist when view mode changes
+   705→  useEffect(() => {
+   706→    if (viewMode === "waitlist") {
+   707→      fetchWaitlist();
+   708→    }
+   709→  }, [viewMode, fetchWaitlist]);
+   710→
+   711→  // Waitlist action handler (update status or contact)
+   712→  const handleWaitlistAction = async (entryId: string, action: string) => {
+   713→    setWaitlistActionId(entryId);
+   714→    try {
+   715→      const body: Record<string, unknown> = { id: entryId };
+   716→      if (action === "contact") {
+   717→        body.incrementContact = true;
+   718→      } else {
+   719→        body.status = action;
+   720→      }
+   721→      const res = await fetch("/api/staff/waitlist", {
+   722→        method: "PATCH",
+   723→        headers: { "Content-Type": "application/json" },
+   724→        body: JSON.stringify(body),
+   725→      });
+   726→      if (!res.ok) {
+   727→        const data = await res.json().catch(() => ({}));
+   728→        throw new Error(data.error || "Failed to update waitlist entry");
+   729→      }
+   730→      fetchWaitlist();
+   731→      const actionLabels: Record<string, string> = {
+   732→        OFFERED: "marked as offered",
+   733→        EXPIRED: "marked as expired",
+   734→        REMOVED: "removed",
+   735→        contact: "contact recorded",
+   736→      };
+   737→      toast.success(`Entry ${actionLabels[action] || "updated"}`);
+   738→    } catch (err) {
+   739→      toast.error(err instanceof Error ? err.message : "Failed to update entry");
+   740→    } finally {
+   741→      setWaitlistActionId(null);
+   742→    }
+   743→  };
+   744→
+   745→  // Feature 5.1: Save video link (on the provider)
+   746→  const handleSaveVideoLink = async () => {
+   747→    if (!selectedId || !detail) return;
+   748→    setVideoLinkSaving(true);
+   749→    try {
+   750→      const res = await fetch(`/api/staff/appointments/${selectedId}`, {
+   751→        method: "PATCH",
+   752→        headers: { "Content-Type": "application/json" },
+   753→        body: JSON.stringify({ videoVisitLink: editVideoLink }),
+   754→      });
+   755→      if (!res.ok) {
+   756→        const data = await res.json().catch(() => ({}));
+   757→        throw new Error(data.error || "Failed to save video link");
+   758→      }
+   759→      toast.success("Video link saved");
+   760→      // Refresh detail to pick up updated provider data
+   761→      openDetail(selectedId);
+   762→    } catch (err) {
+   763→      toast.error(err instanceof Error ? err.message : "Failed to save video link");
+   764→    } finally {
+   765→      setVideoLinkSaving(false);
+   766→    }
+   767→  };
+   768→
+   769→  // Feature 5.2: Send video link to patient
+   770→  const handleSendVideoLink = async () => {
+   771→    if (!selectedId) return;
+   772→    setVideoLinkSending(true);
+   773→    try {
+   774→      const res = await fetch(`/api/staff/appointments/${selectedId}/send-video-link`, {
+   775→        method: "POST",
+   776→      });
+   777→      if (!res.ok) {
+   778→        const data = await res.json().catch(() => ({}));
+   779→        throw new Error(data.error || "Failed to send video link");
+   780→      }
+   781→      toast.success("Video link sent to patient");
+   782→    } catch (err) {
+   783→      toast.error(err instanceof Error ? err.message : "Failed to send video link");
+   784→    } finally {
+   785→      setVideoLinkSending(false);
+   786→    }
+   787→  };
+   788→
+   789→  // Feature 6.1: Send payment request
+   790→  const handleSendPaymentRequest = async () => {
+   791→    if (!selectedId || !detail) return;
+   792→    const amountCents = Math.round(parseFloat(paymentRequestAmount) * 100);
+   793→    if (!amountCents || amountCents <= 0) {
+   794→      toast.error("Please enter a valid amount");
+   795→      return;
+   796→    }
+   797→    setPaymentRequestSending(true);
+   798→    try {
+   799→      const res = await fetch("/api/staff/payments/request", {
+   800→        method: "POST",
+   801→        headers: { "Content-Type": "application/json" },
+   802→        body: JSON.stringify({ appointmentId: selectedId, amountCents }),
+   803→      });
+   804→      if (!res.ok) {
+   805→        const data = await res.json().catch(() => ({}));
+   806→        throw new Error(data.error || "Failed to send payment request");
+   807→      }
+   808→      const data = await res.json();
+   809→      toast.success(`Payment request sent — ${data.paymentUrl}`);
+   810→      setPaymentRequestAmount("");
+   811→    } catch (err) {
+   812→      toast.error(err instanceof Error ? err.message : "Failed to send payment request");
+   813→    } finally {
+   814→      setPaymentRequestSending(false);
+   815→    }
+   816→  };
+   817→
+   818→  // Feature 6.2: Manual refund
+   819→  const handleConfirmRefund = async () => {
+   820→    if (!selectedId || !detail) return;
+   821→    setRefundSubmitting(true);
+   822→    try {
+   823→      const res = await fetch("/api/staff/payments/refund", {
+   824→        method: "POST",
+   825→        headers: { "Content-Type": "application/json" },
+   826→        body: JSON.stringify({ appointmentId: selectedId }),
+   827→      });
+   828→      if (!res.ok) {
+   829→        const data = await res.json().catch(() => ({}));
+   830→        throw new Error(data.error || "Failed to process refund");
+   831→      }
+   832→      toast.success("Refund processed successfully");
+   833→      setRefundDialogOpen(false);
+   834→      // Refresh detail
+   835→      openDetail(selectedId);
+   836→    } catch (err) {
+   837→      toast.error(err instanceof Error ? err.message : "Failed to process refund");
+   838→    } finally {
+   839→      setRefundSubmitting(false);
+   840→    }
+   841→  };
+   842→
+   843→  // Format cents
+   844→  const formatCents = (cents: number) => {
+   845→    if (cents === 0) return "Free";
+   846→    return `$${(cents / 100).toFixed(2)}`;
+   847→  };
+   848→
+   849→  // Modality badge
+   850→  const ModalityBadge = ({ modality }: { modality: string }) => {
+   851→    if (modality === "VIDEO") {
+   852→      return (
+   853→        <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50">
+   854→          <Video className="size-3 mr-1" />
+   855→          Video
+   856→        </Badge>
+   857→      );
+   858→    }
+   859→    return (
+   860→      <Badge variant="outline" className="border-brand-border text-brand bg-brand-muted">
+   861→        <CalendarDays className="size-3 mr-1" />
+   862→        In-Clinic
+   863→      </Badge>
+   864→    );
+   865→  };
+   866→
+   867→  // Status badge
+   868→  const StatusBadge = ({ status }: { status: string }) => (
+   869→    <Badge className={`${STATUS_STYLES[status] || STATUS_STYLES.ARCHIVED} border`}>
+   870→      {STATUS_LABELS[status] || status}
+   871→    </Badge>
+   872→  );
+   873→
+   874→  // Filter tabs
+   875→  const statusTabs = [
+   876→    { key: "", label: "All" },
+   877→    { key: "BOOKED", label: "Booked" },
+   878→    { key: "CHECKED_IN", label: "Checked In" },
+   879→    { key: "COMPLETED", label: "Completed" },
+   880→    { key: "CANCELLED", label: "Cancelled" },
+   881→    { key: "NO_SHOW", label: "No Show" },
+   882→    { key: "__WAITLIST__", label: "Waitlist", isWaitlist: true },
+   883→  ];
+   884→
+   885→  // Waitlist status styles (Feature 10: fixed labels)
+   886→  const WL_STATUS_STYLES: Record<string, string> = {
+   887→    ACTIVE: "bg-amber-100 text-amber-700 border-amber-200",
+   888→    OFFERED: "bg-brand-subtle text-brand-hover border-brand-border",
+   889→    EXPIRED: "bg-gray-100 text-gray-600 border-gray-200",
+   890→    FULFILLED: "bg-brand-subtle text-brand-hover border-brand-border",
+   891→    REMOVED: "bg-gray-100 text-gray-600 border-gray-200",
+   892→  };
+   893→
+   894→  const WL_STATUS_LABELS: Record<string, string> = {
+   895→    ACTIVE: "Waiting",
+   896→    OFFERED: "Offered",
+   897→    EXPIRED: "Expired",
+   898→    FULFILLED: "Fulfilled",
+   899→    REMOVED: "Removed",
+   900→  };
+   901→
+   902→  // Appointment row actions dropdown (shared between table and grid)
+   903→  const AppointmentActions = ({ apt }: { apt: AppointmentRow }) => (
+   904→    <DropdownMenu>
+   905→      <DropdownMenuTrigger asChild>
+   906→        <Button
+   907→          variant="ghost"
+   908→          size="icon"
+   909→          className="size-8 cursor-pointer"
+   910→          disabled={transitioningId === apt.id}
+   911→        >
+   912→          {transitioningId === apt.id ? (
+   913→            <Loader2 className="size-4 animate-spin" />
+   914→          ) : (
+   915→            <MoreHorizontal className="size-4" />
+   916→          )}
+   917→        </Button>
+   918→      </DropdownMenuTrigger>
+   919→      <DropdownMenuContent align="end" className="w-52">
+   920→        <DropdownMenuItem onClick={() => openDetail(apt.id)} className="cursor-pointer">
+   921→          <Eye className="size-3.5 mr-2" />
+   922→          View Details
+   923→        </DropdownMenuItem>
+   924→
+   925→        {/* ---- Status-transition section ---- */}
+   926→        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+   927→          <>
+   928→            <DropdownMenuSeparator />
+   929→            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+   930→              <DropdownMenuItem
+   931→                onClick={() => handleTransition(apt.id, "CHECKED_IN")}
+   932→                className="cursor-pointer"
+   933→              >
+   934→                <UserCheck className="size-3.5 mr-2 text-amber-600" />
+   935→                Check In
+   936→              </DropdownMenuItem>
+   937→            )}
+   938→            {apt.status === "CHECKED_IN" && (
+   939→              <DropdownMenuItem
+   940→                onClick={() => handleTransition(apt.id, "COMPLETED")}
+   941→                className="cursor-pointer"
+   942→              >
+   943→                <CheckCircle2 className="size-3.5 mr-2 text-brand" />
+   944→                Complete
+   945→              </DropdownMenuItem>
+   946→            )}
+   947→            {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+   948→              <DropdownMenuItem
+   949→                onClick={() => openReschedule(apt)}
+   950→                className="cursor-pointer"
+   951→              >
+   952→                <RefreshCw className="size-3.5 mr-2 text-blue-600" />
+   953→                Reschedule
+   954→              </DropdownMenuItem>
+   955→            )}
+   956→            {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
+   957→              <DropdownMenuItem
+   958→                onClick={() => handleTransition(apt.id, "CANCELLED")}
+   959→                className="cursor-pointer text-red-600 focus:text-red-600"
+   960→              >
+   961→                <XCircle className="size-3.5 mr-2" />
+   962→                Cancel
+   963→              </DropdownMenuItem>
+   964→            )}
+   965→            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+   966→              <DropdownMenuItem
+   967→                onClick={() => handleTransition(apt.id, "NO_SHOW")}
+   968→                className="cursor-pointer"
+   969→              >
+   970→                <UserX className="size-3.5 mr-2" />
+   971→                Mark No Show
+   972→              </DropdownMenuItem>
+   973→            )}
+   974→          </>
+   975→        )}
+   976→
+   977→        {/* ---- Quick-access section (QR Code, Video Link) ---- */}
+   978→        {(apt.status === "BOOKED" || apt.status === "CONFIRMED" || (apt.modality === "VIDEO" && apt.status === "CHECKED_IN")) && (
+   979→          <>
+   980→            <DropdownMenuSeparator />
+   981→            {(apt.status === "BOOKED" || apt.status === "CONFIRMED") && (
+   982→              <DropdownMenuItem
+   983→                onClick={() => {
+   984→                  setQrAppointmentId(apt.id);
+   985→                  setQrPatientName(apt.patientName);
+   986→                }}
+   987→                className="cursor-pointer"
+   988→              >
+   989→                <QrCode className="size-3.5 mr-2 text-brand" />
+   990→                QR Code
+   991→              </DropdownMenuItem>
+   992→            )}
+   993→            {apt.modality === "VIDEO" && (apt.status === "BOOKED" || apt.status === "CONFIRMED" || apt.status === "CHECKED_IN") && (
+   994→              <DropdownMenuItem
+   995→                onClick={async () => {
+   996→                  await openDetail(apt.id);
+   997→                  setTimeout(() => {
+   998→                    const el = document.querySelector("[data-video-link-section]");
+   999→                    el?.scrollIntoView({ behavior: "smooth" });
+  1000→                  }, 400);
+  1001→                }}
+  1002→                className="cursor-pointer"
+  1003→              >
+  1004→                <Video className="size-3.5 mr-2 text-purple-600" />
+  1005→                Send Video Link
+  1006→              </DropdownMenuItem>
+  1007→            )}
+  1008→          </>
+  1009→        )}
+  1010→
+  1011→        {/* ---- Universal actions — available for ALL statuses ---- */}
+  1012→        <DropdownMenuSeparator />
+  1013→        <DropdownMenuItem
+  1014→          onClick={async () => {
+  1015→            await openDetail(apt.id);
+  1016→            setTimeout(() => {
+  1017→              const el = document.querySelector("[data-notes-section]");
+  1018→              el?.scrollIntoView({ behavior: "smooth" });
+  1019→            }, 400);
+  1020→          }}
+  1021→          className="cursor-pointer"
+  1022→        >
+  1023→          <StickyNote className="size-3.5 mr-2 text-amber-600" />
+  1024→          Add Note
+  1025→        </DropdownMenuItem>
+  1026→        <DropdownMenuItem
+  1027→          onClick={() => {
+  1028→            const summary = `${apt.patientName} — ${apt.service.name} with Dr. ${apt.provider.firstName} ${apt.provider.lastName}\n${format(parseISO(apt.startTime), "MMM d, yyyy 'at' h:mm a")} · ${apt.modality} · ${apt.status}`;
+  1029→            navigator.clipboard.writeText(summary).then(
+  1030→              () => toast.success("Appointment details copied"),
+  1031→              () => toast.error("Failed to copy")
+  1032→            );
+  1033→          }}
+  1034→          className="cursor-pointer"
+  1035→        >
+  1036→          <ClipboardCopy className="size-3.5 mr-2" />
+  1037→          Copy Details
+  1038→        </DropdownMenuItem>
+  1039→        {(apt.status === "COMPLETED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+  1040→          <DropdownMenuItem
+  1041→            onClick={() => {
+  1042→              router.push(`/staff/dashboard/book?rebookFrom=${apt.id}`);
+  1043→            }}
+  1044→            className="cursor-pointer"
+  1045→          >
+  1046→            <CalendarPlus className="size-3.5 mr-2 text-brand" />
+  1047→            Rebook Patient
+  1048→          </DropdownMenuItem>
+  1049→        )}
+  1050→      </DropdownMenuContent>
+  1051→    </DropdownMenu>
+  1052→  );
+  1053→
+  1054→  // Grid card for an appointment
+  1055→  const AppointmentGridCard = ({ apt }: { apt: AppointmentRow }) => (
+  1056→    <div
+  1057→      className={cn(
+  1058→        "rounded-xl border border-border/60 bg-white p-4 shadow-sm hover:shadow-md transition-all",
+  1059→        conflictIds.has(apt.id) && "ring-2 ring-orange-300"
+  1060→      )}
+  1061→    >
+  1062→      <div className="flex items-start justify-between mb-3">
+  1063→        <div className="flex items-center gap-2 min-w-0 flex-1">
+  1064→          <div className="size-8 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+  1065→            <User className="size-4 text-brand" />
+  1066→          </div>
+  1067→          <button
+  1068→            type="button"
+  1069→            onClick={() => openDetail(apt.id)}
+  1070→            className="text-left cursor-pointer hover:text-brand-hover transition-colors min-w-0"
+  1071→          >
+  1072→            <p className={cn("font-medium truncate text-sm", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+  1073→              {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+  1074→              {apt.patientName}
+  1075→            </p>
+  1076→          </button>
+  1077→        </div>
+  1078→        <AppointmentActions apt={apt} />
+  1079→      </div>
+  1080→      <div className="space-y-1.5 text-sm">
+  1081→        <div className="flex items-center gap-2 text-muted-foreground">
+  1082→          <UserCheck className="size-3.5 shrink-0" />
+  1083→          <span className="truncate">Dr. {apt.provider.firstName} {apt.provider.lastName}</span>
+  1084→        </div>
+  1085→        <div className="flex items-center gap-2 text-muted-foreground">
+  1086→          <FileText className="size-3.5 shrink-0" />
+  1087→          <span className="truncate">{apt.service.name}</span>
+  1088→        </div>
+  1089→        <div className="flex items-center gap-2 text-muted-foreground">
+  1090→          <Clock className="size-3.5 shrink-0" />
+  1091→          <span>{format(parseISO(apt.startTime), "h:mm a")}</span>
+  1092→          <span className="text-xs">·</span>
+  1093→          <span className="text-xs">{format(parseISO(apt.startTime), "MMM d, yyyy")}</span>
+  1094→        </div>
+  1095→        <div className="flex items-center gap-2 pt-1">
+  1096→          <StatusBadge status={apt.status} />
+  1097→          <ModalityBadge modality={apt.modality} />
+  1098→        </div>
+  1099→      </div>
+  1100→    </div>
+  1101→  );
+  1102→
+  1103→  return (
+  1104→    <div className="space-y-4">
+  1105→      {/* Page Header */}
+  1106→      <div>
+  1107→        <h1 className="text-xl font-semibold text-foreground">Appointments</h1>
+  1108→        <p className="text-sm text-muted-foreground mt-0.5">
+  1109→          Manage and review all clinic appointments
+  1110→        </p>
+  1111→      </div>
+  1112→
+  1113→      {/* Filter Bar */}
+  1114→      <div className="bg-white rounded-xl border border-border/60 shadow-sm p-4 space-y-3">
+  1115→        {/* Status Tabs */}
+  1116→        <div className="flex flex-wrap gap-1.5">
+  1117→          {statusTabs.map((tab) => {
+  1118→            const isWl = 'isWaitlist' in tab && tab.isWaitlist;
+  1119→            const isActive = isWl
+  1120→              ? viewMode === "waitlist"
+  1121→              : viewMode === "appointments" && statusFilter === tab.key;
+  1122→            return (
+  1123→              <button
+  1124→                key={tab.key}
+  1125→                onClick={() => {
+  1126→                  if (isWl) {
+  1127→                    setViewMode("waitlist");
+  1128→                  } else {
+  1129→                    setViewMode("appointments");
+  1130→                    setStatusFilter(tab.key);
+  1131→                  }
+  1132→                }}
+  1133→                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer border ${
+  1134→                  isActive
+  1135→                    ? isWl
+  1136→                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+  1137→                      : "bg-brand text-white border-brand shadow-sm"
+  1138→                    : "bg-white text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
+  1139→                }`}
+  1140→              >
+  1141→                {isWl && <Bell className="size-3 mr-1 inline" />}
+  1142→                {tab.label}
+  1143→              </button>
+  1144→            );
+  1145→          })}
+  1146→        </div>
+  1147→
+  1148→        <Separator />
+  1149→
+  1150→        {/* Search + Filters Row — only show for appointments view */}
+  1151→        {viewMode === "appointments" && (
+  1152→        <div className="flex flex-col sm:flex-row gap-2.5">
+  1153→          {/* Search */}
+  1154→          <div className="relative flex-1">
+  1155→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/70" />
+  1156→            <Input
+  1157→              placeholder="Search by name, email, phone, booking ID, or token..."
+  1158→              value={search}
+  1159→              onChange={(e) => setSearch(e.target.value)}
+  1160→              className="pl-9 h-9"
+  1161→            />
+  1162→            {search && (
+  1163→              <button
+  1164→                onClick={() => setSearch("")}
+  1165→                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+  1166→              >
+  1167→                <X className="size-3.5" />
+  1168→              </button>
+  1169→            )}
+  1170→          </div>
+  1171→
+  1172→          {/* Provider Filter */}
+  1173→          <Select value={providerFilter} onValueChange={setProviderFilter}>
+  1174→            <SelectTrigger className="w-full sm:w-48 h-9">
+  1175→              <SelectValue placeholder="All Providers" />
+  1176→            </SelectTrigger>
+  1177→            <SelectContent>
+  1178→              <SelectItem value="__all">All Providers</SelectItem>
+  1179→              {providers.map((p) => (
+  1180→                <SelectItem key={p.id} value={p.id}>
+  1181→                  {p.firstName} {p.lastName}{p.credentials ? `, ${p.credentials}` : ""}
+  1182→                </SelectItem>
+  1183→              ))}
+  1184→            </SelectContent>
+  1185→          </Select>
+  1186→
+  1187→          {/* Date From */}
+  1188→          <div className="flex items-center gap-1.5">
+  1189→            <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+  1190→            <Input
+  1191→              type="date"
+  1192→              value={dateFrom}
+  1193→              onChange={(e) => setDateFrom(e.target.value)}
+  1194→              className="h-9 w-36"
+  1195→            />
+  1196→          </div>
+  1197→
+  1198→          {/* Date To */}
+  1199→          <div className="flex items-center gap-1.5">
+  1200→            <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+  1201→            <Input
+  1202→              type="date"
+  1203→              value={dateTo}
+  1204→              onChange={(e) => setDateTo(e.target.value)}
+  1205→              className="h-9 w-36"
+  1206→            />
+  1207→          </div>
+  1208→
+  1209→          {/* Search Button */}
+  1210→          <Button
+  1211→            size="sm"
+  1212→            className="h-9 px-4 bg-brand hover:bg-brand-hover text-white shrink-0 cursor-pointer"
+  1213→            onClick={() => { setPage(1); fetchAppointments(); }}
+  1214→          >
+  1215→            <Search className="size-3.5 mr-1.5" />
+  1216→            Search
+  1217→          </Button>
+  1218→        </div>
+  1219→        )}
+  1220→      </div>
+  1221→
+  1222→      {/* Results Count + View Toggle — only show for appointments view */}
+  1223→      {viewMode === "appointments" && (
+  1224→      <div className="flex items-center justify-between">
+  1225→        <div className="flex items-center gap-3">
+  1226→          <p className="text-sm text-muted-foreground">
+  1227→            {loading ? (
+  1228→              "Loading..."
+  1229→            ) : (
+  1230→              <>
+  1231→                <span className="font-medium text-foreground">{total}</span> appointment{total !== 1 ? "s" : ""} found
+  1232→              </>
+  1233→            )}
+  1234→          </p>
+  1235→          {/* Grid/Table toggle */}
+  1236→          <div className="flex items-center border border-border/60 rounded-lg overflow-hidden">
+  1237→            <button
+  1238→              onClick={() => setListView("table")}
+  1239→              className={cn(
+  1240→                "p-1.5 transition-colors cursor-pointer",
+  1241→                listView === "table"
+  1242→                  ? "bg-brand text-white"
+  1243→                  : "bg-white text-muted-foreground hover:bg-muted/60"
+  1244→              )}
+  1245→              title="Table view"
+  1246→            >
+  1247→              <List className="size-3.5" />
+  1248→            </button>
+  1249→            <button
+  1250→              onClick={() => setListView("grid")}
+  1251→              className={cn(
+  1252→                "p-1.5 transition-colors cursor-pointer",
+  1253→                listView === "grid"
+  1254→                  ? "bg-brand text-white"
+  1255→                  : "bg-white text-muted-foreground hover:bg-muted/60"
+  1256→              )}
+  1257→              title="Grid view"
+  1258→            >
+  1259→              <LayoutGrid className="size-3.5" />
+  1260→            </button>
+  1261→          </div>
+  1262→        </div>
+  1263→        {(statusFilter || search || providerFilter || dateFrom !== format(new Date(), "yyyy-MM-dd") || dateTo !== format(addDays(new Date(), 30), "yyyy-MM-dd")) && (
+  1264→          <button
+  1265→            onClick={() => {
+  1266→              setStatusFilter("");
+  1267→              setSearch("");
+  1268→              setProviderFilter("");
+  1269→              setDateFrom(format(new Date(), "yyyy-MM-dd"));
+  1270→              setDateTo(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  1271→            }}
+  1272→            className="text-xs text-brand hover:text-brand-hover font-medium cursor-pointer flex items-center gap-1"
+  1273→          >
+  1274→            <Filter className="size-3" />
+  1275→            Clear filters
+  1276→          </button>
+  1277→        )}
+  1278→      </div>
+  1279→      )}
+  1280→
+  1281→      {/* ================================================================== */}
+  1282→      {/* WAITLIST VIEW                                                       */}
+  1283→      {/* ================================================================== */}
+  1284→      {viewMode === "waitlist" ? (
+  1285→        <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+  1286→          <div className="overflow-x-auto">
+  1287→            <table className="w-full text-sm">
+  1288→              <thead>
+  1289→                <tr className="border-b border-border/60 bg-muted/30">
+  1290→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Joined</th>
+  1291→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Patient</th>
+  1292→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell">Provider</th>
+  1293→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
+  1294→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+  1295→                  <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Contacts</th>
+  1296→                  <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+  1297→                </tr>
+  1298→              </thead>
+  1299→              <tbody>
+  1300→                {waitlistLoading ? (
+  1301→                  Array.from({ length: 4 }).map((_, i) => (
+  1302→                    <tr key={i} className="border-b border-border/30">
+  1303→                      <td className="py-3 px-4"><Skeleton className="h-4 w-24" /></td>
+  1304→                      <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+  1305→                      <td className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+  1306→                      <td className="py-3 px-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+  1307→                      <td className="py-3 px-4"><Skeleton className="h-5 w-16" /></td>
+  1308→                      <td className="py-3 px-4 hidden sm:table-cell"><Skeleton className="h-4 w-8" /></td>
+  1309→                      <td className="py-3 px-4"><Skeleton className="h-8 w-8 ml-auto" /></td>
+  1310→                    </tr>
+  1311→                  ))
+  1312→                ) : waitlistError ? (
+  1313→                  <tr>
+  1314→                    <td colSpan={7} className="py-12 text-center">
+  1315→                      <p className="text-sm text-red-500">{waitlistError}</p>
+  1316→                      <Button
+  1317→                        variant="outline"
+  1318→                        size="sm"
+  1319→                        onClick={fetchWaitlist}
+  1320→                        className="mt-2 cursor-pointer"
+  1321→                      >
+  1322→                        Retry
+  1323→                      </Button>
+  1324→                    </td>
+  1325→                  </tr>
+  1326→                ) : waitlistEntries.length === 0 ? (
+  1327→                  <tr>
+  1328→                    <td colSpan={7} className="py-16 text-center">
+  1329→                      <div className="flex flex-col items-center gap-2">
+  1330→                        <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1331→                          <Bell className="size-5 text-muted-foreground/60" />
+  1332→                        </div>
+  1333→                        <p className="text-sm font-medium text-muted-foreground">No waitlist entries</p>
+  1334→                        <p className="text-xs text-muted-foreground/70">
+  1335→                          Patients will appear here when they join the waitlist
+  1336→                        </p>
+  1337→                      </div>
+  1338→                    </td>
+  1339→                  </tr>
+  1340→                ) : (
+  1341→                  waitlistEntries.map((entry, index) => (
+  1342→                    <tr
+  1343→                      key={entry.id}
+  1344→                      className={`border-b border-border/30 transition-colors hover:bg-amber-50/30 ${
+  1345→                        index % 2 === 0 ? "bg-white" : "bg-muted/15"
+  1346→                      }`}
+  1347→                    >
+  1348→                      <td className="py-3 px-4 whitespace-nowrap">
+  1349→                        <div className="flex items-center gap-1.5">
+  1350→                          <Clock className="size-3.5 text-muted-foreground/60" />
+  1351→                          <span className="text-xs text-muted-foreground">
+  1352→                            {format(parseISO(entry.createdAt), "MMM d, h:mm a")}
+  1353→                          </span>
+  1354→                        </div>
+  1355→                        {entry.expiresAt && (
+  1356→                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+  1357→                            Expires: {format(parseISO(entry.expiresAt), "MMM d")}
+  1358→                          </p>
+  1359→                        )}
+  1360→                      </td>
+  1361→                      <td className="py-3 px-4">
+  1362→                        <div className="flex items-center gap-2">
+  1363→                          <div className="size-7 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+  1364→                            <User className="size-3.5 text-amber-600" />
+  1365→                          </div>
+  1366→                          <div className="min-w-0">
+  1367→                            <p className="font-medium truncate">{entry.patientName}</p>
+  1368→                            <p className="text-xs text-muted-foreground truncate">
+  1369→                              {entry.patientEmail}
+  1370→                            </p>
+  1371→                          </div>
+  1372→                        </div>
+  1373→                      </td>
+  1374→                      <td className="py-3 px-4 hidden md:table-cell whitespace-nowrap">
+  1375→                        <span className="text-sm">{entry.providerName}</span>
+  1376→                      </td>
+  1377→                      <td className="py-3 px-4 hidden lg:table-cell whitespace-nowrap text-muted-foreground">
+  1378→                        {entry.serviceName}
+  1379→                      </td>
+  1380→                      <td className="py-3 px-4">
+  1381→                        <Badge className={`${WL_STATUS_STYLES[entry.status] || WL_STATUS_STYLES.ACTIVE} border`}>
+  1382→                          {WL_STATUS_LABELS[entry.status] || entry.status}
+  1383→                        </Badge>
+  1384→                      </td>
+  1385→                      <td className="py-3 px-4 hidden sm:table-cell">
+  1386→                        <span className="text-sm text-muted-foreground">
+  1387→                          {entry.contactCount}
+  1388→                        </span>
+  1389→                        {entry.lastContactAt && (
+  1390→                          <p className="text-[10px] text-muted-foreground/60">
+  1391→                            Last: {format(parseISO(entry.lastContactAt), "MMM d")}
+  1392→                          </p>
+  1393→                        )}
+  1394→                      </td>
+  1395→                      <td className="py-3 px-4 text-right">
+  1396→                        <DropdownMenu>
+  1397→                          <DropdownMenuTrigger asChild>
+  1398→                            <Button
+  1399→                              variant="ghost"
+  1400→                              size="icon"
+  1401→                              className="size-8 cursor-pointer"
+  1402→                              disabled={waitlistActionId === entry.id}
+  1403→                            >
+  1404→                              {waitlistActionId === entry.id ? (
+  1405→                                <Loader2 className="size-4 animate-spin" />
+  1406→                              ) : (
+  1407→                                <MoreHorizontal className="size-4" />
+  1408→                              )}
+  1409→                            </Button>
+  1410→                          </DropdownMenuTrigger>
+  1411→                          <DropdownMenuContent align="end" className="w-48">
+  1412→                            {entry.status === "ACTIVE" && (
+  1413→                              <DropdownMenuItem
+  1414→                                onClick={() => handleWaitlistAction(entry.id, "OFFERED")}
+  1415→                                className="cursor-pointer"
+  1416→                              >
+  1417→                                <CheckCircle2 className="size-3.5 mr-2 text-brand" />
+  1418→                                Mark as Offered
+  1419→                              </DropdownMenuItem>
+  1420→                            )}
+  1421→                            <DropdownMenuItem
+  1422→                              onClick={() => handleWaitlistAction(entry.id, "contact")}
+  1423→                              className="cursor-pointer"
+  1424→                            >
+  1425→                              <Phone className="size-3.5 mr-2 text-amber-600" />
+  1426→                              Record Contact
+  1427→                            </DropdownMenuItem>
+  1428→                            {(entry.status === "ACTIVE" || entry.status === "OFFERED") && (
+  1429→                              <>
+  1430→                                <DropdownMenuSeparator />
+  1431→                                <DropdownMenuItem
+  1432→                                  onClick={() => handleWaitlistAction(entry.id, "EXPIRED")}
+  1433→                                  className="cursor-pointer text-red-600 focus:text-red-600"
+  1434→                                >
+  1435→                                  <XCircle className="size-3.5 mr-2" />
+  1436→                                  Mark as Expired
+  1437→                                </DropdownMenuItem>
+  1438→                                <DropdownMenuItem
+  1439→                                  onClick={() => handleWaitlistAction(entry.id, "REMOVED")}
+  1440→                                  className="cursor-pointer text-red-600 focus:text-red-600"
+  1441→                                >
+  1442→                                  <UserX className="size-3.5 mr-2" />
+  1443→                                  Remove
+  1444→                                </DropdownMenuItem>
+  1445→                              </>
+  1446→                            )}
+  1447→                          </DropdownMenuContent>
+  1448→                        </DropdownMenu>
+  1449→                      </td>
+  1450→                    </tr>
+  1451→                  ))
+  1452→                )}
+  1453→              </tbody>
+  1454→            </table>
+  1455→          </div>
+  1456→        </div>
+  1457→      ) : (
+  1458→      <div className="bg-white rounded-xl border border-border/60 shadow-sm overflow-hidden">
+  1459→        {/* Feature 7.1: Conflict banner */}
+  1460→        {conflictIds.size > 0 && (
+  1461→          <div className="bg-orange-50 border-b border-orange-200 px-4 py-2.5 flex items-center gap-2">
+  1462→            <AlertTriangle className="size-4 text-orange-600 shrink-0" />
+  1463→            <p className="text-sm text-orange-700 font-medium">
+  1464→              ⚠️ {conflictIds.size} potential double-booking{conflictIds.size !== 1 ? "s" : ""} detected
+  1465→            </p>
+  1466→          </div>
+  1467→        )}
+  1468→
+  1469→        {listView === "table" ? (
+  1470→        <div className="overflow-x-auto">
+  1471→          <table className="w-full text-sm">
+  1472→            <thead>
+  1473→              <tr className="border-b border-border/60 bg-muted/30">
+  1474→                <th
+  1475→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1476→                  onClick={() => handleSort("startTime")}
+  1477→                >
+  1478→                  <span className="inline-flex items-center">
+  1479→                    Time
+  1480→                    <SortIcon field="startTime" />
+  1481→                  </span>
+  1482→                </th>
+  1483→                <th
+  1484→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1485→                  onClick={() => handleSort("patientName")}
+  1486→                >
+  1487→                  <span className="inline-flex items-center">
+  1488→                    Patient
+  1489→                    <SortIcon field="patientName" />
+  1490→                  </span>
+  1491→                </th>
+  1492→                <th
+  1493→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden md:table-cell cursor-pointer hover:text-foreground transition-colors select-none"
+  1494→                  onClick={() => handleSort("provider")}
+  1495→                >
+  1496→                  <span className="inline-flex items-center">
+  1497→                    Provider
+  1498→                    <SortIcon field="provider" />
+  1499→                  </span>
+  1500→                </th>
+  1501→                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden lg:table-cell">Service</th>
+  1502→                <th className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Modality</th>
+  1503→                <th
+  1504→                  className="text-left py-3 px-4 font-medium text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none"
+  1505→                  onClick={() => handleSort("status")}
+  1506→                >
+  1507→                  <span className="inline-flex items-center">
+  1508→                    Status
+  1509→                    <SortIcon field="status" />
+  1510→                  </span>
+  1511→                </th>
+  1512→                <th className="text-right py-3 px-4 font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+  1513→              </tr>
+  1514→            </thead>
+  1515→            <tbody>
+  1516→              {loading ? (
+  1517→                // Skeleton rows
+  1518→                Array.from({ length: 5 }).map((_, i) => (
+  1519→                  <tr key={i} className="border-b border-border/30">
+  1520→                    <td className="py-3 px-4"><Skeleton className="h-4 w-20" /></td>
+  1521→                    <td className="py-3 px-4"><Skeleton className="h-4 w-32" /></td>
+  1522→                    <td className="py-3 px-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+  1523→                    <td className="py-3 px-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+  1524→                    <td className="py-3 px-4 hidden sm:table-cell"><Skeleton className="h-4 w-16" /></td>
+  1525→                    <td className="py-3 px-4"><Skeleton className="h-5 w-16" /></td>
+  1526→                    <td className="py-3 px-4"><Skeleton className="h-8 w-8 ml-auto" /></td>
+  1527→                  </tr>
+  1528→                ))
+  1529→              ) : error ? (
+  1530→                <tr>
+  1531→                  <td colSpan={7} className="py-12 text-center">
+  1532→                    <p className="text-sm text-red-500">{error}</p>
+  1533→                    <Button
+  1534→                      variant="outline"
+  1535→                      size="sm"
+  1536→                      onClick={fetchAppointments}
+  1537→                      className="mt-2"
+  1538→                    >
+  1539→                      Retry
+  1540→                    </Button>
+  1541→                  </td>
+  1542→                </tr>
+  1543→              ) : sortedAppointments.length === 0 ? (
+  1544→                <tr>
+  1545→                  <td colSpan={7} className="py-16 text-center">
+  1546→                    <div className="flex flex-col items-center gap-2">
+  1547→                      <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1548→                        <Calendar className="size-5 text-muted-foreground/60" />
+  1549→                      </div>
+  1550→                      <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+  1551→                      <p className="text-xs text-muted-foreground/70">
+  1552→                        {statusFilter || search || providerFilter
+  1553→                          ? "Try adjusting your filters"
+  1554→                          : "No upcoming appointments in this date range. Try expanding the date range or check past dates."}
+  1555→                      </p>
+  1556→                    </div>
+  1557→                  </td>
+  1558→                </tr>
+  1559→              ) : (
+  1560→                sortedAppointments.map((apt, index) => (
+  1561→                  <tr
+  1562→                    key={apt.id}
+  1563→                    className={`border-b border-border/30 transition-colors hover:bg-brand-muted/30 ${
+  1564→                      index % 2 === 0 ? "bg-white" : "bg-muted/15"
+  1565→                    } ${conflictIds.has(apt.id) ? "bg-orange-50/40" : ""}`}
+  1566→                  >
+  1567→                    <td className="py-3 px-4 whitespace-nowrap">
+  1568→                      <div className="flex items-center gap-1.5">
+  1569→                        <Clock className="size-3.5 text-muted-foreground/60" />
+  1570→                        <span className="font-medium">
+  1571→                          {format(parseISO(apt.startTime), "h:mm a")}
+  1572→                        </span>
+  1573→                      </div>
+  1574→                      <p className="text-xs text-muted-foreground mt-0.5">
+  1575→                        {format(parseISO(apt.startTime), "MMM d, yyyy")}
+  1576→                      </p>
+  1577→                    </td>
+  1578→                    <td className="py-3 px-4">
+  1579→                      <button
+  1580→                        type="button"
+  1581→                        onClick={() => openDetail(apt.id)}
+  1582→                        className="flex items-center gap-2 text-left cursor-pointer hover:text-brand-hover transition-colors w-full"
+  1583→                      >
+  1584→                        <div className="size-7 rounded-full bg-brand-subtle flex items-center justify-center shrink-0">
+  1585→                          <User className="size-3.5 text-brand" />
+  1586→                        </div>
+  1587→                        <div className="min-w-0">
+  1588→                          <p className={cn("font-medium truncate", conflictIds.has(apt.id) ? "text-orange-600" : "")}>
+  1589→                            {conflictIds.has(apt.id) && <AlertTriangle className="size-3 inline mr-1 text-orange-500" />}
+  1590→                            {apt.patientName}
+  1591→                          </p>
+  1592→                          <p className="text-xs text-muted-foreground truncate">
+  1593→                            {apt.patientEmail}
+  1594→                          </p>
+  1595→                        </div>
+  1596→                      </button>
+  1597→                    </td>
+  1598→                    <td className="py-3 px-4 hidden md:table-cell whitespace-nowrap">
+  1599→                      <span className="text-sm">
+  1600→                        Dr. {apt.provider.firstName} {apt.provider.lastName}
+  1601→                      </span>
+  1602→                    </td>
+  1603→                    <td className="py-3 px-4 hidden lg:table-cell whitespace-nowrap text-muted-foreground">
+  1604→                      {apt.service.name}
+  1605→                    </td>
+  1606→                    <td className="py-3 px-4 hidden sm:table-cell">
+  1607→                      <ModalityBadge modality={apt.modality} />
+  1608→                    </td>
+  1609→                    <td className="py-3 px-4">
+  1610→                      <StatusBadge status={apt.status} />
+  1611→                    </td>
+  1612→                    <td className="py-3 px-4 text-right">
+  1613→                      <AppointmentActions apt={apt} />
+  1614→                    </td>
+  1615→                  </tr>
+  1616→                ))
+  1617→              )}
+  1618→            </tbody>
+  1619→          </table>
+  1620→        </div>
+  1621→        ) : (
+  1622→        <div className="p-4">
+  1623→          {loading ? (
+  1624→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1625→              {Array.from({ length: 6 }).map((_, i) => (
+  1626→                <div key={i} className="rounded-xl border border-border/60 p-4 space-y-3">
+  1627→                  <Skeleton className="h-5 w-32" />
+  1628→                  <Skeleton className="h-4 w-24" />
+  1629→                  <Skeleton className="h-4 w-28" />
+  1630→                  <Skeleton className="h-4 w-20" />
+  1631→                  <div className="flex gap-2">
+  1632→                    <Skeleton className="h-5 w-16" />
+  1633→                    <Skeleton className="h-5 w-16" />
+  1634→                  </div>
+  1635→                </div>
+  1636→              ))}
+  1637→            </div>
+  1638→          ) : error ? (
+  1639→            <div className="py-12 text-center">
+  1640→              <p className="text-sm text-red-500">{error}</p>
+  1641→              <Button
+  1642→                variant="outline"
+  1643→                size="sm"
+  1644→                onClick={fetchAppointments}
+  1645→                className="mt-2"
+  1646→              >
+  1647→                Retry
+  1648→              </Button>
+  1649→            </div>
+  1650→          ) : sortedAppointments.length === 0 ? (
+  1651→            <div className="py-16 text-center">
+  1652→              <div className="flex flex-col items-center gap-2">
+  1653→                <div className="size-12 rounded-full bg-muted/50 flex items-center justify-center">
+  1654→                  <Calendar className="size-5 text-muted-foreground/60" />
+  1655→                </div>
+  1656→                <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
+  1657→                <p className="text-xs text-muted-foreground/70">
+  1658→                  {statusFilter || search || providerFilter
+  1659→                    ? "Try adjusting your filters"
+  1660→                    : "No upcoming appointments in this date range."}
+  1661→                </p>
+  1662→              </div>
+  1663→            </div>
+  1664→          ) : (
+  1665→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1666→              {sortedAppointments.map((apt) => (
+  1667→                <AppointmentGridCard key={apt.id} apt={apt} />
+  1668→              ))}
+  1669→            </div>
+  1670→          )}
+  1671→        </div>
+  1672→        )}
+  1673→
+  1674→        {/* Pagination */}
+  1675→        {!loading && totalPages > 1 && listView === "table" && (
+  1676→          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 bg-muted/20">
+  1677→            <p className="text-xs text-muted-foreground">
+  1678→              Page {page} of {totalPages}
+  1679→            </p>
+  1680→            <div className="flex items-center gap-1">
+  1681→              <Button
+  1682→                variant="outline"
+  1683→                size="icon"
+  1684→                className="size-8 cursor-pointer"
+  1685→                disabled={page <= 1}
+  1686→                onClick={() => setPage((p) => Math.max(1, p - 1))}
+  1687→              >
+  1688→                <ChevronLeft className="size-4" />
+  1689→              </Button>
+  1690→              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+  1691→                let pageNum: number;
+  1692→                if (totalPages <= 5) {
+  1693→                  pageNum = i + 1;
+  1694→                } else if (page <= 3) {
+  1695→                  pageNum = i + 1;
+  1696→                } else if (page >= totalPages - 2) {
+  1697→                  pageNum = totalPages - 4 + i;
+  1698→                } else {
+  1699→                  pageNum = page - 2 + i;
+  1700→                }
+  1701→                return (
+  1702→                  <Button
+  1703→                    key={pageNum}
+  1704→                    variant={pageNum === page ? "default" : "outline"}
+  1705→                    size="icon"
+  1706→                    className={`size-8 cursor-pointer ${pageNum === page ? "bg-brand hover:bg-brand-hover text-white" : ""}`}
+  1707→                    onClick={() => setPage(pageNum)}
+  1708→                  >
+  1709→                    {pageNum}
+  1710→                  </Button>
+  1711→                );
+  1712→              })}
+  1713→              <Button
+  1714→                variant="outline"
+  1715→                size="icon"
+  1716→                className="size-8 cursor-pointer"
+  1717→                disabled={page >= totalPages}
+  1718→                onClick={() => setPage((p) => p + 1)}
+  1719→              >
+  1720→                <ChevronRight className="size-4" />
+  1721→              </Button>
+  1722→            </div>
+  1723→          </div>
+  1724→        )}
+  1725→      </div>
+  1726→      )}
+  1727→
+  1728→      {/* ================================================================== */}
+  1729→      {/* RESCHEDULE DIALOG                                                  */}
+  1730→      {/* ================================================================== */}
+  1731→      <Dialog
+  1732→        open={!!rescheduleApt}
+  1733→        onOpenChange={(open) => {
+  1734→          if (!open) {
+  1735→            setRescheduleApt(null);
+  1736→            setRescheduleSlots([]);
+  1737→            setRescheduleSelectedSlotId("");
+  1738→            setRescheduleDate(undefined);
+  1739→          }
+  1740→        }}
+  1741→      >
+  1742→        <DialogContent className="sm:max-w-lg">
+  1743→          <DialogHeader>
+  1744→            <DialogTitle className="flex items-center gap-2">
+  1745→              <div className="size-8 rounded-lg bg-blue-100 flex items-center justify-center">
+  1746→                <RefreshCw className="size-4 text-blue-600" />
+  1747→              </div>
+  1748→              Reschedule Appointment
+  1749→            </DialogTitle>
+  1750→            <DialogDescription>
+  1751→              Select a new provider, date, and time slot for this appointment.
+  1752→            </DialogDescription>
+  1753→          </DialogHeader>
+  1754→
+  1755→          {rescheduleApt && (
+  1756→            <div className="space-y-5">
+  1757→              {/* Current appointment info */}
+  1758→              <div className="rounded-lg bg-muted/50 border border-border/50 p-3.5 space-y-1.5">
+  1759→                <div className="flex items-center justify-between">
+  1760→                  <span className="text-sm font-medium text-foreground">
+  1761→                    {rescheduleApt.patientName}
+  1762→                  </span>
+  1763→                  <Badge className={cn("text-[10px] border", STATUS_STYLES[rescheduleApt.status])}>
+  1764→                    {STATUS_LABELS[rescheduleApt.status]}
+  1765→                  </Badge>
+  1766→                </div>
+  1767→                <div className="text-xs text-muted-foreground space-y-0.5">
+  1768→                  <p>
+  1769→                    Current: {format(parseISO(rescheduleApt.startTime), "EEE, MMM d 'at' h:mm a")} — {format(parseISO(rescheduleApt.endTime), "h:mm a")}
+  1770→                  </p>
+  1771→                  <p>
+  1772→                    Dr. {rescheduleApt.provider.firstName} {rescheduleApt.provider.lastName}
+  1773→                    {rescheduleApt.provider.credentials && <span>, {rescheduleApt.provider.credentials}</span>}
+  1774→                    {" · "}{rescheduleApt.service.name}
+  1775→                  </p>
+  1776→                </div>
+  1777→              </div>
+  1778→
+  1779→              {/* Provider selector */}
+  1780→              <div className="space-y-1.5">
+  1781→                <Label className="text-sm font-medium">Provider</Label>
+  1782→                <Select value={rescheduleProviderId} onValueChange={handleRescheduleProviderChange}>
+  1783→                  <SelectTrigger className="h-10">
+  1784→                    <SelectValue placeholder="Select provider" />
+  1785→                  </SelectTrigger>
+  1786→                  <SelectContent>
+  1787→                    {providers.map((p) => (
+  1788→                      <SelectItem key={p.id} value={p.id}>
+  1789→                        Dr. {p.firstName} {p.lastName}{p.credentials ? `, ${p.credentials}` : ""}
+  1790→                      </SelectItem>
+  1791→                    ))}
+  1792→                  </SelectContent>
+  1793→                </Select>
+  1794→              </div>
+  1795→
+  1796→              {/* Date picker */}
+  1797→              <div className="space-y-1.5">
+  1798→                <Label className="text-sm font-medium">New Date</Label>
+  1799→                <Popover>
+  1800→                  <PopoverTrigger asChild>
+  1801→                    <Button
+  1802→                      variant="outline"
+  1803→                      className={cn(
+  1804→                        "w-full h-10 justify-start text-left font-normal",
+  1805→                        !rescheduleDate && "text-muted-foreground"
+  1806→                      )}
+  1807→                    >
+  1808→                      <CalendarDays className="mr-2 h-4 w-4" />
+  1809→                      {rescheduleDate ? format(rescheduleDate, "EEEE, MMM d, yyyy") : "Pick a date"}
+  1810→                    </Button>
+  1811→                  </PopoverTrigger>
+  1812→                  <PopoverContent className="w-auto p-0" align="start">
+  1813→                    <CalendarComponent
+  1814→                      mode="single"
+  1815→                      selected={rescheduleDate}
+  1816→                      onSelect={handleRescheduleDateChange}
+  1817→                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+  1818→                      initialFocus
+  1819→                    />
+  1820→                  </PopoverContent>
+  1821→                </Popover>
+  1822→              </div>
+  1823→
+  1824→              {/* Available slots */}
+  1825→              {rescheduleDate && rescheduleProviderId && (
+  1826→                <div className="space-y-2">
+  1827→                  <Label className="text-sm font-medium">
+  1828→                    Available Slots
+  1829→                    {rescheduleSlotsLoading && (
+  1830→                      <Loader2 className="inline size-3.5 ml-2 animate-spin text-muted-foreground" />
+  1831→                    )}
+  1832→                  </Label>
+  1833→                  {rescheduleSlotsLoading ? (
+  1834→                    <div className="grid grid-cols-3 gap-2">
+  1835→                      {Array.from({ length: 6 }).map((_, i) => (
+  1836→                        <Skeleton key={i} className="h-10 rounded-lg" />
+  1837→                      ))}
+  1838→                    </div>
+  1839→                  ) : rescheduleSlots.length === 0 ? (
+  1840→                    <div className="rounded-lg border border-dashed border-border/60 p-6 text-center">
+  1841→                      <Calendar className="size-8 mx-auto text-muted-foreground/40 mb-2" />
+  1842→                      <p className="text-sm text-muted-foreground">No available slots for this date</p>
+  1843→                      <p className="text-xs text-muted-foreground mt-1">Try selecting a different date</p>
+  1844→                    </div>
+  1845→                  ) : (
+  1846→                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+  1847→                      {rescheduleSlots.map((slot) => {
+  1848→                        const isSelected = rescheduleSelectedSlotId === slot.id;
+  1849→                        return (
+  1850→                          <button
+  1851→                            key={slot.id}
+  1852→                            type="button"
+  1853→                            onClick={() => setRescheduleSelectedSlotId(slot.id)}
+  1854→                            className={cn(
+  1855→                              "flex flex-col items-center justify-center rounded-lg border p-2.5 text-center transition-all cursor-pointer",
+  1856→                              isSelected
+  1857→                                ? "border-brand bg-brand-muted text-brand-hover shadow-sm ring-1 ring-brand/20"
+  1858→                                : "border-border/60 hover:border-brand-border hover:bg-brand-muted/50 text-foreground"
+  1859→                            )}
+  1860→                          >
+  1861→                            <span className="text-sm font-medium">
+  1862→                              {format(parseISO(slot.startTime), "h:mm a")}
+  1863→                            </span>
+  1864→                            <span className="text-[10px] text-muted-foreground mt-0.5">
+  1865→                              {slot.modality === "VIDEO" ? "📹 Video" : "🏢 In-Person"}
+  1866→                            </span>
+  1867→                          </button>
+  1868→                        );
+  1869→                      })}
+  1870→                    </div>
+  1871→                  )}
+  1872→                </div>
+  1873→              )}
+  1874→
+  1875→              {/* Summary when slot selected */}
+  1876→              {rescheduleSelectedSlotId && (
+  1877→                <div className="rounded-lg bg-brand-muted border border-brand-border p-3">
+  1878→                  <p className="text-xs font-medium text-brand mb-1">New Appointment Time</p>
+  1879→                  {(() => {
+  1880→                    const selectedSlot = rescheduleSlots.find((s) => s.id === rescheduleSelectedSlotId);
+  1881→                    if (!selectedSlot) return null;
+  1882→                    return (
+  1883→                      <div className="flex items-center gap-2 text-sm text-brand-hover">
+  1884→                        <span className="font-medium">
+  1885→                          {format(parseISO(selectedSlot.startTime), "EEE, MMM d 'at' h:mm a")}
+  1886→                        </span>
+  1887→                        <ArrowRight className="size-3.5" />
+  1888→                        <span>{format(parseISO(selectedSlot.endTime), "h:mm a")}</span>
+  1889→                      </div>
+  1890→                    );
+  1891→                  })()}
+  1892→                </div>
+  1893→              )}
+  1894→
+  1895→              {/* Actions */}
+  1896→              <div className="flex gap-3 pt-1">
+  1897→                <Button
+  1898→                  variant="outline"
+  1899→                  className="flex-1 cursor-pointer"
+  1900→                  onClick={() => {
+  1901→                    setRescheduleApt(null);
+  1902→                    setRescheduleSlots([]);
+  1903→                    setRescheduleSelectedSlotId("");
+  1904→                  }}
+  1905→                  disabled={rescheduleSubmitting}
+  1906→                >
+  1907→                  Cancel
+  1908→                </Button>
+  1909→                <Button
+  1910→                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+  1911→                  disabled={!rescheduleSelectedSlotId || rescheduleSubmitting}
+  1912→                  onClick={handleRescheduleConfirm}
+  1913→                >
+  1914→                  {rescheduleSubmitting ? (
+  1915→                    <Loader2 className="size-4 mr-1.5 animate-spin" />
+  1916→                  ) : (
+  1917→                    <RefreshCw className="size-4 mr-1.5" />
+  1918→                  )}
+  1919→                  Confirm Reschedule
+  1920→                </Button>
+  1921→              </div>
+  1922→            </div>
+  1923→          )}
+  1924→        </DialogContent>
+  1925→      </Dialog>
+  1926→
+  1927→      {/* ================================================================== */}
+  1928→      {/* QR CODE DIALOG                                                     */}
+  1929→      {/* ================================================================== */}
+  1930→      <Dialog
+  1931→        open={!!qrAppointmentId}
+  1932→        onOpenChange={(open) => {
+  1933→          if (!open) {
+  1934→            setQrAppointmentId(null);
+  1935→            setQrPatientName(undefined);
+  1936→          }
+  1937→        }}
+  1938→      >
+  1939→        <DialogContent className="sm:max-w-md">
+  1940→          <DialogHeader>
+  1941→            <DialogTitle className="flex items-center gap-2">
+  1942→              <QrCode className="size-5 text-brand" />
+  1943→              Appointment QR Code
+  1944→            </DialogTitle>
+  1945→            <DialogDescription>
+  1946→              {qrPatientName
+  1947→                ? `QR code for ${qrPatientName}'s appointment`
+  1948→                : "Scannable QR code for this appointment"}
+  1949→            </DialogDescription>
+  1950→          </DialogHeader>
+  1951→          {qrAppointmentId && (
+  1952→            <QrCodeDisplay
+  1953→              appointmentId={qrAppointmentId}
+  1954→              patientName={qrPatientName}
+  1955→            />
+  1956→          )}
+  1957→        </DialogContent>
+  1958→      </Dialog>
+  1959→
+  1960→      {/* ================================================================== */}
+  1961→      {/* REFUND CONFIRMATION DIALOG (Feature 6.2)                           */}
+  1962→      {/* ================================================================== */}
+  1963→      <AlertDialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+  1964→        <AlertDialogContent>
+  1965→          <AlertDialogHeader>
+  1966→            <AlertDialogTitle>Confirm Refund</AlertDialogTitle>
+  1967→            <AlertDialogDescription>
+  1968→              Are you sure you want to refund{" "}
+  1969→              <span className="font-semibold text-foreground">
+  1970→                {detail?.ledger ? formatCents(detail.ledger.amountCents) : ""}
+  1971→              </span>
+  1972→              ? This cannot be undone.
+  1973→            </AlertDialogDescription>
+  1974→          </AlertDialogHeader>
+  1975→          <AlertDialogFooter>
+  1976→            <AlertDialogCancel disabled={refundSubmitting}>Cancel</AlertDialogCancel>
+  1977→            <AlertDialogAction
+  1978→              onClick={handleConfirmRefund}
+  1979→              disabled={refundSubmitting}
+  1980→              className="bg-red-600 hover:bg-red-700 text-white"
+  1981→            >
+  1982→              {refundSubmitting && <Loader2 className="size-4 mr-1.5 animate-spin" />}
+  1983→              Confirm Refund
+  1984→            </AlertDialogAction>
+  1985→          </AlertDialogFooter>
+  1986→        </AlertDialogContent>
+  1987→      </AlertDialog>
+  1988→
+  1989→      {/* ================================================================== */}
+  1990→      {/* DETAIL DIALOG                                                      */}
+  1991→      {/* ================================================================== */}
+  1992→      <Dialog
+  1993→        open={!!selectedId}
+  1994→        onOpenChange={(open) => {
+  1995→          if (!open) {
+  1996→            setSelectedId(null);
+  1997→            setDetail(null);
+  1998→          }
+  1999→        }}
+  2000→      >
+
+[showing lines 1-2000 of 2623; use offset=2001 with limit to continue reading]

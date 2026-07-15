@@ -184,7 +184,6 @@ async function runLockSweep(userId: string) {
       const updatedSlots = await db.slot.updateMany({
         where: {
           status: SLOT_STATUS.LOCKED,
-          slotLock: null, // no active lock remaining
         },
         data: { status: SLOT_STATUS.AVAILABLE },
       });

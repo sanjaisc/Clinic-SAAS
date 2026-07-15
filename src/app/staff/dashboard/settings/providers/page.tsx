@@ -176,7 +176,7 @@ function statusColor(status: string): string {
 export default function ProvidersPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   // ── Data State ──
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
@@ -205,7 +205,7 @@ export default function ProvidersPage() {
   const [templateDay, setTemplateDay] = useState(1);
   const [templateStart, setTemplateStart] = useState("09:00");
   const [templateEnd, setTemplateEnd] = useState("17:00");
-  const [templateModality, setTemplateModality] = useState(SLOT_MODALITY.IN_PERSON);
+  const [templateModality, setTemplateModality] = useState<string>(SLOT_MODALITY.IN_PERSON);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateActionLoading, setTemplateActionLoading] = useState<string | null>(null);
 
@@ -219,7 +219,7 @@ export default function ProvidersPage() {
   const [formPhotoUrl, setFormPhotoUrl] = useState("");
   const [formVideoLink, setFormVideoLink] = useState("");
   const [formSlotDuration, setFormSlotDuration] = useState("30");
-  const [formStatus, setFormStatus] = useState(PROVIDER_STATUS.ACTIVE);
+  const [formStatus, setFormStatus] = useState<string>(PROVIDER_STATUS.ACTIVE);
 
   // ─── Fetch Providers ─────────────────────────────────────────────────────────
 
@@ -1054,8 +1054,8 @@ export default function ProvidersPage() {
             <AlertDialogDescription>
               {deleteTarget
                 ? `Are you sure you want to remove ${deleteTarget.firstName} ${deleteTarget.lastName}? ${
-                    deleteTarget._count.appointments
-                      ? "This provider has existing appointments and will be set to inactive instead of deleted."
+                    (deleteTarget._count.providerServices > 0 || deleteTarget._count.slotTemplates > 0)
+                      ? "This provider has existing data (services/templates) and will be set to inactive instead of deleted."
                       : "This will permanently delete this provider."
                   }`
                 : ""}

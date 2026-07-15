@@ -161,7 +161,7 @@ export default function ServicesSettingsPage() {
   // Error state
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   // ---- Data Fetching ----
   const fetchData = useCallback(async () => {

@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           action: AUDIT_ACTIONS.SLOT_BLOCKED,
           targetType: "SLOT",
           targetId: slotId,
-          ipAddress: request.headers.get("x-forwarded-for") || null,
+          ipAddress: request.headers.get("x-forwarded-for") ?? undefined,
         })
       );
       await Promise.all(auditPromises);

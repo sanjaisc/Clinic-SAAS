@@ -112,7 +112,7 @@ function isUpcoming(startDateStr: string, endDateStr: string): boolean {
 export default function HoursPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   // Hours state
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(getDefaultWeeklyHours());

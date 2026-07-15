@@ -16,6 +16,7 @@ import {
   CalendarRange,
   DollarSign,
   UserX,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -591,6 +592,13 @@ export default function AnalyticsPage() {
   }
 
   if (!data && !loading) return null;
+  if (!data) {
+    return (
+      <div className="space-y-6 animate-in fade-in-0 duration-300">
+        <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin size-8 text-muted-foreground" /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">

@@ -114,6 +114,13 @@ const TAB_CONFIG: Record<TabKey, { label: string; icon: React.ElementType; endpo
   languages: { label: "Languages", icon: Globe, endpoint: "/api/staff/admin/taxonomy/languages" },
 };
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+const formatPrice = (cents: number) => {
+  if (cents === 0) return "$0.00";
+  return `$${(cents / 100).toFixed(2)}`;
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function TaxonomyPage() {
@@ -346,10 +353,7 @@ export default function TaxonomyPage() {
 
   // ─── Render Helpers ────────────────────────────────────────────────────────
 
-  const formatPrice = (cents: number) => {
-    if (cents === 0) return "$0.00";
-    return `$${(cents / 100).toFixed(2)}`;
-  };
+  // formatPrice is defined above (module-level) for use in sub-components
 
   // ─── Guard ─────────────────────────────────────────────────────────────────
 

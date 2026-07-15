@@ -136,7 +136,7 @@ function getInitials(name: string): string {
 export default function StaffPage() {
   const { data: session } = useSession();
   const user = session?.user as DoctASessionUser | undefined;
-  const clinicId = useActiveClinicId(user?.clinicId);
+  const clinicId = useActiveClinicId(user?.clinicId ?? null);
 
   // Staff state
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);

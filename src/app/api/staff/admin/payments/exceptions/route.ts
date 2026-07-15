@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           resolvedNote: entry.description,
           ledgerId: entry.id,
           paymentStatus: entry.appointment.paymentStatus,
-          refundStatus: entry.refundStatus,
+          refundStatus: entry.refundStatus ?? undefined,
         });
       }
     }
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
           resolved: false,
           ledgerId: appt.ledger?.id,
           paymentStatus: appt.paymentStatus,
-          refundStatus: appt.ledger?.refundStatus,
+          refundStatus: appt.ledger?.refundStatus ?? undefined,
         });
       }
     }
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           resolvedNote: entry.description,
           ledgerId: entry.id,
           paymentStatus: entry.appointment.paymentStatus,
-          refundStatus: entry.refundStatus,
+          refundStatus: entry.refundStatus ?? undefined,
         });
       }
     }
