@@ -1,0 +1,871 @@
+     1→# DoctA — Clinic Directory & Appointment Booking Platform
+     2→
+     3→> A full-stack medical clinic directory and appointment booking platform built with Next.js 16, React 19, Prisma (SQLite), NextAuth v4, Tailwind CSS 4, and shadcn/ui.
+     4→
+     5→---
+     6→
+     7→## Table of Contents
+     8→
+     9→1. [Architecture Overview](#architecture-overview)
+    10→2. [Tech Stack](#tech-stack)
+    11→3. [Project Structure](#project-structure)
+    12→4. [Database Schema (20 Models)](#database-schema)
+    13→5. [Authentication & Authorization](#authentication--authorization)
+    14→6. [Public Patient-Facing Features](#public-patient-facing-features)
+    15→7. [Staff Dashboard Features](#staff-dashboard-features)
+    16→8. [System Admin Features](#system-admin-features)
+    17→9. [API Routes Reference](#api-routes-reference)
+    18→10. [Key Libraries & Utilities](#key-libraries--utilities)
+    19→11. [Hooks](#hooks)
+    20→12. [Components](#components)
+    21→13. [Environment Variables](#environment-variables)
+    22→14. [Build & Deployment](#build--deployment)
+    23→15. [Booking Flow (Two-Phase Lock)](#booking-flow)
+    24→16. [Appointment State Machine](#appointment-state-machine)
+    25→17. [Caching Strategy](#caching-strategy)
+    26→18. [Known Limitations & Quirks](#known-limitations--quirks)
+    27→
+    28→---
+    29→
+    30→## Architecture Overview
+    31→
+    32→```
+    33→┌─────────────────────────────────────────────────────────────┐
+    34→│  Caddy Reverse Proxy (port 81)                              │
+    35→│  └── Routes /api/*?XTransformPort=XXXX to mini-services     │
+    36→│  └── Default proxy to Next.js on port 3000                  │
+    37→└────────────────────┬────────────────────────────────────────┘
+    38→                     │
+    39→┌────────────────────▼────────────────────────────────────────┐
+    40→│  Next.js 16 (App Router) — port 3000                        │
+    41→│  ├── Edge Middleware (JWT validation, role gating)           │
+    42→│  ├── Server Components (pages, API routes)                  │
+    43→│  ├── Client Components (providers, interactive UI)           │
+    44→│  └── Static Assets (Turbopack compiled)                     │
+    45→└────────────────────┬────────────────────────────────────────┘
+    46→                     │
+    47→┌────────────────────▼────────────────────────────────────────┐
+    48→│  Prisma ORM ──▶ SQLite (db/custom.db)                       │
+    49→│  ├── 20 models                                              │
+    50→│  ├── In-memory cache layer (Redis replacement)              │
+    51→│  └── Seed data (5 clinics, 20+ providers, 90 days of slots) │
+    52→└─────────────────────────────────────────────────────────────┘
+    53→```
+    54→
+    55→**Multi-tenancy**: All clinic-scoped data is filtered by `clinicId` from the user's session. SYSTEM_MANAGER users can switch between clinics.
+    56→
+    57→**No patient accounts**: Patient data is stored directly on the `Appointment` model. Access is via hashed, single-use tokens (MANAGE, INTAKE, REVIEW, CHECK_IN).
+    58→
+    59→---
+    60→
+    61→## Tech Stack
+    62→
+    63→| Category | Technology | Version |
+    64→|----------|-----------|---------|
+    65→| Framework | Next.js (App Router) | ^16.1.1 |
+    66→| UI Library | React | ^19.0.0 |
+    67→| Language | TypeScript | ^5 |
+    68→| Styling | Tailwind CSS | ^4 |
+    69→| Components | shadcn/ui (New York style) | 20+ Radix primitives |
+    70→| Icons | Lucide React | latest |
+    71→| Database | SQLite via Prisma ORM | ^6.11.1 |
+    72→| Auth | NextAuth v4 (JWT strategy) | ^4.24.11 |
+    73→| Password Hashing | bcryptjs | ^3.0.3 |
+    74→| Forms | React Hook Form + Zod | ^7.60.0 / ^4.0.2 |
+    75→| Server State | TanStack React Query | ^5.82.0 |
+    76→| Client State | Zustand | ^5.0.6 |
+    77→| Charts | Recharts | ^2.15.4 |
+    78→| Maps | Leaflet + React-Leaflet | ^1.9.4 / ^5.0.0 |
+    79→| Animations | Framer Motion | ^12.23.2 |
+    80→| Rich Text | MDXEditor | ^3.39.1 |
+    81→| Image Processing | Sharp | ^0.34.3 |
+    82→| QR Codes | qrcode | ^1.5.4 |
+    83→| Dark Mode | next-themes | ^0.4.6 |
+    84→| Drag & Drop | dnd-kit | ^6.3.1 |
+    85→| Runtime | Bun | latest |
+    86→
+    87→---
+    88→
+    89→## Project Structure
+    90→
+    91→```
+    92→src/
+    93→├── app/                          # Next.js App Router
+    94→│   ├── layout.tsx                # Root layout (ClientProviders wrapper)
+    95→│   ├── page.tsx                  # Home → SearchPage
+    96→│   ├── not-found.tsx             # Custom 404 page
+    97→│   ├── globals.css               # Global Tailwind styles + CSS variables
+    98→│   │
+    99→│   ├── api/                      # ~80+ API route files
+   100→│   │   ├── auth/[...nextauth]/   # NextAuth handler (custom Next.js 16 adapter)
+   101→│   │   ├── search/providers/     # Geo-aware provider search
+   102→│   │   ├── clinics/              # Public clinic listing
+   103→│   │   ├── taxonomies/           # Public taxonomy data
+   104→│   │   ├── geocode/              # ZIP → lat/lng (Nominatim)
+   105→│   │   ├── specialties/popular/  # Popular specialties by booking count
+   106→│   │   ├── slots/[id]/           # Slot details + two-phase lock
+   107→│   │   ├── appointments/         # Public booking (CONFIRM step)
+   108→│   │   ├── waitlist/             # Waitlist join
+   109→│   │   ├── intake/               # Pre-visit intake
+   110→│   │   ├── reviews/              # Token-based review submission
+   111→│   │   ├── manage/               # Patient self-service
+   112→│   │   ├── qr/[id]/              # QR code generation
+   113→│   │   ├── providers/[id]/       # Provider availability + reviews
+   114→│   │   ├── admin/                # Lock cleanup + slot generation
+   115→│   │   └── staff/                # 50+ staff/authenticated routes
+   116→│   │       ├── dashboard/        # Dashboard stats
+   117→│   │       ├── appointments/     # CRUD + state machine + notes + reschedule
+   118→│   │       ├── book/             # Staff manual booking
+   119→│   │       ├── slots/            # Slot inventory + block ranges
+   120→│   │       ├── providers/        # Provider CRUD + templates + services
+   121→│   │       ├── hours/            # Hours of operation
+   122→│   │       ├── services/         # Service assignment + pricing
+   123→│   │       ├── clinic-profile/   # Profile, media, experience, amenities
+   124→│   │       ├── financial/        # Deposit/cancellation config
+   125→│   │       ├── analytics/        # Clinic analytics
+   126→│   │       ├── notifications/    # Real-time notification feed
+   127→│   │       ├── waitlist/         # Waitlist management
+   128→│   │       ├── closures/         # Clinic closures/holidays
+   129→│   │       ├── invitations/      # Staff invitation system
+   130→│   │       ├── accept-invitation/# Accept invitation + create account
+   131→│   │       ├── payments/         # Refund + payment request
+   132→│   │       ├── audit-logs/       # Audit log viewer
+   133→│   │       ├── email-templates/  # Email template CRUD + reset
+   134→│   │       ├── communications/   # Email/communication settings
+   135→│   │       ├── service-insurances/# Service-insurance linking
+   136→│   │       ├── clinic-service/   # Clinic-service pricing overrides
+   137→│   │       ├── clinic-info/      # Lightweight clinic info for sidebar
+   138→│   │       └── admin/            # SYSTEM_MANAGER-only routes
+   139→│   │           ├── analytics/    # Cross-clinic analytics
+   140→│   │           ├── appointments/ # Global appointment search
+   141→│   │           ├── clinics/      # Clinic CRUD + edit
+   142→│   │           ├── providers/    # Global provider management
+   143→│   │           ├── users/        # User CRUD + invite + deactivate
+   144→│   │           ├── taxonomy/     # Services/specialties/insurances/amenities/languages
+   145→│   │           ├── config/       # System configuration singleton
+   146→│   │           ├── cron/         # Cron job monitoring + manual trigger
+   147→│   │           ├── financial/    # Global financial overview
+   148→│   │           ├── infrastructure/# Error logs, DB stats, integrations
+   149→│   │           ├── policy/       # System-wide policy config
+   150→│   │           ├── data/         # Seed, stats, purge
+   151→│   │           ├── audit-logs/   # Global audit log search
+   152→│   │           ├── error-logs/   # System error log management
+   153→│   │           ├── payments/     # Payment exception handling
+   154→│   │           ├── patient-matches/# Ambiguous patient detection
+   155→│   │           ├── conversion/   # Conversion funnel analytics
+   156→│   │           └── integrations/ # External integration status
+   157→│   │
+   158→│   ├── staff/
+   159→│   │   ├── login/                # Staff login page
+   160→│   │   ├── accept-invitation/    # Accept invitation page
+   161→│   │   └── dashboard/
+   162→│   │       ├── page.tsx          # Dashboard overview
+   163→│   │       ├── appointments/     # Appointment list management
+   164→│   │       ├── calendar/         # Weekly calendar view
+   165→│   │       ├── book/             # Staff manual booking
+   166→│   │       ├── slots/            # Slot inventory
+   167→│   │       ├── activity/         # Activity feed
+   168→│   │       ├── analytics/        # Clinic analytics
+   169→│   │       ├── settings/         # 7-tab settings panel
+   170→│   │       │   ├── profile/      # Clinic profile editing
+   171→│   │       │   ├── hours/        # Hours of operation
+   172→│   │       │   ├── services/     # Service management
+   173→│   │       │   ├── providers/    # Provider management
+   174→│   │       │   ├── financial/    # Financial settings
+   175→│   │       │   ├── communications/# Email templates
+   176→│   │       │   └── staff/        # Staff invitation/management
+   177→│   │       └── admin/            # 8 system admin pages
+   178→│   │
+   179→│   ├── book/                     # 4-step booking wizard (1718 lines)
+   180→│   ├── clinic/[slug]/            # Clinic detail page
+   181→│   ├── providers/[slug]/         # Provider detail page
+   182→│   ├── clinics/                  # Clinic directory
+   183→│   ├── about/                    # About DoctA
+   184→│   ├── insurance/                # Insurance info
+   185→│   ├── manage/[token]/           # Patient self-service
+   186→│   ├── intake/[token]/           # Pre-visit intake form
+   187→│   └── review/[token]/           # Post-visit review
+   188→│
+   189→├── components/
+   190→│   ├── ui/                       # 50+ shadcn/ui primitives
+   191→│   ├── search/
+   192→│   │   ├── search-page.tsx       # Main search (1324 lines)
+   193→│   │   └── provider-card.tsx     # Search result card
+   194→│   ├── clinic/
+   195→│   │   ├── clinic-provider-row.tsx
+   196→│   │   ├── clinic-location-map.tsx
+   197→│   │   └── about-text.tsx
+   198→│   ├── provider/
+   199→│   │   └── availability-calendar.tsx
+   200→│   ├── providers.tsx             # SessionProvider + ThemeProvider wrapper
+   201→│   ├── client-providers.tsx      # Dynamic SSR-safe provider wrapper
+   202→│   ├── docta-logo.tsx            # Brand logo component
+   203→│   ├── public-navbar.tsx         # Public site navigation
+   204→│   ├── public-footer.tsx         # Public site footer
+   205→│   ├── theme-toggle.tsx          # Light/Dark/System toggle
+   206→│   ├── clinic-selector-bar.tsx   # Admin clinic selector
+   207→│   ├── notification-bell.tsx     # Real-time notifications
+   208→│   ├── active-clinic-context.tsx # Clinic ID context
+   209→│   ├── settings-breadcrumb.tsx   # Settings navigation
+   210→│   ├── qr-code-display.tsx       # QR code for appointments
+   211→│   └── keyboard-shortcuts.tsx    # ⌘K shortcuts dialog
+   212→│
+   213→├── hooks/
+   214→│   ├── use-clinic-context.ts     # Effective clinicId management
+   215→│   ├── use-mobile.ts             # Responsive breakpoint hook
+   216→│   └── use-toast.ts              # Toast notification system
+   217→│
+   218→├── lib/
+   219→│   ├── auth.ts                   # NextAuth config (JWT, credentials, roles)
+   220→│   ├── db.ts                     # Prisma client singleton
+   221→│   ├── enums.ts                  # All enum constants + state machine
+   222→│   ├── constants.ts              # App-wide constants
+   223→│   ├── utils.ts                  # cn() class utility
+   224→│   ├── cache.ts                  # In-memory cache with TTL
+   225→│   ├── crypto.ts                 # Password/token hashing
+   226→│   ├── email.ts                  # Mock email service
+   227→│   ├── audit.ts                  # Fire-and-forget audit logger
+   228→│   ├── geo.ts                    # Haversine distance + geo utils
+   229→│   └── default-email-templates.ts # 7 default email templates
+   230→│
+   231→├── types/                        # TypeScript type augmentations
+   232→└── middleware.ts                  # Edge middleware (JWT + role checks)
+   233→
+   234→prisma/
+   235→├── schema.prisma                 # 20-model database schema
+   236→└── seed.ts                       # Demo data seeder
+   237→```
+   238→
+   239→---
+   240→
+   241→## Database Schema
+   242→
+   243→**Database**: SQLite via Prisma ORM. **20 models** total.
+   244→
+   245→### System Configuration
+   246→- **SystemConfig** — Singleton config: deposit limits, lock TTL (600s), slot generation window (90 days), waitlist processing delay, review trigger hours, platform fee
+   247→
+   248→### Taxonomy / Reference Data
+   249→- **Specialty** — `name`, `slug`, `description`, `icon`, `isActive`, `sortOrder` → has many Service, Appointment
+   250→- **Service** — `name`, `slug`, `specialtyId`, `durationMinutes` (30), `selfPayPriceCents`, `selfPayPaymentType`, `isBookable`, `isActive`
+   251→- **Insurance** — `name`, `slug`, `isActive`, `isDemo`, `sortOrder`
+   252→- **Amenity** — `name`, `slug`, `icon`, `sortOrder`
+   253→- **Language** — `name`, `code` (ISO 639-1), `sortOrder`
+   254→
+   255→### Core Business
+   256→- **Clinic** — Full profile: slug, name, tagline, description, address (street/city/state/zip), lat/lng, phone, email, website, logo/cover URLs, about, hoursOfOperation (JSON), FAQ (JSON), gallery (JSON), status (DRAFT/PENDING/PUBLISHED/SUSPENDED/ARCHIVED), deposit amounts, cancellation/reschedule policies, parking/visit instructions, email settings, intake config, isFeatured
+   257→- **Provider** — `clinicId`, firstName, lastName, credentials, slug, bio, photoUrl, NPI, yearsExperience, rating, reviewCount, slotDurationMinutes (30), status (ACTIVE/INACTIVE/SUSPENDED), videoVisitLink
+   258→
+   259→### Junction Tables
+   260→- **ClinicInsurance** — `clinicId` + `insuranceId` (unique pair)
+   261→- **ClinicAmenity** — `clinicId` + `amenityId` (unique pair)
+   262→- **ProviderLanguage** — `providerId` + `languageId` (unique pair)
+   263→- **ProviderService** — `providerId` + `serviceId` (unique pair)
+   264→- **ClinicService** — `clinicId` + `serviceId` (unique pair), `clinicPriceCents`, `isActive`
+   265→- **ServiceInsurance** — `serviceId` + `insuranceId` (unique pair), `copayCents`, `isActive`
+   266→
+   267→### Slot Inventory
+   268→- **SlotTemplate** — `providerId`, `dayOfWeek` (0-6), `startTime`, `endTime`, `modality` (IN_PERSON/VIDEO), `isActive`
+   269→- **Slot** — `clinicId`, `providerId`, `startTime` (UTC), `endTime`, `modality`, `status` (AVAILABLE/LOCKED/BOOKED/BOOKED_EXTERNALLY/BLOCKED/CLOSED), `templateId?`
+   270→
+   271→### Two-Phase Booking Lock
+   272→- **SlotLock** — `slotId` (unique — core of race condition protection), `lockKey`, `lockedAt`, `expiresAt`
+   273→
+   274→### Appointments & Financials
+   275→- **Appointment** — `slotId` (unique), `clinicId`, `providerId`, `specialtyId`, `serviceId`, patient info (name, DOB, phone, email, type, guardian), `reasonForVisit`, `insuranceId?`, `modality`, `startTime`, `endTime`, `isDemoInsurance`, `depositCents`, `selfPayCents`, `paymentStatus` (PENDING/AUTHORIZED/CAPTURED/REFUNDED/FORFEITED), `paymentMethod` (STRIPE/CASH_AT_DESK/MANUAL_WAIVER), `status` (BOOKED/CHECKED_IN/COMPLETED/ARCHIVED/CANCELLED/NO_SHOW), `cancellationReason`, `conversionRanking`, `ipHash`, `intakeCompleted`, `insuranceVerified`
+   276→- **AppointmentLedger** — `appointmentId` (unique), `type` (DEPOSIT_AUTH/DEPOSIT_CAPTURE/REFUND/FULL_PAYMENT/BALANCE_PAYMENT), `amountCents`, Stripe IDs, `refundStatus`, `processedBy`
+   277→
+   278→### Internal & Patient Tokens
+   279→- **InternalNote** — `appointmentId`, `authorId?`, `content`, `createdAt`
+   280→- **Token** — `tokenHash` (unique, SHA-256), `appointmentId`, `purpose` (INTAKE/REVIEW/MANAGE/CHECK_IN), `expiresAt`, `consumedAt?`
+   281→
+   282→### Reviews & Waitlist
+   283→- **Review** — `appointmentId` (unique), `clinicId`, `providerId`, 4 rating dimensions (overall/waitTime/bedsideManner/staff, 1-5), `comment?`, `isVerified`
+   284→- **WaitlistEntry** — `appointmentId?`, `clinicId`, `providerId`, `serviceId`, patient info, date range, modality, status (ACTIVE/OFFERED/FULFILLED/EXPIRED/REMOVED), contact tracking, offer tracking
+   285→
+   286→### Communication & Staff
+   287→- **EmailTemplate** — `clinicId`, `type` (7 types), `subject`, `bodyHtml`, `isActive`
+   288→- **StaffInvitation** — `clinicId`, `email`, `tokenHash`, `role`, `createdBy?`, `expiresAt`, `acceptedAt?`, `acceptedBy?`
+   289→- **ClinicClosure** — `clinicId`, `title`, `startDate`, `endDate`, `isRecurring`, `recurrenceRule?`
+   290→
+   291→### Users & Audit
+   292→- **User** — `email` (unique), `name`, `passwordHash`, `role` (SYSTEM_MANAGER/CLINIC_ADMIN/CLINIC_RECEPTION), `clinicId?`, `isActive`, `lastLoginAt?`
+   293→- **AuditLog** — `userId?`, `action`, `targetType?`, `targetId?`, `appointmentId?`, `ipAddress?`
+   294→
+   295→### System & Analytics
+   296→- **SystemErrorLog** — `level` (ERROR/WARN/INFO), `source`, `message`, `path?`, `stack?`, `resolved`, `resolvedBy?`, `resolvedAt?`
+   297→- **ConversionEvent** — `sessionId`, `eventType` (SEARCH/CLINIC_VIEW/BOOKING_START/BOOKING_COMPLETE), `clinicId?`, `providerId?`, `metadata?`, `ipHash?`
+   298→
+   299→---
+   300→
+   301→## Authentication & Authorization
+   302→
+   303→### How Auth Works
+   304→- **NextAuth v4** with **JWT strategy** (no session DB table)
+   305→- Custom `toInternalRequest()` adapter in `/api/auth/[...nextauth]/route.ts` for Next.js 16 compatibility (bypasses broken `req instanceof Request` check)
+   306→- Credentials provider: email + bcrypt password verification
+   307→- JWT payload includes: `userId`, `email`, `name`, `role`, `clinicId`
+   308→- Session expiry: 30 days
+   309→- Token revocation: middleware checks `user.isActive` via DB on protected routes
+   310→
+   311→### Role Hierarchy
+   312→```
+   313→SYSTEM_MANAGER > CLINIC_ADMIN > CLINIC_RECEPTION
+   314→```
+   315→
+   316→### Middleware Enforcement
+   317→Edge middleware (`src/middleware.ts`) validates JWT and enforces:
+   318→- **Public routes**: `/`, `/book`, `/clinic/*`, `/providers/*`, `/clinics`, `/about`, `/insurance`, `/manage/*`, `/intake/*`, `/review/*`, `/api/search/*`, `/api/clinics`, `/api/taxonomies`, `/api/specialties/*`, `/api/slots/*`, `/api/appointments` (POST only), `/api/waitlist`, `/api/intake`, `/api/reviews`, `/api/providers/*/availability`, `/api/providers/*/reviews`, `/api/geocode`, `/api/auth/*`
+   319→- **Staff routes**: `/staff/dashboard/*`, `/staff/login`, `/staff/accept-invitation`
+   320→- **Admin-only routes**: `/staff/dashboard/admin/*`, `/api/staff/admin/*`
+   321→- Clinic status check: redirects to `/staff/login` if clinic is not PUBLISHED
+   322→
+   323→### Known Auth Quirk
+   324→The `output: "standalone"` build requires `next-auth` and `cookie` in `serverExternalPackages` (next.config.ts). The root layout uses a `client-providers.tsx` wrapper with `next/dynamic({ ssr: false })` to bypass React 19 static generation issues.
+   325→
+   326→---
+   327→
+   328→## Public Patient-Facing Features
+   329→
+   330→### Search & Discovery (`/`)
+   331→- Geo-aware provider search with **Haversine distance** calculation
+   332→- **Bounding-box pre-filter** optimization for large result sets
+   333→- Filters: specialty, insurance, modality (in-person/video), patient type (adult/pediatric), search radius (1-50 mi)
+   334→- ZIP code geocoding via Nominatim (free, no API key)
+   335→- "Use my location" button
+   336→- Conversion ranking: "Nearest" vs "Earliest" result ordering
+   337→- Popular specialty quick-search buttons
+   338→- Featured clinics section
+   339→
+   340→### Clinic Directory (`/clinics`)
+   341→- Browse all published clinics
+   342→- Filter by specialty and city
+   343→
+   344→### Clinic Detail (`/clinic/:slug`)
+   345→- Full clinic profile: name, tagline, description, address, contact
+   346→- Provider list with credentials, bios, specialties, next available slot
+   347→- Services offered with pricing
+   348→- Reviews section
+   349→- Location map (Leaflet)
+   350→- Amenities, languages, hours, FAQ, gallery
+   351→
+   352→### Provider Detail (`/providers/:slug`)
+   353→- Provider bio, credentials, NPI, years of experience
+   354→- Interactive weekly availability calendar (navigate weeks, click to book)
+   355→- Reviews with 4-dimension ratings
+   356→
+   357→### Booking Wizard (`/book`) — 4 Steps
+   358→1. **What brings you in?** — Reason for visit, patient type (adult/pediatric), guardian info (if pediatric), insurance selection, service selection, payment summary
+   359→2. **Your Information** — Full name, date of birth, phone, email
+   360→3. **Review & Confirm** — Full summary, cancellation policy agreement
+   361→4. **Confirmation** — Success page with manage link, "Book Another" CTA
+   362→
+   363→### Patient Self-Service (`/manage/:token`)
+   364→- View appointment details
+   365→- Check-in button
+   366→- Cancel appointment
+   367→- QR code display
+   368→
+   369→### Pre-Visit Intake (`/intake/:token`)
+   370→- Medical history, allergies, medications, reason for visit details
+   371→
+   372→### Post-Visit Review (`/review/:token`)
+   373→- 4 rating dimensions: overall, wait time, bedside manner, staff
+   374→- Optional text comment
+   375→
+   376→### Waitlist
+   377→- Join waitlist when no suitable slots available
+   378→- Notified when cancellations open up slots
+   379→
+   380→### Dark Mode
+   381→- Full dark/light/system theme support via next-themes
+   382→
+   383→---
+   384→
+   385→## Staff Dashboard Features
+   386→
+   387→### Dashboard Overview (`/staff/dashboard`)
+   388→- Today's stats: booked, checked-in, completed, no-shows, cancellations
+   389→- Upcoming appointments list
+   390→- Recent activity feed
+   391→
+   392→### Appointment Management (`/staff/dashboard/appointments`)
+   393→- Full appointment list with status filters, date range, search
+   394→- **State machine transitions**: BOOKED→CHECKED_IN→COMPLETED→ARCHIVED, CANCELLED, NO_SHOW
+   395→- Internal notes (staff-only)
+   396→- Reschedule to new slot
+   397→- Send video visit link to patient
+   398→- Double-booking conflict detection
+   399→- QR code generation for check-in
+   400→
+   401→### Calendar View (`/staff/dashboard/calendar`)
+   402→- Weekly calendar across all providers
+   403→- Color-coded by appointment status
+   404→- Click to view details
+   405→
+   406→### Manual Booking (`/staff/dashboard/book`)
+   407→- Staff-initiated booking with same validation as public flow
+   408→- Select provider, date, available slot → patient details → confirm
+   409→
+   410→### Slot Management (`/staff/dashboard/slots`)
+   411→- View slot inventory by provider and date range
+   412→- Block date ranges for providers
+   413→- Slot templates for recurring schedules
+   414→
+   415→### Settings (7 Tabs)
+   416→1. **Profile** — Clinic name, tagline, description, address, contact, logo/cover upload (Sharp processing), about text (MDXEditor), gallery, FAQ
+   417→2. **Providers** — CRUD providers, assign services, set weekly schedule templates, manage languages
+   418→3. **Services** — Assign services from global taxonomy, set clinic-specific pricing, link insurances with copay amounts
+   419→4. **Hours** — 7-day hours of operation editor
+   420→5. **Financial** — In-person/video deposit amounts, cancellation lead time, reschedule policy
+   421→6. **Communications** — Email from name, custom email header, common instructions, intake reminder days, HTML email template editor for 7 communication types
+   422→7. **Staff** — Invite staff via email, manage invitations, view team
+   423→
+   424→### Analytics (`/staff/dashboard/analytics`)
+   425→- Booking trends (area chart)
+   426→- Revenue breakdown
+   427→- Service popularity
+   428→- Provider performance
+   429→- Date-range filtered
+   430→
+   431→### Notifications
+   432→- Real-time notification bell (polls audit logs)
+   433→- Booking, cancellation, check-in events
+   434→
+   435→---
+   436→
+   437→## System Admin Features
+   438→
+   439→### Admin Dashboard (`/staff/dashboard/admin`)
+   440→- Global counts: clinics, users, providers, appointments, revenue
+   441→- Weekly trend sparklines
+   442→- Quick actions
+   443→
+   444→### Clinic Management (`/staff/dashboard/admin/clinics`)
+   445→- List all clinics (any status)
+   446→- Create, edit status (publish/suspend/archive)
+   447→- Full profile editing
+   448→
+   449→### User Management (`/staff/dashboard/admin/users`)
+   450→- List all staff users with role, clinic, last login
+   451→- Invite, edit role/clinic, deactivate
+   452→
+   453→### Global Appointment Search (`/staff/dashboard/admin/appointments`)
+   454→- Search across all clinics
+   455→- Force status change (bypasses state machine)
+   456→
+   457→### Global Analytics (`/staff/dashboard/admin/analytics`)
+   458→- Cross-clinic booking trends, revenue
+   459→- Top clinics, top services, modality split
+   460→- Conversion funnel analytics
+   461→
+   462→### Taxonomy Management (`/staff/dashboard/admin/taxonomy`)
+   463→- CRUD for: Services, Specialties, Insurances, Amenities, Languages
+   464→
+   465→### System Configuration (`/staff/dashboard/admin/config`)
+   466→- Singleton config: deposit limits, lock TTL, slot window, waitlist delay, review trigger hours, platform fee
+   467→
+   468→### Infrastructure (`/staff/dashboard/admin/infrastructure`)
+   469→- Cron job monitoring (4 jobs): slot generation, lock sweep, waitlist processor, cache purge
+   470→- Manual trigger for any cron job
+   471→- Error logs with resolve capability
+   472→- Database stats (table counts, DB file size)
+   473→- Integration status (Stripe, JWT)
+   474→- Data management: re-seed demo data, purge resolved errors
+   475→
+   476→### Payment Exceptions (`/staff/dashboard/admin/payments/exceptions`)
+   477→- Review and resolve refund failures
+   478→
+   479→### Patient Match Detection (`/staff/dashboard/admin/patient-matches`)
+   480→- Find ambiguous patient matches (same email/phone across bookings)
+   481→
+   482→---
+   483→
+   484→## API Routes Reference
+   485→
+   486→### Public Routes (No Auth)
+   487→
+   488→| Method | Route | Description |
+   489→|--------|-------|-------------|
+   490→| GET | `/api` | Health check |
+   491→| ALL | `/api/auth/[...nextauth]` | NextAuth handler |
+   492→| GET | `/api/search/providers` | Provider search (geo, filters, pagination, cached 3min) |
+   493→| GET | `/api/clinics` | List published clinics |
+   494→| GET | `/api/taxonomies` | Dropdown data (specialties, insurances, cached 1hr) |
+   495→| GET | `/api/geocode` | ZIP → lat/lng (Nominatim) |
+   496→| GET | `/api/specialties/popular` | Popular specialties by booking count |
+   497→| GET | `/api/slots/[slotId]` | Single slot with provider/clinic info |
+   498→| POST | `/api/slots/[slotId]/lock` | Acquire booking lock (race-condition protection) |
+   499→| POST | `/api/appointments` | Create appointment (CONFIRM step of two-phase lock) |
+   500→| POST | `/api/waitlist` | Join waitlist |
+   501→| GET/POST | `/api/intake` | View/submit intake form |
+   502→| POST | `/api/reviews` | Submit review (token-based) |
+   503→| GET | `/api/manage` | Patient self-service (validate token, details, check-in) |
+   504→| GET | `/api/providers/[id]/availability` | Weekly availability calendar |
+   505→| GET | `/api/providers/[id]/reviews` | Paginated reviews |
+   506→
+   507→### Staff Routes (Auth Required, Clinic-Scoped)
+   508→
+   509→| Method | Route | Description |
+   510→|--------|-------|-------------|
+   511→| GET | `/api/staff/dashboard` | Dashboard overview stats |
+   512→| GET | `/api/staff/dashboard-stats` | Slot/status counts |
+   513→| GET | `/api/staff/calendar` | Weekly calendar data |
+   514→| GET | `/api/staff/appointments` | List appointments (filters, pagination) |
+   515→| PATCH | `/api/staff/appointments/[id]` | State machine transition |
+   516→| POST | `/api/staff/appointments/[id]/reschedule` | Reschedule to new slot |
+   517→| GET/POST | `/api/staff/appointments/[id]/notes` | Internal notes |
+   518→| POST | `/api/staff/appointments/[id]/send-video-link` | Email video link |
+   519→| GET | `/api/staff/appointments/conflicts` | Double-booking detection |
+   520→| POST | `/api/staff/book` | Staff manual booking |
+   521→| GET/POST | `/api/staff/slots` | Slot inventory |
+   522→| POST | `/api/staff/slots/block-range` | Block date range |
+   523→| GET/POST | `/api/staff/providers` | Provider CRUD |
+   524→| PATCH | `/api/staff/providers/[id]` | Update provider |
+   525→| GET/POST/DELETE | `/api/staff/providers/[id]/templates` | Slot templates |
+   526→| GET/POST | `/api/staff/providers/[id]/services` | Provider-service assignment |
+   527→| GET/PATCH | `/api/staff/hours` | Hours of operation |
+   528→| GET | `/api/staff/services` | Available services |
+   529→| GET/PATCH | `/api/staff/clinic-profile` | Clinic profile |
+   530→| PATCH/DELETE | `/api/staff/clinic-profile/media` | Logo/cover upload/delete |
+   531→| GET/PATCH | `/api/staff/clinic-profile/experience` | About/FAQ content |
+   532→| PATCH | `/api/staff/clinic-profile/amenities` | Amenities junction |
+   533→| PATCH | `/api/staff/clinic-profile/languages` | Language associations |
+   534→| GET/PATCH | `/api/staff/financial` | Financial settings |
+   535→| GET | `/api/staff/analytics` | Clinic analytics |
+   536→| GET | `/api/staff/notifications` | Notification feed |
+   537→| GET/PATCH | `/api/staff/waitlist` | Waitlist management |
+   538→| GET/POST | `/api/staff/closures` | Clinic closures |
+   539→| GET/POST | `/api/staff/invitations` | Staff invitations |
+   540→| POST | `/api/staff/accept-invitation` | Accept invitation |
+   541→| POST | `/api/staff/payments/refund` | Manual refund |
+   542→| POST | `/api/staff/payments/request` | Generate payment link |
+   543→| GET | `/api/staff/audit-logs` | Audit log viewer |
+   544→| GET | `/api/staff/email-templates` | Email templates |
+   545→| PATCH | `/api/staff/email-templates/[id]` | Update template |
+   546→| GET/PATCH | `/api/staff/communications` | Communication settings |
+   547→
+   548→### System Admin Routes (SYSTEM_MANAGER Only)
+   549→
+   550→| Method | Route | Description |
+   551→|--------|-------|-------------|
+   552→| GET | `/api/staff/admin` | Admin overview |
+   553→| GET/POST | `/api/staff/admin/clinics` | List/create clinics |
+   554→| PATCH | `/api/staff/admin/clinics/[id]/edit` | Full clinic edit |
+   555→| GET | `/api/staff/admin/users` | All users |
+   556→| PATCH/DELETE | `/api/staff/admin/users/[id]` | Update/deactivate user |
+   557→| POST | `/api/staff/admin/users/invite` | Direct invite |
+   558→| GET | `/api/staff/admin/analytics` | Global analytics |
+   559→| GET | `/api/staff/admin/appointments` | Global appointment search |
+   560→| PATCH | `/api/staff/admin/appointments/[id]/status` | Force status change |
+   561→| POST | `/api/staff/admin/appointments/[id]/refund` | Admin refund |
+   562→| GET/PATCH | `/api/staff/admin/providers/[id]` | Global provider update |
+   563→| GET | `/api/staff/admin/taxonomy/*` | Taxonomy CRUD (5 resource types) |
+   564→| GET/PATCH | `/api/staff/admin/config` | System configuration |
+   565→| GET | `/api/staff/admin/cron` | Cron job status |
+   566→| POST | `/api/staff/admin/cron/trigger` | Trigger cron job |
+   567→| POST | `/api/staff/admin/data/seed` | Re-seed demo data |
+   568→| GET | `/api/staff/admin/data/stats` | DB stats |
+   569→| POST | `/api/staff/admin/data/purge-errors` | Purge error logs |
+   570→| GET | `/api/staff/admin/error-logs` | Error logs |
+   571→| GET | `/api/staff/admin/payments/exceptions` | Payment exceptions |
+   572→| GET | `/api/staff/admin/patient-matches` | Ambiguous patients |
+   573→| GET | `/api/staff/admin/conversion` | Conversion funnel |
+   574→| GET | `/api/staff/admin/integrations` | Integration status |
+   575→| POST | `/api/admin/locks/cleanup` | Sweep expired locks |
+   576→| POST | `/api/admin/slots/generate` | Generate 90-day slots |
+   577→
+   578→---
+   579→
+   580→## Key Libraries & Utilities
+   581→
+   582→### `src/lib/auth.ts` — Authentication Configuration
+   583→- NextAuth v4 `authOptions`: JWT strategy, Credentials provider
+   584→- Role-based session enrichment: injects `role`, `clinicId` into JWT
+   585→- 30-day session max age
+   586→- `DoctASessionUser`, `DoctASession`, `DoctAJWT` type exports
+   587→
+   588→### `src/lib/db.ts` — Database Client
+   589→- Singleton PrismaClient with HMR-safe global caching
+   590→- `export const db = new PrismaClient()`
+   591→
+   592→### `src/lib/enums.ts` — Type-Safe Enums
+   593→- All status/type constants as const objects (SQLite String fields)
+   594→- `APPOINTMENT_STATUS`, `SLOT_STATUS`, `CLINIC_STATUS`, `PROVIDER_STATUS`, etc.
+   595→- `APPOINTMENT_TRANSITIONS`: valid state transitions
+   596→- `canTransitionTo(from, to)`: state machine validator
+   597→- `hasMinimumRole(userRole, requiredRole)`: role hierarchy check
+   598→
+   599→### `src/lib/constants.ts` — Application Constants
+   600→- Slot defaults (30min duration, 90-day generation window)
+   601→- Lock TTL (600s = 10 min)
+   602→- Search config (page size 10, default radius 25mi, max 50mi)
+   603→- Token expiry (30 days after appointment)
+   604→- Waitlist offer TTL (60 min)
+   605→- Audit action types
+   606→- Booking wizard step definitions
+   607→
+   608→### `src/lib/cache.ts` — In-Memory Cache
+   609→- Redis replacement with TTL support
+   610→- `get()`, `set()`, `delete()`, `deleteByPrefix()`, `deleteByTag()`, `getOrSet()`
+   611→- Centralized `CacheKeys` builders: `search:`, `clinic:`, `slots:`, `config:`
+   612→- Default TTLs: search 3min, clinic 5min, slots 2min, config 1hr
+   613→- Auto-starts cleanup interval (60s)
+   614→
+   615→### `src/lib/crypto.ts` — Cryptographic Utilities
+   616→- `hashPassword()` / `verifyPassword()` — bcrypt
+   617→- `generateSecureToken()` — crypto.randomBytes(32), base64url
+   618→- `hashToken()` — SHA-256
+   619→- `verifyToken()` — timing-safe comparison
+   620→- `hashIpAddress()` — SHA-256 + salt
+   621→- `simpleHash()` — Quick non-crypto hash
+   622→
+   623→### `src/lib/geo.ts` — Geolocation Utilities
+   624→- `haversineDistance()` — Great-circle distance in miles
+   625→- `isWithinRadius()` — Distance check
+   626→- `getBoundingBox()` — Pre-filter optimization (min/max lat/lng)
+   627→- `formatDistance()` — Human-readable distance
+   628→- `formatCents()` — Currency formatting
+   629→
+   630→### `src/lib/audit.ts` — Audit Logging
+   631→- `createAuditLog()` — Fire-and-forget, never throws
+   632→- Action-level only (no before/after payloads)
+   633→
+   634→### `src/lib/email.ts` — Email Service
+   635→- `sendStaffEmail()` — Mock implementation (console.log)
+   636→- Production: replace with SendGrid/SES/SMTP
+   637→
+   638→### `src/lib/default-email-templates.ts` — Email Templates
+   639→- 7 default templates: BOOKING_CONFIRMED, CANCELLATION, RESCHEDULE_CONFIRMED, CHECK_IN_REMINDER, INTAKE_REMINDER, REVIEW_REQUEST, WAITLIST_OFFER
+   640→- Mustache-style placeholders: `{{patientName}}`, `{{clinicName}}`, etc.
+   641→
+   642→### `src/lib/utils.ts` — UI Utilities
+   643→- `cn()` — clsx + tailwind-merge for combining CSS classes
+   644→
+   645→---
+   646→
+   647→## Hooks
+   648→
+   649→### `useClinicContext()`
+   650→Manages the effective `clinicId` for API calls.
+   651→- **SYSTEM_MANAGER**: Fetches all clinics, persists selection to localStorage, auto-selects first published clinic.
+   652→- **CLINIC_ADMIN/RECEPTION**: Uses session-provided `clinicId`.
+   653→- Exports: `clinicId`, `clinics`, `setClinicId`, `isLoading`
+   654→
+   655→### `useIsMobile()`
+   656→Responsive breakpoint detection (768px threshold). Returns boolean.
+   657→
+   658→### `useToast()`
+   659→Global toast notification system (shadcn/ui pattern, max 1 visible). Exports `toast()` function.
+   660→
+   661→---
+   662→
+   663→## Components
+   664→
+   665→### Layout & Navigation
+   666→| Component | Purpose |
+   667→|-----------|---------|
+   668→| `client-providers.tsx` | Dynamic SSR-safe wrapper for SessionProvider + ThemeProvider |
+   669→| `providers.tsx` | Actual client providers (SessionProvider, ThemeProvider, Toaster) |
+   670→| `public-navbar.tsx` | Public site navigation: logo, theme toggle, staff login |
+   671→| `public-footer.tsx` | Public footer: brand, links, social icons, copyright |
+   672→| `docta-logo.tsx` | Standardized logo (250×79px, height-prop-controlled) |
+   673→| `theme-toggle.tsx` | Light/Dark/System theme dropdown |
+   674→| `settings-breadcrumb.tsx` | Breadcrumb navigation for settings pages |
+   675→
+   676→### Search & Discovery
+   677→| Component | Purpose |
+   678→|-----------|---------|
+   679→| `search/search-page.tsx` | Main search page (1324 lines): geo search, filters, results, map |
+   680→| `search/provider-card.tsx` | Provider result card: photo, rating, specialties, next slot |
+   681→
+   682→### Clinic & Provider
+   683→| Component | Purpose |
+   684→|-----------|---------|
+   685→| `clinic/clinic-provider-row.tsx` | Provider row on clinic detail page |
+   686→| `clinic/clinic-location-map.tsx` | Leaflet map with clinic pin |
+   687→| `clinic/about-text.tsx` | Expandable text (200 char threshold) |
+   688→| `provider/availability-calendar.tsx` | Interactive weekly availability calendar |
+   689→
+   690→### Dashboard Utilities
+   691→| Component | Purpose |
+   692→|-----------|---------|
+   693→| `clinic-selector-bar.tsx` | Admin clinic selector dropdown |
+   694→| `notification-bell.tsx` | Real-time notification bell (polls audit logs) |
+   695→| `active-clinic-context.tsx` | Clinic ID React context |
+   696→| `qr-code-display.tsx` | QR code for appointments |
+   697→| `keyboard-shortcuts.tsx` | ⌘K shortcuts dialog |
+   698→
+   699→---
+   700→
+   701→## Environment Variables
+   702→
+   703→| Variable | Required | Default | Description |
+   704→|----------|----------|---------|-------------|
+   705→| `DATABASE_URL` | ✅ | — | Prisma connection string (e.g., `file:/home/z/my-project/db/custom.db`) |
+   706→| `NEXTAUTH_SECRET` | ✅ | — | JWT signing secret (any random string ≥ 32 chars) |
+   707→| `NEXTAUTH_URL` | Recommended | `http://localhost:3000` | Base URL for QR codes, invitation links |
+   708→| `IP_HASH_SALT` | Optional | `clinic-platform-default-salt-v1` | Salt for IP address hashing |
+   709→| `STRIPE_PUBLIC_KEY` | Optional | — | Stripe publishable key (integration status) |
+   710→
+   711→---
+   712→
+   713→## Build & Deployment
+   714→
+   715→### Build Command
+   716→```bash
+   717→bun run build
+   718→```
+   719→This runs: `next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/`
+   720→
+   721→### Start Command (Production)
+   722→```bash
+   723→NODE_ENV=production node .next/standalone/server.js
+   724→```
+   725→
+   726→### Dev Command
+   727→```bash
+   728→bun run dev
+   729→```
+   730→
+   731→### Key Configuration (`next.config.ts`)
+   732→```typescript
+   733→{
+   734→  output: "standalone",
+   735→  serverExternalPackages: ["bcryptjs", "@prisma/client", "next-auth", "cookie"],
+   736→  typescript: { ignoreBuildErrors: true },
+   737→  reactStrictMode: false,
+   738→}
+   739→```
+   740→
+   741→### Important Build Notes
+   742→- **Standalone mode** is required for the Z.ai Publish button
+   743→- **`client-providers.tsx`** wraps providers in `next/dynamic({ ssr: false })` to bypass a React 19 + Next.js 16 bug where static generation fails with `useState` errors when client providers are in the root layout
+   744→- **`next-auth` and `cookie`** must be in `serverExternalPackages` for standalone builds
+   745→- **Lint**: `bun run lint` (ESLint)
+   746→
+   747→---
+   748→
+   749→## Booking Flow
+   750→
+   751→### Two-Phase Lock Protocol
+   752→
+   753→```
+   754→Patient clicks "Book" on a slot
+   755→         │
+   756→         ▼
+   757→  POST /api/slots/[slotId]/lock
+   758→  ┌──────────────────────────────┐
+   759→  │ 1. Check slot is AVAILABLE    │
+   760→  │ 2. Create SlotLock (unique)   │
+   761→  │    - lockKey: random token     │
+   762→  │    - expiresAt: now + TTL      │
+   763→  │ 3. Update slot → LOCKED       │
+   764→  │ 4. Return lockKey to client    │
+   765→  └──────────────────────────────┘
+   766→         │
+   767→         ▼
+   768→  Patient fills booking form (3 steps)
+   769→         │
+   770→         ▼
+   771→  POST /api/appointments
+   772→  ┌──────────────────────────────┐
+   773→  │ 1. Verify lockKey matches     │
+   774→  │ 2. Check lock not expired     │
+   775→  │ 3. Verify slot is LOCKED      │
+   776→  │ 4. Verify service→provider    │
+   777→  │ 5. Create Appointment         │
+   778→  │ 6. Create AppointmentLedger   │
+   779→  │ 7. Delete lock                │
+   780→  │ 8. Update slot → BOOKED       │
+   781→  │ 9. Generate 4 tokens:         │
+   782→  │    MANAGE, INTAKE, REVIEW,    │
+   783→  │    CHECK_IN (SHA-256 hashed)  │
+   784→  │ 10. Audit log                 │
+   785→  │ 11. Invalidate caches         │
+   786→  │ 12. Return appointment + token│
+   787→  └──────────────────────────────┘
+   788→```
+   789→
+   790→### Race Condition Protection
+   791→- `SlotLock.slotId` has a **unique constraint** — only one lock per slot
+   792→- DB-level uniqueness prevents double-locking under concurrent requests
+   793→- Expired locks are swept by cron job (or manually via `/api/admin/locks/cleanup`)
+   794→
+   795→---
+   796→
+   797→## Appointment State Machine
+   798→
+   799→```
+   800→        ┌──────────┐
+   801→        │  BOOKED  │
+   802→        └────┬─────┘
+   803→             │
+   804→    ┌────────┼────────┬──────────┐
+   805→    ▼        ▼        ▼          ▼
+   806→CHECKED_IN CANCELLED  NO_SHOW  (time passes)
+   807→    │        (end)    │
+   808→    ▼                 ▼
+   809→COMPLETED          ARCHIVED
+   810→    │
+   811→    ▼
+   812→ ARCHIVED
+   813→```
+   814→
+   815→Valid transitions (enforced by `canTransitionTo()` in `enums.ts`):
+   816→- BOOKED → CHECKED_IN, CANCELLED, NO_SHOW
+   817→- CHECKED_IN → COMPLETED
+   818→- COMPLETED → ARCHIVED
+   819→- NO_SHOW → ARCHIVED
+   820→
+   821→**Admin override**: `/api/staff/admin/appointments/[id]/status` bypasses the state machine.
+   822→
+   823→---
+   824→
+   825→## Caching Strategy
+   826→
+   827→| Key Pattern | TTL | Invalidation |
+   828→|-------------|-----|--------------|
+   829→| `search:{paramsHash}` | 3 min | `deleteByPrefix("search:")` on booking |
+   830→| `clinic:{slug}` | 5 min | `deleteByPrefix("clinic:")` on profile update |
+   831→| `slots:provider:{id}:{date}` | 2 min | `deleteByPrefix("slots:")` on booking/template change |
+   832→| `config:system` | 1 hour | Manual cache purge |
+   833→| `popular:specialties` | 1 hour | Manual cache purge |
+   834→
+   835→Cache is **in-memory** (single instance). No Redis required. Auto-cleanup runs every 60 seconds.
+   836→
+   837→---
+   838→
+   839→## Known Limitations & Quirks
+   840→
+   841→1. **Email is mock**: `sendStaffEmail()` logs to console. Replace with real email service for production.
+   842→
+   843→2. **No Stripe integration**: Payment fields exist in schema but no actual payment processing. `MANUAL_WAIVER` payment method is used for demo bookings.
+   844→
+   845→3. **Dev server OOM**: In the Z.ai sandbox, `next dev` (Turbopack) occasionally runs out of memory. Production builds (`next build` + `node .next/standalone/server.js`) are more stable.
+   846→
+   847→4. **React 19 + NextAuth v4**: The `/api/auth/[...nextauth]/route.ts` has a custom `toInternalRequest()` adapter because NextAuth v4's internal function checks `req instanceof Request`, which fails across module boundaries in Next.js 16 production builds (different `Request` constructors).
+   848→
+   849→5. **Standalone build + static gen**: React 19's static generation fails when the root layout wraps pages with client-side providers (SessionProvider/ThemeProvider). Solved by `client-providers.tsx` using `next/dynamic({ ssr: false })`.
+   850→
+   851→6. **SQLite limitations**: No native ENUM support (all enums are application-level string constants). No concurrent write support beyond SQLite's WAL mode defaults.
+   852→
+   853→7. **Geocoding rate limits**: Nominatim (OSM) has a 1 request/second rate limit. The search page caches geocode results.
+   854→
+   855→8. **Slot generation**: Slots are pre-generated from templates for 90 days. A cron job (`/api/admin/slots/generate`) creates slot instances. If templates change, regenerate is needed.
+   856→
+   857→9. **`typescript.ignoreBuildErrors: true`**: The build skips TypeScript checking. Run `npx tsc --noEmit` separately for type checking.
+   858→
+   859→10. **Middleware deprecation**: Next.js 16 shows a warning that `middleware.ts` should be migrated to the `proxy` convention. Not yet migrated.
+   860→
+   861→---
+   862→
+   863→## Demo Credentials
+   864→
+   865→| Role | Email | Password |
+   866→|------|-------|----------|
+   867→| System Manager | `sysadmin@clinicbook.com` | `sysadmin123` |
+   868→| Clinic Admin | `admin@downtownmedicalgroup.clinicbook.com` | `admin123` |
+   869→| Receptionist | `reception@downtownmedicalgroup.clinicbook.com` | `reception123` |
+   870→
+   871→Primary demo clinic ID: `cmrdp0zbr0019r6bzihl5et61`

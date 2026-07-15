@@ -12,6 +12,12 @@ import {
   Clock,
   UserCheck,
   Sparkles,
+  FileDown,
+  FileText,
+  Code2,
+  Database,
+  Server,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -216,6 +222,68 @@ export default function AboutPage() {
                 </Card>
               ))}
             </div>
+          </section>
+
+          {/* ===== Developer Documentation ===== */}
+          <section className="space-y-5">
+            <div className="flex items-center gap-2">
+              <Code2 className="size-5 text-brand" />
+              <h2 className="text-xl font-bold text-foreground">
+                For Developers
+              </h2>
+            </div>
+            <Card className="overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-brand to-lavender" />
+              <CardContent className="p-6 md:p-8">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                  {/* Left: Icon + Description */}
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-subtle">
+                      <FileText className="size-6 text-brand" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-bold text-foreground">
+                        Platform Documentation
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Download our comprehensive <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">agents.md</code> file —
+                        a complete reference for AI agents and developers covering the
+                        entire DoctA platform: architecture, database schema, 80+ API
+                        endpoints, auth system, booking flow, state machine, and more.
+                      </p>
+                      <div className="flex flex-wrap gap-3 pt-1">
+                        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Database className="size-3.5 text-brand" />
+                          20 DB Models
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Server className="size-3.5 text-lavender" />
+                          80+ API Endpoints
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Globe className="size-3.5 text-indigo" />
+                          30+ Pages
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Right: Download Button */}
+                  <a
+                    href="/api/agents-md"
+                    download="docta-agents.md"
+                    className="shrink-0"
+                  >
+                    <Button
+                      size="lg"
+                      className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-md shadow-brand/20 cursor-pointer"
+                    >
+                      <FileDown className="size-5" />
+                      Download agents.md
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
           {/* ===== Team — Coming Soon ===== */}

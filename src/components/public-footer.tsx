@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FileDown } from "lucide-react";
 import { DoctALogo } from "@/components/docta-logo";
 
 export function PublicFooter() {
@@ -133,6 +134,14 @@ export function PublicFooter() {
               >
                 Contact
               </Link>
+              <a
+                href="/api/agents-md"
+                download="docta-agents.md"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-brand-hover transition-colors cursor-pointer"
+              >
+                <FileDown className="size-3.5" />
+                agents.md
+              </a>
             </nav>
           </div>
         </div>

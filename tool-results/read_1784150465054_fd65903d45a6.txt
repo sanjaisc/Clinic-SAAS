@@ -912,3 +912,73 @@
    912→- Dev server instability is a known sandbox memory limitation, not a code issue
    913→- Credentials: admin@downtownmedicalgroup.clinicbook.com / admin123
    914→
+   915→---
+   916→Task ID: 6
+   917→Agent: Main Orchestrator
+   918→Task: Fix appointment deployment failure + TypeScript error cleanup
+   919→
+   920→Work Log:
+   921→- Diagnosed build failure: `package.json` build script contained `cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/` but `output: "standalone"` was removed from `next.config.ts` in a previous session, so `.next/standalone/` directory was never created
+   922→- Fixed `package.json` build script: removed standalone copy commands, changed to `next build` only
+   923→- Fixed `package.json` start script: changed from `bun .next/standalone/server.js` to `next start -p 3000`
+   924→- Verified full appointment booking flow works end-to-end (search → slot selection → patient info → confirm → "Appointment Confirmed!")
+   925→- Fixed 44+ TypeScript errors across app code:
+   926→  - `accept-invitation/route.ts`: Fixed dynamic import of `deleteByPrefix` (was importing non-existent named export)
+   927→  - `cron/trigger/route.ts`: Removed invalid `slotLock: null` Prisma filter
+   928→  - `calendar/page.tsx`: Fixed `s.providerId` → `s.provider?.id` (SlotInfo has `provider` object, not `providerId`)
+   929→  - `providers/page.tsx`: Fixed `_count.appointments` reference (field doesn't exist on API response)
+   930→  - `search-page.tsx`: Removed invalid `title` prop from Lucide icon components
+   931→  - `use-clinic-context.ts`: Exported `ClinicOption` interface
+   932→  - 9 settings pages: Fixed `string | null | undefined` → `string | null` with `?? null`
+   933→  - 2 settings pages: Fixed `SetStateAction` literal type narrowing (widened to `string`)
+   934→  - `taxonomy/page.tsx`: Moved `formatPrice` to module scope for sub-component access
+   935→  - `analytics/page.tsx`: Added null guard for `data` + imported `Loader2`
+   936→
+   937→Stage Summary:
+   938→- **Build fix**: Root cause was orphaned `cp` commands in build script referencing non-existent `.next/standalone/` directory
+   939→- **TypeScript**: All app source files now have zero TypeScript errors (only non-app files like examples/seed/skills have errors)
+   940→- **Booking flow**: Verified working in production — full 3-step booking completes successfully
+   941→- **Known limitation**: Dev server OOM in sandbox environment; production build is reliable
+   942→
+   943→---
+   944→Task ID: 7
+   945→Agent: Main Orchestrator
+   946→Task: Fix Publish button deployment — standalone build + React 19 compatibility
+   947→
+   948→Work Log:
+   949→- Diagnosed: Publish button needs `output: "standalone"` in next.config.ts
+   950→- Re-enabled `output: "standalone"` with `next-auth` and `cookie` added to `serverExternalPackages`
+   951→- Restored build and start scripts in package.json to use standalone output
+   952→- Hit React 19 + Next.js 16 bug: static generation fails with "Cannot read properties of null (reading 'useState')" when root layout wraps pages with client providers (SessionProvider/ThemeProvider)
+   953→- Tried multiple approaches:
+   954→  - `force-dynamic` on layout → broke dev server (same useState error at runtime)
+   955→  - `"use client"` on not-found → didn't help (layout still wraps it)
+   956→  - `dynamic()` with `ssr:false` in layout → not allowed in Server Components
+   957→  - **Final solution**: Created `src/components/client-providers.tsx` — a thin "use client" wrapper that uses `next/dynamic` with `ssr: false` to lazy-load the Providers. Root layout imports `ClientProviders` instead of `Providers` directly
+   958→- Restored proper not-found.tsx with full styling (no longer needed to simplify it)
+   959→- Build now succeeds: 107 static pages generated, standalone output complete
+   960→- Verified: server.js, .next/static/, public/, .env all present in .next/standalone/
+   961→- Cleaned up temp files (server-keeper.js, start-server.sh)
+   962→- Lint passes cleanly
+   963→
+   964→Stage Summary:
+   965→- **Root cause of publish failure**: `output: "standalone"` was removed in prior session due to missing deps; re-adding it exposed React 19 static gen bug
+   966→- **Fix**: `client-providers.tsx` wraps Providers in `next/dynamic({ ssr: false })` to bypass static generation of client hooks
+   967→- **Build**: Clean — compiled, 107 static pages, standalone output, lint passes
+   968→- **Files changed**: next.config.ts, package.json, layout.tsx, client-providers.tsx (new), not-found.tsx (restored)
+   969→
+   970→---
+   971→Task ID: 8
+   972→Agent: Main Orchestrator
+   973→Task: Create downloadable agents.md documentation file
+   974→
+   975→Work Log:
+   976→- Explored entire project structure: 80+ API routes, 30+ pages, 20 DB models, 11 lib modules, 15+ components
+   977→- Created comprehensive 870-line / 42KB agents.md at project root
+   978→- Covers: architecture, tech stack, directory structure, full DB schema, auth system, all features (patient/staff/admin), complete API reference with 80+ endpoints, all lib utilities, hooks, components, env vars, build/deploy, booking flow diagram, state machine, caching strategy, known limitations, demo credentials
+   979→
+   980→Stage Summary:
+   981→- Created `/home/z/my-project/agents.md` (42KB, 870 lines)
+   982→- Comprehensive reference for any AI agent or developer to understand the full project
+   983→- Includes ASCII architecture diagram, two-phase booking flow diagram, state machine diagram
+   984→

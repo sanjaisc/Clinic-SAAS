@@ -981,3 +981,30 @@ Stage Summary:
 - Created `/home/z/my-project/agents.md` (42KB, 870 lines)
 - Comprehensive reference for any AI agent or developer to understand the full project
 - Includes ASCII architecture diagram, two-phase booking flow diagram, state machine diagram
+
+---
+Task ID: 9
+Agent: Main Orchestrator
+Task: Build downloadable agents.md feature — API endpoint + UI integration
+
+Work Log:
+- Created `src/app/api/agents-md/route.ts` — GET endpoint that reads agents.md from project root and serves it as a downloadable file with proper headers (Content-Disposition: attachment, Content-Type: text/markdown, Cache-Control: public max-age=3600)
+- Updated `src/components/public-footer.tsx` — Added FileDown icon import and download link in Company column footer nav, with `/api/agents-md` href and `download="docta-agents.md"` attribute
+- Updated `src/app/about/page.tsx` — Added new "For Developers" section with:
+  - Code2 section heading icon
+  - Card with gradient top border (brand→lavender)
+  - FileText icon, "Platform Documentation" title
+  - Description mentioning agents.md content coverage
+  - Three stat badges: 20 DB Models (Database icon), 80+ API Endpoints (Server icon), 30+ Pages (Globe icon)
+  - Large "Download agents.md" button (FileDown icon, brand color, shadow)
+  - Responsive layout (column on mobile, row on desktop)
+- Verified via curl: API returns HTTP 200, Content-Length: 42791, correct Content-Disposition header
+- Verified via build: clean compilation, 0 lint errors
+- Verified via compiled JS analysis: all new content present in production chunks (footer and about page)
+- Note: Dev server OOMs in sandbox (known limitation); production build verified correct
+
+Stage Summary:
+- **Downloadable agents.md feature complete**: 1 new API route + 2 updated UI files
+- API: `/api/agents-md` serves the 42KB agents.md file with download headers
+- UI: Download button on About page (prominent card) + Footer link (subtle icon+text)
+- All code compiles cleanly (lint + build pass)
