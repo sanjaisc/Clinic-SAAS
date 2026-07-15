@@ -174,26 +174,36 @@ export async function GET(request: NextRequest) {
     );
 
     // ---------------------------------------------------------------------------
-    // 4. Execute search (cache-first)
+    // 4. Execute search (cache-first, but never cache empty results)
     // ---------------------------------------------------------------------------
-    const result = await cache.getOrSet<SearchResponse>(
-      cacheKey,
-      () =>
-        executeSearch({
-          q,
-          specialtyId,
-          patientType,
-          insuranceId,
-          modality,
-          radius,
-          lat: hasGeo ? lat : undefined,
-          lng: hasGeo ? lng : undefined,
-          sort,
-          cursor,
-          size,
-        }),
-      CacheTTL.SEARCH_RESULTS,
-    );
+    const execute = () =>
+      executeSearch({
+        q,
+        specialtyId,
+        patientType,
+        insuranceId,
+        modality,
+        radius,
+        lat: hasGeo ? lat : undefined,
+        lng: hasGeo ? lng : undefined,
+        sort,
+        cursor,
+        size,
+      });
+
+    const cached = cache.get<SearchResponse>(cacheKey);
+    if (cached !== null && cached.total > 0) {
+      return NextResponse.json(cached);
+    }
+
+    const result = await execute();
+
+    // Only cache non-empty results to avoid serving stale empty responses
+    if (result.total > 0) {
+      cache.set(cacheKey, result, CacheTTL.SEARCH_RESULTS);
+    } else {
+      console.log(`[/api/search/providers] No results for specialty=${specialtyId} q=${q || "(none)"} patientType=${patientType} insurance=${insuranceId || "(none)"} modality=${modality || "(none)"} radius=${radius} geo=${hasGeo ? `${lat},${lng}` : "(none)"}`);
+    }
 
     return NextResponse.json(result);
   } catch (error) {

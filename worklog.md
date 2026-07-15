@@ -854,3 +854,32 @@ Stage Summary:
 - Fixed critical UX bug: all form fields in manual booking now maintain focus during typing
 - Changed 6 lines in src/app/staff/dashboard/book/page.tsx (lines 1421, 1444-1448)
 - No other pages affected
+
+---
+Task ID: doctor-search-empty-fix
+Agent: Main Orchestrator
+Task: Fix doctor search on home page returning empty results
+
+Work Log:
+- Investigated full search flow: frontend (search-page.tsx) → API (search/providers/route.ts) → database (Prisma)
+- Verified database has data: 14 active providers, 6 published clinics, 1064 future available slots, 33 provider-service links
+- Tested Prisma query directly: returns 6 providers for Family Medicine — database query works correctly
+- Identified multiple contributing issues:
+
+  1. **Stale closure in useEffect** (line 391-399): The geo re-search effect had [userLat, userLng] as deps but referenced searched, specialtyId, and executeSearch from stale closures. Fixed by using refs (searchedRef, specialtyIdRef, executeSearchRef) to always read current values.
+
+  2. **Silent early return with no feedback** (line 350): When user submitted form without selecting a specialty, executeSearch() silently returned — user saw no feedback. Fixed to show "Please select a specialty to search" error message.
+
+  3. **Cache serving stale empty results**: The in-memory cache could serve previously-cached empty results (e.g., from before slots were created or during server instability). Fixed by: (a) only caching non-empty results, (b) always executing fresh query when cached result is empty or missing.
+
+  4. **Added debug logging**: When search returns 0 results, the API now logs the full search parameters for debugging.
+
+Files modified:
+- src/components/search/search-page.tsx (useRef import, executeSearch error feedback, geo effect with refs)
+- src/app/api/search/providers/route.ts (cache bypass for empty results, debug logging)
+
+Stage Summary:
+- Search should now reliably return results when data exists
+- Users get clear feedback if they forget to select a specialty
+- Geo re-search no longer uses stale closures
+- Empty results are never cached, preventing stale data

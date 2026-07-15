@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -347,7 +347,16 @@ export function SearchPage() {
   const executeSearch = useCallback(
     async (overrides?: Partial<SearchParams>) => {
       const params = getSearchParams(overrides);
-      if (!params.specialtyId) return;
+      if (!params.specialtyId) {
+        // If user submitted the form without a specialty, show a helpful hint
+        if (!overrides?.specialtyId) {
+          setError("Please select a specialty to search");
+          setSearched(true);
+          setInitialLoad(false);
+          setResults([]);
+        }
+        return;
+      }
 
       setLoading(true);
       setResults([]);
@@ -378,13 +387,20 @@ export function SearchPage() {
 
   // ---------------------------------------------------------------------------
   // Auto re-search when coordinates become available (e.g. ZIP geocode resolves)
+  // Uses a ref to avoid stale closures while only reacting to coordinate changes
   // ---------------------------------------------------------------------------
+  const searchedRef = useRef(false);
+  const specialtyIdRef = useRef<string | null>(null);
+  const executeSearchRef = useRef(executeSearch);
+  searchedRef.current = searched;
+  specialtyIdRef.current = specialtyId;
+  executeSearchRef.current = executeSearch;
+
   useEffect(() => {
-    if (searched && userLat != null && userLng != null && specialtyId) {
-      // Re-search with the new coordinates (small delay to let state settle)
+    if (searchedRef.current && userLat != null && userLng != null && specialtyIdRef.current) {
       const timer = setTimeout(() => {
-        executeSearch();
-      }, 100);
+        executeSearchRef.current();
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [userLat, userLng]);
