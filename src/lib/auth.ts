@@ -105,6 +105,7 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
+
         // Security: return null for all failure cases (no user enumeration)
         if (!user || !user.isActive) {
           return null;
@@ -121,6 +122,7 @@ export const authOptions: NextAuthOptions = {
           credentials.password,
           user.passwordHash
         );
+
 
         if (!isPasswordValid) {
           return null;

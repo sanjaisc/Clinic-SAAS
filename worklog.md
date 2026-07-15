@@ -883,3 +883,31 @@ Stage Summary:
 - Users get clear feedback if they forget to select a specialty
 - Geo re-search no longer uses stale closures
 - Empty results are never cached, preventing stale data
+
+---
+Task ID: 5
+Agent: Main
+Task: Fix clinic admin login failure
+
+Work Log:
+- Found `.env` missing `NEXTAUTH_SECRET` and `NEXTAUTH_URL` (recurring issue across sessions)
+- Re-added env vars to `.env`
+- Discovered NextAuth v4 is incompatible with Next.js 16's route handler API
+- Root cause: NextAuth v4's `toInternalRequest()` checks `req instanceof Request` which fails across module boundaries in Next.js 16 production builds due to different `Request` constructors
+- Error: `Cannot destructure property 'nextauth' of 'e.query' as it is undefined`
+- Created a compatibility adapter in `src/app/api/auth/[...nextauth]/route.ts` that:
+  1. Manually converts NextRequest to NextAuth's internal request format
+  2. Extracts `[...nextauth]` catch-all segments into `query.nextauth` array
+  3. Parses cookies from raw `cookie` header using the `cookie` package (same as NextAuth)
+  4. Provides a Node.js-style `res` adapter for NextAuth's response methods
+- Also discovered that credentials login POSTs to `/api/auth/callback/credentials` (not `/api/auth/signin/credentials`)
+- Removed `output: "standalone"` from `next.config.ts` since it produced an incomplete build missing critical dependencies (next-auth, cookie, etc.)
+- Verified login works: admin@downtownmedicalgroup.clinicbook.com with password admin123 successfully authenticates as CLINIC_ADMIN
+- Dev server has OOM issues in sandbox; production build (`next start`) works reliably
+
+Stage Summary:
+- Clinic admin login is fully functional
+- Two fixes applied: (1) .env restoration, (2) NextAuth v4 + Next.js 16 route handler adapter
+- The adapter is a permanent fix needed for NextAuth v4 on Next.js 16
+- Dev server instability is a known sandbox memory limitation, not a code issue
+- Credentials: admin@downtownmedicalgroup.clinicbook.com / admin123
