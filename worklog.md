@@ -966,3 +966,18 @@ Stage Summary:
 - **Fix**: `client-providers.tsx` wraps Providers in `next/dynamic({ ssr: false })` to bypass static generation of client hooks
 - **Build**: Clean — compiled, 107 static pages, standalone output, lint passes
 - **Files changed**: next.config.ts, package.json, layout.tsx, client-providers.tsx (new), not-found.tsx (restored)
+
+---
+Task ID: 8
+Agent: Main Orchestrator
+Task: Create downloadable agents.md documentation file
+
+Work Log:
+- Explored entire project structure: 80+ API routes, 30+ pages, 20 DB models, 11 lib modules, 15+ components
+- Created comprehensive 870-line / 42KB agents.md at project root
+- Covers: architecture, tech stack, directory structure, full DB schema, auth system, all features (patient/staff/admin), complete API reference with 80+ endpoints, all lib utilities, hooks, components, env vars, build/deploy, booking flow diagram, state machine, caching strategy, known limitations, demo credentials
+
+Stage Summary:
+- Created `/home/z/my-project/agents.md` (42KB, 870 lines)
+- Comprehensive reference for any AI agent or developer to understand the full project
+- Includes ASCII architecture diagram, two-phase booking flow diagram, state machine diagram
