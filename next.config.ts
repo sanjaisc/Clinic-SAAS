@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["bcryptjs", "@prisma/client"],
-  /* config options here */
+  output: "standalone",
+  serverExternalPackages: ["bcryptjs", "@prisma/client", "next-auth", "cookie"],
   typescript: {
     ignoreBuildErrors: true,
   },

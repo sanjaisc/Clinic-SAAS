@@ -939,3 +939,30 @@ Stage Summary:
 - **TypeScript**: All app source files now have zero TypeScript errors (only non-app files like examples/seed/skills have errors)
 - **Booking flow**: Verified working in production — full 3-step booking completes successfully
 - **Known limitation**: Dev server OOM in sandbox environment; production build is reliable
+
+---
+Task ID: 7
+Agent: Main Orchestrator
+Task: Fix Publish button deployment — standalone build + React 19 compatibility
+
+Work Log:
+- Diagnosed: Publish button needs `output: "standalone"` in next.config.ts
+- Re-enabled `output: "standalone"` with `next-auth` and `cookie` added to `serverExternalPackages`
+- Restored build and start scripts in package.json to use standalone output
+- Hit React 19 + Next.js 16 bug: static generation fails with "Cannot read properties of null (reading 'useState')" when root layout wraps pages with client providers (SessionProvider/ThemeProvider)
+- Tried multiple approaches:
+  - `force-dynamic` on layout → broke dev server (same useState error at runtime)
+  - `"use client"` on not-found → didn't help (layout still wraps it)
+  - `dynamic()` with `ssr:false` in layout → not allowed in Server Components
+  - **Final solution**: Created `src/components/client-providers.tsx` — a thin "use client" wrapper that uses `next/dynamic` with `ssr: false` to lazy-load the Providers. Root layout imports `ClientProviders` instead of `Providers` directly
+- Restored proper not-found.tsx with full styling (no longer needed to simplify it)
+- Build now succeeds: 107 static pages generated, standalone output complete
+- Verified: server.js, .next/static/, public/, .env all present in .next/standalone/
+- Cleaned up temp files (server-keeper.js, start-server.sh)
+- Lint passes cleanly
+
+Stage Summary:
+- **Root cause of publish failure**: `output: "standalone"` was removed in prior session due to missing deps; re-adding it exposed React 19 static gen bug
+- **Fix**: `client-providers.tsx` wraps Providers in `next/dynamic({ ssr: false })` to bypass static generation of client hooks
+- **Build**: Clean — compiled, 107 static pages, standalone output, lint passes
+- **Files changed**: next.config.ts, package.json, layout.tsx, client-providers.tsx (new), not-found.tsx (restored)
