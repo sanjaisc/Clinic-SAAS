@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
 import { toast } from "sonner";
 import {
   Search,
@@ -235,8 +237,9 @@ const TRANSITION_ICONS: Record<string, React.ReactNode> = {
 
 export default function AppointmentsPage() {
   const { data: session } = useSession();
+  const clinicCtx = useClinicContext();
   const router = useRouter();
-  const clinicId = session?.user?.clinicId as string | undefined;
+  const clinicId = clinicCtx.clinicId ?? undefined;
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -1102,6 +1105,14 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-4">
+      {clinicCtx.isSystemManager && (
+        <ClinicSelectorBar
+          clinics={clinicCtx.clinics}
+          selectedId={clinicCtx.clinicId}
+          onSelect={clinicCtx.setClinicId}
+          loading={clinicCtx.clinicsLoading}
+        />
+      )}
       {/* Page Header */}
       <div>
         <h1 className="text-xl font-semibold text-foreground">Appointments</h1>

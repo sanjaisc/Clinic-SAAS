@@ -17,23 +17,25 @@ export async function GET(request: NextRequest) {
     const clinicId = user.clinicId;
     const role = user.role;
 
-    if (!clinicId) {
+    // System managers supply clinicId via query param; others from session.
+    // "__all" means aggregate across all clinics (SYSTEM_MANAGER only).
+    const rawClinicId = request.nextUrl.searchParams.get("clinicId");
+    const isAllClinics = rawClinicId === "__all";
+    const targetClinicId = isAllClinics ? "__all" : (rawClinicId || clinicId);
+
+    if (!targetClinicId) {
       return NextResponse.json(
-        { error: "No clinic associated with this account" },
+        { error: "No clinic specified" },
         { status: 400 }
       );
     }
 
-    // System managers can specify a different clinic
-    const targetClinicId =
-      role === "SYSTEM_MANAGER"
-        ? (request.nextUrl.searchParams.get("clinicId") || clinicId)
-        : clinicId;
-
-    // Non-system managers can only see their own clinic
-    if (role !== "SYSTEM_MANAGER" && targetClinicId !== clinicId) {
+    // Only SYSTEM_MANAGER can use "__all" or specify a different clinic
+    if (role !== "SYSTEM_MANAGER" && (isAllClinics || (clinicId && targetClinicId !== clinicId))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const effectiveClinicId = isAllClinics ? null : targetClinicId;
 
     const period = request.nextUrl.searchParams.get("period") || "30d";
     const dateFromParam = request.nextUrl.searchParams.get("dateFrom");
@@ -56,10 +58,10 @@ export async function GET(request: NextRequest) {
       periodEnd = endOfDay(now);
     }
 
-    const cacheKey = `analytics:${targetClinicId}:${period}:${dateFromParam || ""}:${dateToParam || ""}:${format(now, "yyyy-MM-dd-HH")}`;
+    const cacheKey = `analytics:${effectiveClinicId || "__all"}:${period}:${dateFromParam || ""}:${dateToParam || ""}:${format(now, "yyyy-MM-dd-HH")}`;
 
     const data = await cache.getOrSet(cacheKey, async () => {
-      return buildAnalytics(targetClinicId, periodStart, periodEnd, days);
+      return buildAnalytics(effectiveClinicId, periodStart, periodEnd, days);
     }, 300);
 
     return NextResponse.json(data);
@@ -73,20 +75,20 @@ export async function GET(request: NextRequest) {
 }
 
 async function buildAnalytics(
-  clinicId: string,
+  clinicId: string | null,
   periodStart: Date,
   periodEnd: Date,
   days: number
 ) {
+  const clinicFilter = clinicId ? { clinicId } : {};
+  const apptWhere = { ...clinicFilter, startTime: { gte: periodStart, lte: periodEnd } };
+
   // ---------------------------------------------------------------
   // 1. Daily appointment counts grouped by DATE(startTime) & status
   // ---------------------------------------------------------------
   const dailyRaw = await db.appointment.groupBy({
     by: ["startTime", "status"],
-    where: {
-      clinicId,
-      startTime: { gte: periodStart, lte: periodEnd },
-    },
+    where: apptWhere,
     _count: { id: true },
   });
 
@@ -141,7 +143,7 @@ async function buildAnalytics(
   const modalityRaw = await db.appointment.groupBy({
     by: ["modality"],
     where: {
-      clinicId,
+      ...clinicFilter,
       startTime: { gte: periodStart, lte: periodEnd },
     },
     _count: { id: true },
@@ -161,14 +163,16 @@ async function buildAnalytics(
   // ---------------------------------------------------------------
   const providerAppointments = await db.appointment.findMany({
     where: {
-      clinicId,
+      ...clinicFilter,
       startTime: { gte: periodStart, lte: periodEnd },
     },
     select: {
       providerId: true,
+      clinicId: true,
       status: true,
       startTime: true,
       review: { select: { overallRating: true } },
+      clinic: { select: { name: true, city: true, zipCode: true } },
     },
   });
 
@@ -184,10 +188,14 @@ async function buildAnalytics(
     providerNameMap.set(p.id, `Dr. ${p.firstName} ${p.lastName}`);
   }
 
-  // Aggregate per provider
+  // Aggregate per provider+clinic so cross-clinic filtering works
   const providerAgg = new Map<
     string,
     {
+      name: string;
+      clinicName: string;
+      city: string;
+      zipCode: string;
       total: number;
       completed: number;
       cancelled: number;
@@ -198,8 +206,17 @@ async function buildAnalytics(
   >();
 
   for (const a of providerAppointments) {
-    if (!providerAgg.has(a.providerId)) {
-      providerAgg.set(a.providerId, {
+    const pName = providerNameMap.get(a.providerId) ?? "Unknown";
+    const cName = a.clinic?.name ?? "";
+    const cCity = a.clinic?.city ?? "";
+    const cZip = a.clinic?.zipCode ?? "";
+    const key = `${a.providerId}::${a.clinicId}`;
+    if (!providerAgg.has(key)) {
+      providerAgg.set(key, {
+        name: pName,
+        clinicName: cName,
+        city: cCity,
+        zipCode: cZip,
         total: 0,
         completed: 0,
         cancelled: 0,
@@ -208,7 +225,7 @@ async function buildAnalytics(
         ratingCount: 0,
       });
     }
-    const agg = providerAgg.get(a.providerId)!;
+    const agg = providerAgg.get(key)!;
     agg.total++;
     if (a.status === "COMPLETED") agg.completed++;
     if (a.status === "CANCELLED") agg.cancelled++;
@@ -220,8 +237,11 @@ async function buildAnalytics(
   }
 
   const providerPerformance = Array.from(providerAgg.entries())
-    .map(([id, agg]) => ({
-      name: providerNameMap.get(id) ?? "Unknown",
+    .map(([_, agg]) => ({
+      name: agg.name,
+      clinicName: agg.clinicName,
+      city: agg.city,
+      zipCode: agg.zipCode,
       total: agg.total,
       completed: agg.completed,
       cancelled: agg.cancelled,
@@ -294,7 +314,7 @@ async function buildAnalytics(
   // ---------------------------------------------------------------
   const noShowAppointments = await db.appointment.findMany({
     where: {
-      clinicId,
+      ...clinicFilter,
       status: "NO_SHOW",
       startTime: { gte: periodStart, lte: periodEnd },
     },
@@ -322,16 +342,23 @@ async function buildAnalytics(
   }));
 
   // ---------------------------------------------------------------
-  // 7. Deposit Capture Volume (daily totals)
+  // 7. Financial data — Revenue + Deposit Capture (clinic-filtered)
   // ---------------------------------------------------------------
-  const depositCaptures = await db.appointmentLedger.findMany({
-    where: {
-      type: "DEPOSIT_CAPTURE",
-      createdAt: { gte: periodStart, lte: periodEnd },
-    },
-    select: { amountCents: true, createdAt: true },
+  const financialAppts = await db.appointment.findMany({
+    where: { ...clinicFilter, startTime: { gte: periodStart, lte: periodEnd } },
+    select: { id: true, paymentMethod: true, depositCents: true, selfPayCents: true, status: true },
   });
 
+  const finApptIds = financialAppts.map((a) => a.id);
+  const allLedgers = finApptIds.length > 0
+    ? await db.appointmentLedger.findMany({
+        where: { appointmentId: { in: finApptIds } },
+        select: { type: true, amountCents: true, refundStatus: true, createdAt: true },
+      })
+    : [];
+
+  // -- Deposit Capture Volume (now clinic-scoped via appointment join) --
+  const depositCaptures = allLedgers.filter((l) => l.type === "DEPOSIT_CAPTURE");
   const depositCaptureMap = new Map<string, { amountCents: number; count: number }>();
 
   for (const entry of depositCaptures) {
@@ -344,7 +371,6 @@ async function buildAnalytics(
     bucket.count += 1;
   }
 
-  // Fill in all days in the range
   const depositCapture: Array<{ date: string; amountCents: number; count: number }> = [];
   for (let i = 0; i < days; i++) {
     const d = subDays(periodEnd, days - 1 - i);
@@ -356,6 +382,258 @@ async function buildAnalytics(
       count: bucket?.count ?? 0,
     });
   }
+
+  // -- Revenue aggregation --
+  let totalCaptured = 0;
+  let totalAuthorized = 0;
+  let totalRefunded = 0;
+  let totalForfeited = 0;
+  const dailyRevenueMap = new Map<string, number>();
+
+  for (const l of allLedgers) {
+    const dateStr = format(new Date(l.createdAt), "yyyy-MM-dd");
+    switch (l.type) {
+      case "DEPOSIT_AUTH":
+        totalAuthorized += l.amountCents;
+        break;
+      case "DEPOSIT_CAPTURE":
+      case "FULL_PAYMENT":
+      case "BALANCE_PAYMENT":
+        totalCaptured += l.amountCents;
+        dailyRevenueMap.set(dateStr, (dailyRevenueMap.get(dateStr) || 0) + l.amountCents);
+        break;
+      case "REFUND":
+        if (l.refundStatus === "FORFEITED") totalForfeited += l.amountCents;
+        else totalRefunded += l.amountCents;
+        break;
+    }
+  }
+
+  // Payment method distribution (from completed appointments)
+  const completedFin = financialAppts.filter((a) => a.status === "COMPLETED");
+  const byPaymentMethod = {
+    stripe: { count: 0, amount: 0 },
+    cashAtDesk: { count: 0, amount: 0 },
+    manualWaiver: { count: 0, amount: 0 },
+  };
+  for (const a of completedFin) {
+    const m = a.paymentMethod?.toLowerCase() || "";
+    const key = m === "stripe" ? "stripe" : m === "cash_at_desk" ? "cashAtDesk" : "manualWaiver";
+    byPaymentMethod[key].count++;
+    byPaymentMethod[key].amount += (a.depositCents || 0) + (a.selfPayCents || 0);
+  }
+
+  const dailyRevenue: Array<{ date: string; amount: number }> = [];
+  for (let i = 0; i < days; i++) {
+    const d = subDays(periodEnd, days - 1 - i);
+    const dateStr = format(d, "yyyy-MM-dd");
+    dailyRevenue.push({ date: dateStr, amount: dailyRevenueMap.get(dateStr) || 0 });
+  }
+
+  const avgPerAppointment = completedCount > 0
+    ? Math.round(totalCaptured / completedCount)
+    : 0;
+
+  // ---------------------------------------------------------------
+  // 8. Slot Utilization
+  // ---------------------------------------------------------------
+  const slotCounts = await db.slot.groupBy({
+    by: ["status"],
+    where: {
+      ...clinicFilter,
+      startTime: { gte: periodStart, lte: periodEnd },
+    },
+    _count: { id: true },
+  });
+
+  let slAvail = 0, slBooked = 0, slBlocked = 0, slClosed = 0, slLocked = 0;
+  for (const row of slotCounts) {
+    switch (row.status) {
+      case "AVAILABLE": slAvail += row._count.id; break;
+      case "BOOKED": slBooked += row._count.id; break;
+      case "BLOCKED": slBlocked += row._count.id; break;
+      case "CLOSED": slClosed += row._count.id; break;
+      case "LOCKED": slLocked += row._count.id; break;
+    }
+  }
+  const slTotal = slAvail + slBooked + slBlocked + slClosed + slLocked;
+  const utilizable = slTotal - slBlocked - slClosed;
+  const slotUtilization = {
+    total: slTotal,
+    available: slAvail,
+    booked: slBooked,
+    blocked: slBlocked,
+    closed: slClosed,
+    utilizationRate: utilizable > 0 ? Math.round((slBooked / utilizable) * 100) : 0,
+  };
+
+  // ---------------------------------------------------------------
+  // 9. Cancellation Reasons
+  // ---------------------------------------------------------------
+  const cancelledAppts = await db.appointment.findMany({
+    where: {
+      ...clinicFilter,
+      status: "CANCELLED",
+      startTime: { gte: periodStart, lte: periodEnd },
+    },
+    select: { cancellationReason: true },
+  });
+
+  let cancPatient = 0, cancClinic = 0, cancDouble = 0, cancUnknown = 0;
+  for (const a of cancelledAppts) {
+    switch (a.cancellationReason) {
+      case "PATIENT_CANCELLED": cancPatient++; break;
+      case "CLINIC_CANCELLED": cancClinic++; break;
+      case "DOUBLE_BOOKING": cancDouble++; break;
+      default: cancUnknown++; break;
+    }
+  }
+  const cancellationReasons = {
+    patientCancelled: cancPatient,
+    clinicCancelled: cancClinic,
+    doubleBooking: cancDouble,
+    unknown: cancUnknown,
+    totalCancelled: cancelledAppts.length,
+  };
+
+  // ---------------------------------------------------------------
+  // 10. Waitlist Performance
+  // ---------------------------------------------------------------
+  const waitlistEntries = await db.waitlistEntry.findMany({
+    where: {
+      ...clinicFilter,
+      createdAt: { gte: periodStart, lte: periodEnd },
+    },
+    select: { status: true, createdAt: true, offeredAt: true },
+  });
+
+  let wlActive = 0, wlOffered = 0, wlFulfilled = 0, wlExpired = 0, wlRemoved = 0;
+  for (const e of waitlistEntries) {
+    switch (e.status) {
+      case "ACTIVE": wlActive++; break;
+      case "OFFERED": wlOffered++; break;
+      case "FULFILLED": wlFulfilled++; break;
+      case "EXPIRED": wlExpired++; break;
+      case "REMOVED": wlRemoved++; break;
+    }
+  }
+  const wlTotal = waitlistEntries.length;
+
+  // Daily waitlist volume trend
+  const wlDailyMap = new Map<string, number>();
+  for (const e of waitlistEntries) {
+    const ds = format(new Date(e.createdAt), "yyyy-MM-dd");
+    wlDailyMap.set(ds, (wlDailyMap.get(ds) || 0) + 1);
+  }
+  const waitlistVolume: Array<{ date: string; count: number }> = [];
+  for (let i = 0; i < days; i++) {
+    const d = subDays(periodEnd, days - 1 - i);
+    const ds = format(d, "yyyy-MM-dd");
+    waitlistVolume.push({ date: ds, count: wlDailyMap.get(ds) || 0 });
+  }
+
+  const waitlist = {
+    active: wlActive,
+    offered: wlOffered,
+    fulfilled: wlFulfilled,
+    expired: wlExpired,
+    removed: wlRemoved,
+    total: wlTotal,
+    fulfillmentRate: wlTotal > 0 ? Math.round((wlFulfilled / wlTotal) * 100) : 0,
+    dailyVolume: waitlistVolume,
+  };
+
+  // ---------------------------------------------------------------
+  // 11. Patient Demographics
+  // ---------------------------------------------------------------
+  const patientAppts = await db.appointment.findMany({
+    where: {
+      ...clinicFilter,
+      startTime: { gte: periodStart, lte: periodEnd },
+    },
+    select: { patientType: true, patientDob: true },
+  });
+
+  let demoAdult = 0, demoPediatric = 0;
+  const ageBuckets: Record<string, number> = { "0-12": 0, "13-17": 0, "18-30": 0, "31-45": 0, "46-60": 0, "60+": 0 };
+  const nowDate = new Date();
+
+  for (const a of patientAppts) {
+    if (a.patientType === "ADULT") demoAdult++;
+    else if (a.patientType === "PEDIATRIC") demoPediatric++;
+
+    if (a.patientDob) {
+      const age = nowDate.getFullYear() - new Date(a.patientDob).getFullYear();
+      if (age <= 12) ageBuckets["0-12"]++;
+      else if (age <= 17) ageBuckets["13-17"]++;
+      else if (age <= 30) ageBuckets["18-30"]++;
+      else if (age <= 45) ageBuckets["31-45"]++;
+      else if (age <= 60) ageBuckets["46-60"]++;
+      else ageBuckets["60+"]++;
+    }
+  }
+
+  const demographics = {
+    adult: demoAdult,
+    pediatric: demoPediatric,
+    total: patientAppts.length,
+    ageGroups: Object.entries(ageBuckets)
+      .filter(([, c]) => c > 0)
+      .map(([group, count]) => ({ group, count })),
+  };
+
+  // ---------------------------------------------------------------
+  // 12. Booking Source / Conversion Funnel
+  // ---------------------------------------------------------------
+  const convEvents = await db.conversionEvent.findMany({
+    where: {
+      ...clinicFilter,
+      createdAt: { gte: periodStart, lte: periodEnd },
+    },
+    select: { sessionId: true, eventType: true },
+  });
+
+  const convCounts: Record<string, number> = {
+    SEARCH: 0, CLINIC_VIEW: 0, BOOKING_START: 0, BOOKING_COMPLETE: 0, RECOMMENDATION_ACCEPT: 0,
+  };
+  const convSessions: Record<string, Set<string>> = {
+    SEARCH: new Set(), CLINIC_VIEW: new Set(), BOOKING_START: new Set(), BOOKING_COMPLETE: new Set(), RECOMMENDATION_ACCEPT: new Set(),
+  };
+
+  for (const e of convEvents) {
+    convCounts[e.eventType] = (convCounts[e.eventType] || 0) + 1;
+    convSessions[e.eventType].add(e.sessionId);
+  }
+
+  const funnel = {
+    totalSearches: convCounts.SEARCH,
+    clinicViews: convCounts.CLINIC_VIEW,
+    bookingStarts: convCounts.BOOKING_START,
+    bookingCompletes: convCounts.BOOKING_COMPLETE,
+  };
+  const totalS = funnel.totalSearches;
+  const convRates = {
+    searchToClinicView: totalS > 0 ? Math.round((funnel.clinicViews / totalS) * 1000) / 10 : 0,
+    clinicViewToBookingStart: funnel.clinicViews > 0 ? Math.round((funnel.bookingStarts / funnel.clinicViews) * 1000) / 10 : 0,
+    bookingStartToComplete: funnel.bookingStarts > 0 ? Math.round((funnel.bookingCompletes / funnel.bookingStarts) * 1000) / 10 : 0,
+    searchToBooking: totalS > 0 ? Math.round((funnel.bookingCompletes / totalS) * 1000) / 10 : 0,
+  };
+  const recommendationAcceptRate =
+    convCounts.BOOKING_COMPLETE > 0
+      ? Math.round((convCounts.RECOMMENDATION_ACCEPT / (convCounts.BOOKING_COMPLETE + convCounts.RECOMMENDATION_ACCEPT)) * 1000) / 10
+      : 0;
+
+  const conversionFunnel = {
+    funnel,
+    conversionRates: convRates,
+    recommendationAcceptRate,
+    uniqueSessions: {
+      searches: convSessions.SEARCH.size,
+      clinicViews: convSessions.CLINIC_VIEW.size,
+      bookingStarts: convSessions.BOOKING_START.size,
+      bookingCompletes: convSessions.BOOKING_COMPLETE.size,
+    },
+  };
 
   return {
     period: {
@@ -370,5 +648,19 @@ async function buildAnalytics(
     busiestHour: busiestHourLabel,
     noShowByDay,
     depositCapture,
+    revenue: {
+      totalCaptured,
+      totalAuthorized,
+      totalRefunded,
+      totalForfeited,
+      byPaymentMethod,
+      avgPerAppointment,
+      dailyRevenue,
+    },
+    slotUtilization,
+    cancellationReasons,
+    waitlist,
+    demographics,
+    conversionFunnel,
   };
 }

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions, type DoctASessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { STAFF_ROLE, CLINIC_STATUSES, type ClinicStatus } from "@/lib/enums";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 import { Prisma } from "@prisma/client";
 
 // ─── GET /api/staff/admin/clinics?search=...&status=...&page=1&limit=20 ─────────
@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
+    // This week: Sunday through today
+    const weekStart = startOfDay(subDays(now, now.getDay()));
+    const weekEnd = endOfDay(now);
 
     const [clinics, total] = await Promise.all([
       db.clinic.findMany({
@@ -54,6 +57,7 @@ export async function GET(request: NextRequest) {
           name: true,
           city: true,
           state: true,
+          zipCode: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -78,7 +82,18 @@ export async function GET(request: NextRequest) {
       db.clinic.count({ where }),
     ]);
 
-    // Compute rating per clinic
+    // Compute rating per clinic and this-week appointment count
+    const clinicIds = clinics.map((c) => c.id);
+    const weekCounts = await db.appointment.groupBy({
+      by: ["clinicId"],
+      where: {
+        clinicId: { in: clinicIds },
+        startTime: { gte: weekStart, lte: weekEnd },
+      },
+      _count: true,
+    });
+    const weekCountMap = new Map(weekCounts.map((w) => [w.clinicId, w._count]));
+
     const clinicData = clinics.map((c) => {
       const avgRating =
         c.reviews.length > 0
@@ -95,9 +110,11 @@ export async function GET(request: NextRequest) {
         name: c.name,
         city: c.city,
         state: c.state,
+        zipCode: c.zipCode,
         status: c.status,
         providerCount: c._count.providers,
         todayAppointments: c._count.appointments,
+        appointmentsThisWeek: weekCountMap.get(c.id) ?? 0,
         avgRating,
         createdAt: c.createdAt.toISOString(),
         updatedAt: c.updatedAt.toISOString(),

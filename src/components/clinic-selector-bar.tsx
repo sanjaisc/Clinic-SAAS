@@ -25,6 +25,7 @@ interface ClinicSelectorBarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   loading?: boolean;
+  showAll?: boolean;
 }
 
 export function ClinicSelectorBar({
@@ -32,6 +33,7 @@ export function ClinicSelectorBar({
   selectedId,
   onSelect,
   loading = false,
+  showAll = false,
 }: ClinicSelectorBarProps) {
   if (loading) {
     return (
@@ -71,6 +73,13 @@ export function ClinicSelectorBar({
           <SelectValue placeholder="Select a clinic…" />
         </SelectTrigger>
         <SelectContent>
+          {showAll && (
+            <SelectItem value="__all">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">All Clinics</span>
+              </div>
+            </SelectItem>
+          )}
           {clinics.map((clinic) => (
             <SelectItem key={clinic.id} value={clinic.id}>
               <div className="flex items-center gap-2">

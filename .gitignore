@@ -52,3 +52,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# graphify
+graphify-out/
+
+# local db
+prisma/db/

@@ -15,6 +15,7 @@ export interface ClinicOption {
   slug: string;
   status: string;
   city?: string | null;
+  zipCode?: string | null;
 }
 
 interface ClinicContextValue {
@@ -71,6 +72,7 @@ export function useClinicContext(): ClinicContextValue {
             slug: c.slug as string,
             status: c.status as string,
             city: (c.city as string) ?? null,
+            zipCode: (c.zipCode as string) ?? null,
           })));
         }
       } catch {

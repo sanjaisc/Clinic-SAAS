@@ -69,7 +69,7 @@ function createUnauthorizedRedirect(request: NextRequest): NextResponse {
   return NextResponse.redirect(unauthorizedUrl);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // =========================================================================

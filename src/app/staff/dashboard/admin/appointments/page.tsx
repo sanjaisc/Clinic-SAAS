@@ -56,6 +56,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useClinicContext } from "@/hooks/use-clinic-context";
+import { ClinicSelectorBar } from "@/components/clinic-selector-bar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -159,29 +161,11 @@ function WaitlistStatusBadge({ status }: { status: string }) {
 
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
+  const clinicCtx = useClinicContext();
 
-  // ─── Shared state ─────────────────────────────────────────────────────────
-  const [clinics, setClinics] = useState<ClinicOption[]>([]);
-  const [clinicsLoading, setClinicsLoading] = useState(true);
-
-  // Fetch clinic list for dropdowns
-  useEffect(() => {
-    async function fetchClinics() {
-      try {
-        const res = await fetch("/api/staff/admin");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.clinicSummary) {
-          setClinics(data.clinicSummary.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
-        }
-      } catch {
-        // silent
-      } finally {
-        setClinicsLoading(false);
-      }
-    }
-    fetchClinics();
-  }, []);
+  // Clinic list for dropdowns — from useClinicContext
+  const clinics: ClinicOption[] = clinicCtx.clinics.map((c) => ({ id: c.id, name: c.name }));
+  const clinicsLoading = clinicCtx.clinicsLoading;
 
   return (
     <div className="space-y-6">
@@ -196,6 +180,15 @@ export default function AdminAppointmentsPage() {
       </div>
 
       <Tabs defaultValue="appointments" className="space-y-4">
+        {clinicCtx.isSystemManager && (
+          <ClinicSelectorBar
+            clinics={clinicCtx.clinics}
+            selectedId={clinicCtx.clinicId}
+            onSelect={clinicCtx.setClinicId}
+            loading={clinicCtx.clinicsLoading}
+          />
+        )}
+
         <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
           <TabsTrigger value="appointments" className="gap-1.5">
             <CalendarCheck className="size-3.5" />

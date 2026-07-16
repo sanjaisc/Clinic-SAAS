@@ -138,14 +138,16 @@ async function buildPlatformAnalytics(
 
     // 7. Clinic names for breakdown
     db.clinic.findMany({
-      select: { id: true, name: true },
+      select: { id: true, name: true, city: true, zipCode: true },
     }),
   ]);
 
   // Build clinic name map
   const clinicNameMap = new Map<string, string>();
+  const clinicInfoMap = new Map<string, { city: string; zipCode: string }>();
   for (const c of clinicNames) {
     clinicNameMap.set(c.id, c.name);
+    clinicInfoMap.set(c.id, { city: c.city ?? "", zipCode: c.zipCode ?? "" });
   }
 
   // -------------------------------------------------------------------------
@@ -365,15 +367,20 @@ async function buildPlatformAnalytics(
   }
 
   const clinicBreakdown = Array.from(clinicAgg.entries())
-    .map(([clinicId, agg]) => ({
-      clinicId,
-      clinicName: clinicNameMap.get(clinicId) ?? "Unknown Clinic",
-      appointments: agg.total,
-      completed: agg.completed,
-      noShows: agg.noShows,
-      revenue: clinicRevenueMap.get(clinicId) ?? 0,
-      rating: clinicRatingMap.get(clinicId) ?? 0,
-    }))
+    .map(([clinicId, agg]) => {
+      const info = clinicInfoMap.get(clinicId);
+      return {
+        clinicId,
+        clinicName: clinicNameMap.get(clinicId) ?? "Unknown Clinic",
+        appointments: agg.total,
+        completed: agg.completed,
+        noShows: agg.noShows,
+        revenue: clinicRevenueMap.get(clinicId) ?? 0,
+        rating: clinicRatingMap.get(clinicId) ?? 0,
+        city: info?.city ?? "",
+        zipCode: info?.zipCode ?? "",
+      };
+    })
     .sort((a, b) => b.appointments - a.appointments);
 
   return {

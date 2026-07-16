@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,6 +30,9 @@ import {
   FileText,
   CalendarCheck,
   Users,
+  Search,
+  Star,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import type { DoctASessionUser } from "@/lib/auth";
 import { AUDIT_ACTIONS } from "@/lib/constants";
+import { useClinicContext } from "@/hooks/use-clinic-context";
 
 interface DashboardStats {
   todayAppointments: number;
@@ -70,6 +74,17 @@ interface DashboardData {
   todayAppointments: TodayAppointment[];
   upcomingAppointments: TodayAppointment[];
   recentAppointments: TodayAppointment[];
+}
+
+interface ClinicOverviewRow {
+  id: string;
+  name: string;
+  city: string | null;
+  zipCode: string | null;
+  providerCount: number;
+  todayAppointments: number;
+  appointmentsThisWeek: number;
+  avgRating: number;
 }
 
 function StatCard({
@@ -561,6 +576,8 @@ function TodayOverviewSection({ clinicId }: { clinicId: string | null }) {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const clinicCtx = useClinicContext();
+  const { isSystemManager } = clinicCtx;
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -569,11 +586,11 @@ export default function DashboardPage() {
   const user = session?.user as DoctASessionUser | undefined;
 
   const fetchDashboard = useCallback(async () => {
-    if (!user?.clinicId) return;
+    if (!clinicCtx.clinicId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/staff/dashboard?clinicId=${user.clinicId}`);
+      const res = await fetch(`/api/staff/dashboard?clinicId=${clinicCtx.clinicId}`);
       if (!res.ok) throw new Error("Failed to fetch dashboard");
       const json = await res.json();
       setData(json);
@@ -582,7 +599,78 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.clinicId]);
+  }, [clinicCtx.clinicId]);
+
+  // SYSTEM_MANAGER: Clinics Overview data
+  const [clinics, setClinics] = useState<ClinicOverviewRow[] | null>(null);
+  const [clinicsLoading, setClinicsLoading] = useState(false);
+  const [clinicSearch, setClinicSearch] = useState("");
+  const [clinicSort, setClinicSort] = useState<{ col: string; dir: "asc" | "desc" }>({
+    col: "name",
+    dir: "asc",
+  });
+  const [clinicPage, setClinicPage] = useState(0);
+  const CLINIC_PAGE_SIZE = 10;
+
+  useEffect(() => {
+    if (status !== "authenticated" || !isSystemManager) return;
+    setClinicsLoading(true);
+    fetch("/api/staff/admin/clinics?limit=200")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setClinics(json?.clinics ?? []))
+      .catch(() => {})
+      .finally(() => setClinicsLoading(false));
+  }, [status, isSystemManager]);
+
+  const filteredClinics = useMemo(() => {
+    if (!clinics) return [];
+    const q = clinicSearch.toLowerCase();
+    return clinics.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.city ?? "").toLowerCase().includes(q) ||
+        (c.zipCode ?? "").includes(q)
+    );
+  }, [clinics, clinicSearch]);
+
+  const sortedClinics = useMemo(() => {
+    const list = [...filteredClinics];
+    const mul = clinicSort.dir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      switch (clinicSort.col) {
+        case "name": return mul * a.name.localeCompare(b.name);
+        case "city": return mul * (a.city ?? "").localeCompare(b.city ?? "");
+        case "providerCount": return mul * (a.providerCount - b.providerCount);
+        case "todayAppointments": return mul * (a.todayAppointments - b.todayAppointments);
+        case "appointmentsThisWeek": return mul * (a.appointmentsThisWeek - b.appointmentsThisWeek);
+        case "avgRating": return mul * (a.avgRating - b.avgRating);
+        default: return 0;
+      }
+    });
+    return list;
+  }, [filteredClinics, clinicSort]);
+
+  const paginatedClinics = sortedClinics.slice(
+    clinicPage * CLINIC_PAGE_SIZE,
+    (clinicPage + 1) * CLINIC_PAGE_SIZE
+  );
+  const clinicTotalPages = Math.max(1, Math.ceil(sortedClinics.length / CLINIC_PAGE_SIZE));
+
+  function exportClinicsCSV() {
+    if (!clinics) return;
+    const rows = [["Clinic", "City", "Zip", "Providers", "Today Appts", "This Week", "Rating"]];
+    for (const c of clinics) {
+      rows.push([c.name, c.city ?? "", c.zipCode ?? "", String(c.providerCount), String(c.todayAppointments), String(c.appointmentsThisWeek), String(c.avgRating)]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clinics-overview-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   useEffect(() => {
     if (status === "authenticated") fetchDashboard();
@@ -659,8 +747,210 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ---------------------------------------------------------------- */}
+      {/* Clinics Overview (SYSTEM_MANAGER only)                            */}
+      {/* ---------------------------------------------------------------- */}
+      {isSystemManager && (
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                  <Building2 className="size-4 text-brand" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Clinics Overview</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {clinics ? `${clinics.length} clinics` : "Loading clinics…"}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 shrink-0"
+                onClick={exportClinicsCSV}
+                disabled={!clinics || clinics.length === 0}
+              >
+                <Download className="size-3.5" />
+                CSV
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {/* Search */}
+            {clinics && clinics.length > 0 && (
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by clinic name, city, or zip code..."
+                  value={clinicSearch}
+                  onChange={(e) => {
+                    setClinicSearch(e.target.value);
+                    setClinicPage(0);
+                  }}
+                  className="w-full h-9 pl-9 pr-3 rounded-lg border border-border/60 bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
+                />
+              </div>
+            )}
+
+            {clinicsLoading ? (
+              <div className="space-y-3 py-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : paginatedClinics.length > 0 ? (
+              <>
+                <div className="overflow-x-auto -mx-4 max-h-[420px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background z-10">
+                      <tr className="border-b border-border/60">
+                        {[
+                          { key: "name", label: "Clinic", align: "text-left" },
+                          { key: "city", label: "City", align: "text-left" },
+                          { key: "providerCount", label: "Providers", align: "text-center" },
+                          { key: "todayAppointments", label: "Today", align: "text-center" },
+                          { key: "appointmentsThisWeek", label: "This Week", align: "text-center" },
+                          { key: "avgRating", label: "Rating", align: "text-center" },
+                        ].map((col) => (
+                          <th
+                            key={col.key}
+                            className={`${col.align} py-3 px-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors ${
+                              clinicSort.col === col.key ? "text-brand" : "text-muted-foreground"
+                            }`}
+                            onClick={() =>
+                              setClinicSort((prev) => ({
+                                col: col.key,
+                                dir: prev.col === col.key
+                                  ? prev.dir === "asc" ? "desc" : "asc"
+                                  : col.key === "name" || col.key === "city" ? "asc" : "desc",
+                              }))
+                            }
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              {clinicSort.col === col.key && (
+                                <span className="text-[10px]">
+                                  {clinicSort.dir === "asc" ? "\u25B2" : "\u25BC"}
+                                </span>
+                              )}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedClinics.map((clinic) => (
+                        <tr
+                          key={clinic.id}
+                          className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <span className="font-medium text-foreground text-sm">
+                              {clinic.name}
+                            </span>
+                            {clinic.zipCode && (
+                              <span className="text-[10px] text-muted-foreground block">
+                                {clinic.zipCode}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-foreground">
+                            {clinic.city || "\u2014"}
+                          </td>
+                          <td className="text-center py-3 px-3 font-semibold text-foreground">
+                            {clinic.providerCount}
+                          </td>
+                          <td className="text-center py-3 px-3">
+                            <Badge
+                              variant="outline"
+                              className={
+                                clinic.todayAppointments > 0
+                                  ? "bg-brand-subtle text-brand-hover border-brand-border text-xs"
+                                  : "bg-muted/50 text-muted-foreground border-border/30 text-xs"
+                              }
+                            >
+                              {clinic.todayAppointments}
+                            </Badge>
+                          </td>
+                          <td className="text-center py-3 px-3 font-semibold text-foreground">
+                            {clinic.appointmentsThisWeek}
+                          </td>
+                          <td className="text-center py-3 px-3">
+                            {clinic.avgRating > 0 ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                                <span className="text-xs font-semibold text-foreground">
+                                  {clinic.avgRating}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">\u2014</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {clinicTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      {sortedClinics.length} clinic{sortedClinics.length !== 1 ? "s" : ""}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 px-2"
+                        disabled={clinicPage === 0}
+                        onClick={() => setClinicPage((p) => Math.max(0, p - 1))}
+                      >
+                        Prev
+                      </Button>
+                      {Array.from({ length: clinicTotalPages }, (_, i) => (
+                        <Button
+                          key={i}
+                          variant={clinicPage === i ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs h-7 w-7 p-0"
+                          onClick={() => setClinicPage(i)}
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 px-2"
+                        disabled={clinicPage >= clinicTotalPages - 1}
+                        onClick={() => setClinicPage((p) => Math.min(clinicTotalPages - 1, p + 1))}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : clinics && clinics.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Building2 className="size-10 text-muted-foreground/40 mb-3" />
+                <p className="text-sm font-medium text-foreground">No clinics found</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {clinicSearch ? "Try a different search term." : "No clinics are configured yet."}
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Today's Overview quick stats */}
-      <TodayOverviewSection clinicId={user?.clinicId ?? null} />
+      <TodayOverviewSection clinicId={clinicCtx.clinicId} />
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -887,10 +1177,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <RecentActivitySection clinicId={user.clinicId} />
+      <RecentActivitySection clinicId={clinicCtx.clinicId} />
 
       {/* Audit Trail */}
-      <AuditLogActivitySection clinicId={user.clinicId} />
+      <AuditLogActivitySection clinicId={clinicCtx.clinicId} />
     </div>
   );
 }
